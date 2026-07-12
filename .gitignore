@@ -1,0 +1,24 @@
+# Python virtual environment
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Database
+*.db
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# MiMoCode
+.mimocode/
+
+# Environment variables
+.env
+.env.local

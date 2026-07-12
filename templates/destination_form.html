@@ -1,0 +1,55 @@
+{% extends "base_admin.html" %}
+{% block title %}{{ '编辑目的地' if destination else '添加目的地' }}{% endblock %}
+{% block page_title %}{{ '编辑目的地' if destination else '添加目的地' }}{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fa fa-map-marker"></i> {{ '编辑目的地' if destination else '添加目的地' }}</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="code" class="form-label">目的地代码 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="code" name="code" 
+                                value="{{ destination.code if destination else '' }}" 
+                                {% if destination %}readonly{% endif %} required maxlength="3">
+                            <small class="text-muted">最多3个字符</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">目的地名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                value="{{ destination.name if destination else '' }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="price" class="form-label">基础票价 <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="price" name="price" step="0.01" 
+                                value="{{ destination.price if destination else '' }}" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="stock" class="form-label">库存数量 <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" id="stock" name="stock" 
+                        value="{{ destination.stock if destination else '' }}" required>
+                </div>
+
+                <div class="d-flex gap-3">
+                    <button type="submit" class="btn btn-custom">
+                        <i class="fa fa-save"></i> 保存
+                    </button>
+                    <a href="{{ url_for('destinations') }}" class="btn btn-secondary">
+                        <i class="fa fa-arrow-left"></i> 返回
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

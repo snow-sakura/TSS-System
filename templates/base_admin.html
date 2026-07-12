@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="{{ session.get('language', 'zh') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSS 售票系统 - {% block title %}{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .top-bar {
+            height: 60px;
+            background-color: #007bff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            position: fixed;
+            top: 0;
+            left: 250px;
+            right: 0;
+            z-index: 100;
+        }
+        .top-bar h1 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            background-color: #2d3436;
+            color: white;
+            position: fixed;
+            top: 0;
+            left: 0;
+            padding-top: 20px;
+            z-index: 200;
+        }
+        .sidebar-logo {
+            padding: 20px;
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border-bottom: 1px solid #4a4a4a;
+            margin-bottom: 20px;
+        }
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .sidebar-menu li {
+            padding: 0;
+        }
+        .sidebar-menu a {
+            display: block;
+            padding: 15px 20px;
+            color: #b8c7ce;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .sidebar-menu a:hover {
+            background-color: #343a40;
+            color: white;
+        }
+        .sidebar-menu a.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .sidebar-menu i {
+            margin-right: 10px;
+        }
+        .content-area {
+            margin-left: 250px;
+            margin-top: 60px;
+            padding: 20px;
+            min-height: calc(100vh - 60px);
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+            transition: all 0.3s;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
+        }
+        .alert {
+            margin-bottom: 20px;
+        }
+        table {
+            background-color: white;
+        }
+        .pagination {
+            justify-content: center;
+        }
+        .status-active {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-inactive {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast-message {
+            min-width: 250px;
+            max-width: 400px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 3s forwards;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+        .toast-warning {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+        }
+        .toast-danger {
+            background: linear-gradient(135deg, #dc3545, #e83e8c);
+        }
+        .toast-info {
+            background: linear-gradient(135deg, #17a2b8, #007bff);
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <i class="fa fa-ticket"></i> TSS 售票系统
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('dashboard') }}" {% if request.endpoint == 'dashboard' %}class="active"{% endif %}>
+                <i class="fa fa-dashboard"></i> 仪表盘
+            </a></li>
+            <li><a href="{{ url_for('index') }}" {% if request.endpoint == 'index' %}class="active"{% endif %}>
+                <i class="fa fa-shopping-cart"></i> 购票
+            </a></li>
+            {% if session.get('role') == 'admin' %}
+            <li><a href="{{ url_for('users') }}" {% if request.endpoint in ['users', 'add_user', 'edit_user'] %}class="active"{% endif %}>
+                <i class="fa fa-users"></i> 用户管理
+            </a></li>
+            <li><a href="{{ url_for('destinations') }}" {% if request.endpoint in ['destinations', 'add_destination', 'edit_destination'] %}class="active"{% endif %}>
+                <i class="fa fa-map-marker"></i> 目的地管理
+            </a></li>
+            {% endif %}
+            <li><a href="{{ url_for('tickets') }}" {% if request.endpoint == 'tickets' %}class="active"{% endif %}>
+                <i class="fa fa-list-alt"></i> 订单列表
+            </a></li>
+            <li><a href="{{ url_for('logout') }}">
+                <i class="fa fa-sign-out"></i> 退出登录
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="top-bar">
+        <h1>{% block page_title %}{% endblock %}</h1>
+        <div class="top-bar-right">
+            <span>欢迎, {{ session.get('username') }}</span>
+            {% if session.get('role') == 'admin' %}
+            <span class="badge bg-success">管理员</span>
+            {% else %}
+            <span class="badge bg-secondary">普通用户</span>
+            {% endif %}
+            <a href="{{ url_for('set_language', lang='zh') }}" class="btn btn-sm btn-outline-light">中文</a>
+            <a href="{{ url_for('set_language', lang='en') }}" class="btn btn-sm btn-outline-light">English</a>
+        </div>
+    </div>
+
+    <div class="content-area">
+        {% block content %}{% endblock %}
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="toast-container">
+                {% set last_messages = messages[-3:] %}
+                {% for category, message in last_messages %}
+                    <div class="toast-message toast-{{ category }}">
+                        {% if category == 'success' %}
+                        <i class="fa fa-check-circle"></i>
+                        {% elif category == 'warning' %}
+                        <i class="fa fa-exclamation-triangle"></i>
+                        {% elif category == 'danger' %}
+                        <i class="fa fa-times-circle"></i>
+                        {% else %}
+                        <i class="fa fa-info-circle"></i>
+                        {% endif %}
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

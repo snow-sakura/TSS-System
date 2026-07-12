@@ -1,0 +1,174 @@
+{% extends "base_admin.html" %}
+{% block title %}仪表盘{% endblock %}
+{% block page_title %}仪表盘{% endblock %}
+
+{% block content %}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <i class="fa fa-users fa-4x"></i>
+                        </div>
+                        <div class="col-6 text-right">
+                            <div class="text-3xl font-bold">{{ user_count }}</div>
+                            <div class="text-sm">用户总数</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-primary-light">
+                    <a href="{{ url_for('users') }}" class="text-white text-sm">查看详情 <i class="fa fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <i class="fa fa-map-marker fa-4x"></i>
+                        </div>
+                        <div class="col-6 text-right">
+                            <div class="text-3xl font-bold">{{ dest_count }}</div>
+                            <div class="text-sm">目的地数</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-success-light">
+                    <a href="{{ url_for('destinations') }}" class="text-white text-sm">查看详情 <i class="fa fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <i class="fa fa-ticket fa-4x"></i>
+                        </div>
+                        <div class="col-6 text-right">
+                            <div class="text-3xl font-bold">{{ ticket_count }}</div>
+                            <div class="text-sm">订单总数</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-info-light">
+                    <a href="{{ url_for('tickets') }}" class="text-white text-sm">查看详情 <i class="fa fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <i class="fa fa-yen fa-4x"></i>
+                        </div>
+                        <div class="col-6 text-right">
+                            <div class="text-3xl font-bold">¥{{ "%.2f"|format(total_revenue) }}</div>
+                            <div class="text-sm">总收入</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-warning-light">
+                    <a href="{{ url_for('tickets') }}" class="text-white text-sm">查看详情 <i class="fa fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fa fa-clock-o"></i> 最近订单</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_tickets %}
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>订单号</th>
+                                <th>目的地</th>
+                                <th>票种</th>
+                                <th>座位</th>
+                                <th>价格</th>
+                                <th>时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ticket in recent_tickets %}
+                            <tr>
+                                <td>#{{ ticket.id }}</td>
+                                <td>{{ ticket.dest_name }}</td>
+                                <td>{{ ticket.ticket_type }}</td>
+                                <td>{{ ticket.seat_type }}</td>
+                                <td>¥{{ "%.2f"|format(ticket.price) }}</td>
+                                <td>{{ ticket.purchase_time[:16].replace('T', ' ') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fa fa-inbox fa-3x mb-2"></i>
+                        <p>暂无订单记录</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fa fa-bar-chart"></i> 快捷操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{{ url_for('index') }}" class="list-group-item list-group-item-action">
+                            <i class="fa fa-shopping-cart"></i> 开始购票
+                        </a>
+                        {% if session.get('role') == 'admin' %}
+                        <a href="{{ url_for('users') }}" class="list-group-item list-group-item-action">
+                            <i class="fa fa-users"></i> 用户管理
+                        </a>
+                        <a href="{{ url_for('destinations') }}" class="list-group-item list-group-item-action">
+                            <i class="fa fa-map-marker"></i> 目的地管理
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('tickets') }}" class="list-group-item list-group-item-action">
+                            <i class="fa fa-list-alt"></i> 订单列表
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fa fa-info-circle"></i> 系统信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item">
+                            <span class="text-muted">系统名称：</span>
+                            <span class="font-weight-bold">TSS 售票系统</span>
+                        </div>
+                        <div class="list-group-item">
+                            <span class="text-muted">当前用户：</span>
+                            <span class="font-weight-bold">{{ session.get('username') }}</span>
+                        </div>
+                        <div class="list-group-item">
+                            <span class="text-muted">用户角色：</span>
+                            <span class="font-weight-bold">{{ '管理员' if session.get('role') == 'admin' else '普通用户' }}</span>
+                        </div>
+                        <div class="list-group-item">
+                            <span class="text-muted">登录时间：</span>
+                            <span class="font-weight-bold">{{ current_time.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

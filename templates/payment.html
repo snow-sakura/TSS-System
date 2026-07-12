@@ -1,24 +1,44 @@
-{% extends "base.html" %}
-{% block title %}{{ '支付' if session.get('language', 'zh') == 'zh' else 'Payment' }}{% endblock %}
+{% extends "base_admin.html" %}
+{% block title %}支付{% endblock %}
+{% block page_title %}支付{% endblock %}
+
 {% block content %}
-    <h1 class="text-center mb-4">{{ '支付' if session.get('language', 'zh') == 'zh' else 'Payment' }}</h1>
-    <div class="card mb-3">
+    <div class="card">
+        <div class="card-header">
+            <h5><i class="fa fa-credit-card"></i> 支付</h5>
+        </div>
         <div class="card-body">
-            <p>{{ '目的地' if session.get('language', 'zh') == 'zh' else 'Destination' }}: {{ dest_name }}</p>
-            <p>{{ '票种' if session.get('language', 'zh') == 'zh' else 'Ticket Type' }}: {{ ticket_type }}</p>
-            <p>{{ '座位' if session.get('language', 'zh') == 'zh' else 'Seat' }}: {{ seat_type }}</p>
-            <h3>{{ '应付金额' if session.get('language', 'zh') == 'zh' else 'Amount Due' }}: ¥{{ "%.2f"|format(price) }}</h3>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>目的地：</strong>{{ dest_name }}</p>
+                            <p><strong>票种：</strong>{{ ticket_type }}</p>
+                            <p><strong>座位：</strong>{{ seat_type }}</p>
+                        </div>
+                        <div class="col-md-6 text-right">
+                            <h3 class="text-primary">应付金额：¥{{ "%.2f"|format(price) }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <form method="post">
+                <div class="mb-3">
+                    <label for="payment_method" class="form-label">支付方式 <span class="text-danger">*</span></label>
+                    <select class="form-select" id="payment_method" name="payment_method" required>
+                        <option value="MCard">MCard</option>
+                        <option value="现金">现金</option>
+                    </select>
+                </div>
+                <div class="d-flex gap-3">
+                    <button type="submit" class="btn btn-custom">
+                        <i class="fa fa-check"></i> 确认支付
+                    </button>
+                    <a href="{{ url_for('select_options') }}" class="btn btn-secondary">
+                        <i class="fa fa-arrow-left"></i> 返回修改
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
-    <form method="post">
-        <div class="mb-3">
-            <label for="payment_method" class="form-label">{{ '支付方式' if session.get('language', 'zh') == 'zh' else 'Payment Method' }}</label>
-            <select class="form-select" id="payment_method" name="payment_method" required>
-                <option value="MCard">MCard</option>
-                <option value="现金">{{ '现金' if session.get('language', 'zh') == 'zh' else 'Cash' }}</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-custom w-100">{{ '确认支付' if session.get('language', 'zh') == 'zh' else 'Confirm Payment' }}</button>
-    </form>
-    <a href="{{ url_for('index') }}" class="btn btn-link mt-3 d-block text-center">{{ '返回首页' if session.get('language', 'zh') == 'zh' else 'Back to Home' }}</a>
 {% endblock %}

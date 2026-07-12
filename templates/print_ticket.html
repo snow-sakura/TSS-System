@@ -1,18 +1,31 @@
-{% extends "base.html" %}
-{% block title %}{{ '车票' if session.get('language', 'zh') == 'zh' else 'Ticket' }}{% endblock %}
+{% extends "base_admin.html" %}
+{% block title %}车票{% endblock %}
+{% block page_title %}您的车票{% endblock %}
+
 {% block content %}
-    <h1 class="text-center mb-4">{{ '您的车票' if session.get('language', 'zh') == 'zh' else 'Your Ticket' }}</h1>
     <div class="card">
         <div class="card-body text-center">
-            <h2>=== {{ '车票' if session.get('language', 'zh') == 'zh' else 'Ticket' }} ===</h2>
-            <p><strong>{{ '票号' if session.get('language', 'zh') == 'zh' else 'Ticket ID' }}:</strong> {{ ticket.ticket_id }}</p>
-            <p><strong>{{ '目的地' if session.get('language', 'zh') == 'zh' else 'Destination' }}:</strong> {{ ticket.destination }}</p>
-            <p><strong>{{ '类型' if session.get('language', 'zh') == 'zh' else 'Type' }}:</strong> {{ ticket.ticket_type }}</p>
-            <p><strong>{{ '座位' if session.get('language', 'zh') == 'zh' else 'Seat' }}:</strong> {{ ticket.seat_type }}</p>
-            <p><strong>{{ '价格' if session.get('language', 'zh') == 'zh' else 'Price' }}:</strong> ¥{{ "%.2f"|format(ticket.price) }}</p>
-            <p><strong>{{ '时间' if session.get('language', 'zh') == 'zh' else 'Time' }}:</strong> {{ ticket.time }}</p>
-            <h2>===========</h2>
+            <div class="mb-4">
+                <i class="fa fa-ticket fa-4x text-primary"></i>
+            </div>
+            <div class="bg-light p-6 rounded-lg border border-gray-300" style="max-width: 400px; margin: 0 auto;">
+                <h2 class="mb-4">=== 车票 ===</h2>
+                <p><strong>票号：</strong> {{ ticket.ticket_id }}</p>
+                <p><strong>目的地：</strong> {{ ticket.destination }}</p>
+                <p><strong>类型：</strong> {{ ticket.ticket_type }}</p>
+                <p><strong>座位：</strong> {{ ticket.seat_type }}</p>
+                <p><strong>价格：</strong> ¥{{ "%.2f"|format(ticket.price) }}</p>
+                <p><strong>时间：</strong> {{ ticket.time }}</p>
+                <h2 class="mt-4">===========</h2>
+            </div>
+            <div class="mt-6">
+                <a href="{{ url_for('index') }}" class="btn btn-custom">
+                    <i class="fa fa-home"></i> 返回首页
+                </a>
+                <button onclick="window.print()" class="btn btn-secondary ms-3">
+                    <i class="fa fa-print"></i> 打印车票
+                </button>
+            </div>
         </div>
     </div>
-    <a href="{{ url_for('index') }}" class="btn btn-custom w-100 mt-3">{{ '返回首页' if session.get('language', 'zh') == 'zh' else 'Back to Home' }}</a>
 {% endblock %}
