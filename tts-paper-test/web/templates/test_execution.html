@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}Test Execution - TSS Paper Test{% endblock %}
+{% block page_title %}Test Execution{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Execute Tests</h3>
+    </div>
+    
+    <div class="form-group">
+        <label class="form-label">Test Type</label>
+        <select class="form-control" id="testType">
+            <option value="all">All Tests</option>
+            <option value="api">API Tests</option>
+            <option value="unit">Unit Tests</option>
+            <option value="integration">Integration Tests</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label class="form-label">Specific Test File (optional)</label>
+        <input type="text" class="form-control" id="testFile" placeholder="e.g., tests/api/test_auth.py">
+    </div>
+    
+    <button class="btn btn-success" onclick="executeTests()" id="executeBtn">
+        ▶️ Execute Tests
+    </button>
+</div>
+
+<!-- Server Status -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Server Status</h3>
+    </div>
+    <p id="serverStatus">Checking server status...</p>
+</div>
+
+<!-- Progress -->
+<div class="card" id="progressCard" style="display: none;">
+    <div class="card-header">
+        <h3 class="card-title">Execution Progress</h3>
+    </div>
+    <div class="progress">
+        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+    </div>
+    <p id="progressText" style="margin-top: 10px; color: #666;"></p>
+</div>
+
+<!-- Results -->
+<div class="card" id="resultsCard" style="display: none;">
+    <div class="card-header">
+        <h3 class="card-title">Execution Results</h3>
+    </div>
+    <div class="stats-grid" style="margin-bottom: 0;">
+        <div class="stat-card" style="padding: 15px;">
+            <div class="stat-value" id="resultTotal" style="font-size: 1.5rem;">0</div>
+            <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card success" style="padding: 15px;">
+            <div class="stat-value" id="resultPassed" style="font-size: 1.5rem;">0</div>
+            <div class="stat-label">Passed</div>
+        </div>
+        <div class="stat-card warning" style="padding: 15px;">
+            <div class="stat-value" id="resultFailed" style="font-size: 1.5rem;">0</div>
+            <div class="stat-label">Failed</div>
+        </div>
+    </div>
+    <div id="resultDetails" style="margin-top: 15px;"></div>
+</div>
+
+<!-- Reports -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Recent Reports</h3>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Report Name</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="reportsList">
+            <tr>
+                <td colspan="3" style="text-align: center; color: #999;">No reports yet</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Check server status on load
+document.addEventListener('DOMContentLoaded', function() {
+    checkServerStatus();
+    loadReports();
+});
+
+function checkServerStatus() {
+    fetch('/api/status')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('serverStatus').innerHTML = 
+                '<span style="color: green;">✓ System ready</span>';
+        })
+        .catch(error => {
+            document.getElementById('serverStatus').innerHTML = 
+                '<span style="color: red;">✗ Error: ' + error.message + '</span>';
+        });
+}
+
+function executeTests() {
+    const testType = document.getElementById('testType').value;
+    const testFile = document.getElementById('testFile').value;
+    
+    const btn = document.getElementById('executeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Executing...';
+    
+    document.getElementById('progressCard').style.display = 'block';
+    document.getElementById('progressBar').style.width = '20%';
+    document.getElementById('progressText').textContent = 'Starting test execution...';
+    
+    fetch('/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: testType, file: testFile || null })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Execute Tests';
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            document.getElementById('progressCard').style.display = 'none';
+        } else {
+            document.getElementById('progressBar').style.width = '100%';
+            document.getElementById('progressText').textContent = 'Execution complete!';
+            
+            // Show results
+            document.getElementById('resultsCard').style.display = 'block';
+            
+            startStatusPolling();
+            loadReports();
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerHTML = '▶️ Execute Tests';
+        alert('Error: ' + error.message);
+    });
+}
+
+function loadReports() {
+    fetch('/api/reports')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('reportsList');
+            if (data.reports && data.reports.length > 0) {
+                tbody.innerHTML = data.reports.map(report => `
+                    <tr>
+                        <td>${report.name}</td>
+                        <td>${new Date(report.created).toLocaleString()}</td>
+                        <td>
+                            <button class="btn btn-primary" style="padding: 5px 10px; font-size: 0.8rem;" 
+                                    onclick="viewReport('${report.name}')">View</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #999;">No reports yet</td></tr>';
+            }
+        });
+}
+
+function viewReport(filename) {
+    fetch('/api/reports/' + filename)
+        .then(response => response.json())
+        .then(data => {
+            alert(JSON.stringify(data.summary || data, null, 2));
+        });
+}
+
+let statusPollingInterval;
+function startStatusPolling() {
+    statusPollingInterval = setInterval(() => {
+        fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('progressBar').style.width = data.progress + '%';
+                document.getElementById('progressText').textContent = data.current_phase || 'Processing...';
+                
+                if (!data.running) {
+                    clearInterval(statusPollingInterval);
+                    if (data.results) {
+                        updateResults(data.results);
+                    }
+                }
+            });
+    }, 2000);
+}
+
+function updateResults(results) {
+    const summary = results.summary || {};
+    document.getElementById('resultTotal').textContent = summary.total_tests || 0;
+    document.getElementById('resultPassed').textContent = summary.passed || 0;
+    document.getElementById('resultFailed').textContent = summary.failed || 0;
+    
+    document.getElementById('resultDetails').innerHTML = 
+        '<p>Pass Rate: ' + (summary.pass_rate || 'N/A') + '</p>';
+}
+</script>
+{% endblock %}

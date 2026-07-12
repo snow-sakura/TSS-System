@@ -1,0 +1,81 @@
+[project]
+name = "tts-paper-test"
+version = "0.1.0"
+description = "AI-Powered Testing System for TSS (Ticket Sales System)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "TSS Test Team"}
+]
+keywords = ["testing", "ai", "agents", "llm", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.dependencies]
+# Agent框架
+crewai = ">=0.100"
+langchain = ">=0.3"
+langgraph = ">=0.2"
+
+# 向量数据库
+chromadb = ">=0.5"
+sentence-transformers = ">=3.0"
+
+# LLM支持
+openai = ">=1.0"
+anthropic = ">=0.30"
+
+# 测试相关
+hypothesis = ">=6.100"
+schemathesis = ">=3.0"
+pytest = ">=8.0"
+pytest-asyncio = ">=0.24"
+pytest-html = ">=4.0"
+
+# HTTP客户端
+httpx = ">=0.27"
+requests = ">=2.31"
+
+# 工具库
+pydantic = ">=2.0"
+pyyaml = ">=6.0"
+python-dotenv = ">=1.0"
+rich = ">=13.0"
+python-frontmatter = ">=1.0"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-ra -q --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "performance: marks tests as performance tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"

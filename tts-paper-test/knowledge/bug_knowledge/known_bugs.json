@@ -1,0 +1,64 @@
+{
+  "bugs": [
+    {
+      "id": "BUG-001",
+      "title": "并发购票导致库存不一致",
+      "description": "当多个用户同时购买同一目的地的车票时，可能出现超卖现象，导致库存为负数",
+      "severity": "high",
+      "category": "concurrency",
+      "symptoms": [
+        "库存数量变为负数",
+        "实际售票数超过库存",
+        "用户购买成功但无法出票"
+      ],
+      "root_cause": "未使用事务或锁机制保护库存扣减操作",
+      "fix_suggestion": "使用数据库事务或悲观锁确保库存操作的原子性",
+      "related_tests": ["test_concurrent_purchase", "test_inventory_deduction"]
+    },
+    {
+      "id": "BUG-002",
+      "title": "登录会话未正确失效",
+      "description": "用户登出后，之前的会话ID仍然可以访问受保护的资源",
+      "severity": "high",
+      "category": "security",
+      "symptoms": [
+        "登出后仍可访问受保护页面",
+        "会话ID在登出后仍有效",
+        "存在会话固定攻击风险"
+      ],
+      "root_cause": "登出时未从会话存储中删除会话信息",
+      "fix_suggestion": "登出时务必清除服务端会话数据",
+      "related_tests": ["test_logout_session", "test_session_invalidation"]
+    },
+    {
+      "id": "BUG-003",
+      "title": "分页查询边界条件处理不当",
+      "description": "当page或per_page参数为0或负数时，系统返回错误或崩溃",
+      "severity": "medium",
+      "category": "input_validation",
+      "symptoms": [
+        "page=0时返回错误",
+        "per_page=-1时系统崩溃",
+        "page超出范围时返回500错误"
+      ],
+      "root_cause": "未对分页参数进行边界值校验",
+      "fix_suggestion": "添加参数校验，确保page>=1，per_page在合理范围内",
+      "related_tests": ["test_pagination", "test_invalid_params"]
+    },
+    {
+      "id": "BUG-004",
+      "title": "重复提交表单导致重复数据",
+      "description": "用户快速双击提交按钮时，会创建两条相同的记录",
+      "severity": "medium",
+      "category": "idempotency",
+      "symptoms": [
+        "数据库中出现重复记录",
+        "同一操作执行多次",
+        "用户看到重复的数据"
+      ],
+      "root_cause": "未实现幂等性保护机制",
+      "fix_suggestion": "使用幂等token或唯一约束防止重复提交",
+      "related_tests": ["test_form_submission", "test_idempotency"]
+    }
+  ]
+}

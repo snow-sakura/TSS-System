@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Test Analysis - TSS Paper Test{% endblock %}
+{% block page_title %}Test Analysis{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Analyze Results</h3>
+    </div>
+    
+    <div class="form-group">
+        <label class="form-label">Analysis Period</label>
+        <select class="form-control" id="period">
+            <option value="all">All Time</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+        </select>
+    </div>
+    
+    <button class="btn btn-primary" onclick="analyzeResults()" id="analyzeBtn">
+        📈 Run Analysis
+    </button>
+</div>
+
+<!-- Analysis Results -->
+<div class="card" id="analysisResults" style="display: none;">
+    <div class="card-header">
+        <h3 class="card-title">Analysis Results</h3>
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" id="analysisScore" style="font-size: 1.5rem;">-</div>
+            <div class="stat-label">Quality Score</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="stat-value" id="issuesCount" style="font-size: 1.5rem;">0</div>
+            <div class="stat-label">Issues Found</div>
+        </div>
+        <div class="stat-card success">
+            <div class="stat-value" id="recommendationsCount" style="font-size: 1.5rem;">0</div>
+            <div class="stat-label">Recommendations</div>
+        </div>
+    </div>
+    
+    <div id="analysisDetails" style="margin-top: 20px;"></div>
+</div>
+
+<!-- Issues -->
+<div class="card" id="issuesCard" style="display: none;">
+    <div class="card-header">
+        <h3 class="card-title">Issues</h3>
+    </div>
+    <div id="issuesList"></div>
+</div>
+
+<!-- Recommendations -->
+<div class="card" id="recommendationsCard" style="display: none;">
+    <div class="card-header">
+        <h3 class="card-title">Recommendations</h3>
+    </div>
+    <div id="recommendationsList"></div>
+</div>
+
+<!-- Trends Chart -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Test Trends</h3>
+    </div>
+    <canvas id="trendsChart" height="100"></canvas>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let trendsChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initChart();
+});
+
+function initChart() {
+    const ctx = document.getElementById('trendsChart').getContext('2d');
+    trendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Pass Rate',
+                data: [],
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }, {
+                label: 'Failed Tests',
+                data: [],
+                borderColor: 'rgb(255, 99, 132)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function analyzeResults() {
+    const period = document.getElementById('period').value;
+    
+    const btn = document.getElementById('analyzeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+    
+    fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period: period })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '📈 Run Analysis';
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            displayResults(data);
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerHTML = '📈 Run Analysis';
+        alert('Error: ' + error.message);
+    });
+}
+
+function displayResults(data) {
+    document.getElementById('analysisResults').style.display = 'block';
+    
+    // Update stats
+    const analysis = data.analysis || {};
+    const summary = analysis.summary || {};
+    
+    document.getElementById('analysisScore').textContent = summary.pass_rate || '-';
+    document.getElementById('issuesCount').textContent = (analysis.issues || []).length;
+    document.getElementById('recommendationsCount').textContent = (analysis.recommendations || []).length;
+    
+    // Display issues
+    const issues = analysis.issues || [];
+    if (issues.length > 0) {
+        document.getElementById('issuesCard').style.display = 'block';
+        document.getElementById('issuesList').innerHTML = issues.map(issue => `
+            <div class="alert alert-${issue.severity === 'high' ? 'danger' : 'warning'}">
+                <strong>${issue.type}:</strong> ${issue.message}
+            </div>
+        `).join('');
+    }
+    
+    // Display recommendations
+    const recommendations = analysis.recommendations || [];
+    if (recommendations.length > 0) {
+        document.getElementById('recommendationsCard').style.display = 'block';
+        document.getElementById('recommendationsList').innerHTML = recommendations.map(rec => `
+            <div class="alert alert-success">
+                ${rec}
+            </div>
+        `).join('');
+    }
+    
+    // Update chart with sample data
+    updateChart();
+}
+
+function updateChart() {
+    // Add sample data point
+    const now = new Date().toLocaleTimeString();
+    trendsChart.data.labels.push(now);
+    trendsChart.data.datasets[0].data.push(Math.random() * 30 + 70); // Pass rate
+    trendsChart.data.datasets[1].data.push(Math.random() * 10); // Failed tests
+    
+    // Keep only last 10 points
+    if (trendsChart.data.labels.length > 10) {
+        trendsChart.data.labels.shift();
+        trendsChart.data.datasets[0].data.shift();
+        trendsChart.data.datasets[1].data.shift();
+    }
+    
+    trendsChart.update();
+}
+</script>
+{% endblock %}

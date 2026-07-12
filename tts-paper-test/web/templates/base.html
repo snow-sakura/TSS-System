@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TSS Paper Test{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="logo">
+                <h2>TSS Test</h2>
+                <p>AI-Powered Testing</p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+                    <span class="icon">📊</span> Dashboard
+                </a></li>
+                <li><a href="/test-generation" class="nav-link {% if request.path == '/test-generation' %}active{% endif %}">
+                    <span class="icon">🤖</span> Test Generation
+                </a></li>
+                <li><a href="/test-execution" class="nav-link {% if request.path == '/test-execution' %}active{% endif %}">
+                    <span class="icon">▶️</span> Test Execution
+                </a></li>
+                <li><a href="/test-analysis" class="nav-link {% if request.path == '/test-analysis' %}active{% endif %}">
+                    <span class="icon">📈</span> Test Analysis
+                </a></li>
+                <li><a href="/knowledge" class="nav-link {% if request.path == '/knowledge' %}active{% endif %}">
+                    <span class="icon">🧠</span> Knowledge Base
+                </a></li>
+                <li><a href="/settings" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
+                    <span class="icon">⚙️</span> Settings
+                </a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                <div class="header-actions">
+                    <span class="status-indicator" id="statusIndicator">
+                        {% if status.running %}
+                        <span class="running">Running</span>
+                        {% else %}
+                        <span class="idle">Idle</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </header>
+            
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

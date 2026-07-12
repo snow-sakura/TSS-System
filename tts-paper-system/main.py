@@ -528,8 +528,12 @@ def set_language(lang):
 @app.route('/api/login', methods=['POST'])
 def api_login():
     data = request.json
+    if not data:
+        return jsonify({'success': False, 'message': '请求体不能为空'}), 400
     username = data.get('username')
     password = data.get('password')
+    if not username or not password:
+        return jsonify({'success': False, 'message': '用户名和密码不能为空'}), 400
     password_md5 = hashlib.md5(password.encode()).hexdigest()
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -547,10 +551,14 @@ def api_login():
 @app.route('/api/register', methods=['POST'])
 def api_register():
     data = request.json
+    if not data:
+        return jsonify({'success': False, 'message': '请求体不能为空'}), 400
     username = data.get('username')
     password = data.get('password')
     confirm_password = data.get('confirm_password')
     email = data.get('email', '')
+    if not username or not password or not confirm_password:
+        return jsonify({'success': False, 'message': '用户名、密码和确认密码不能为空'}), 400
     if password != confirm_password:
         return jsonify({'success': False, 'message': '两次输入密码不一致'}), 400
     password_md5 = hashlib.md5(password.encode()).hexdigest()
@@ -576,7 +584,7 @@ def api_users():
     cursor.execute('SELECT COUNT(*) as count FROM users')
     total = cursor.fetchone()['count']
     cursor.execute('SELECT id, username, email, role, status, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?', (per_page, offset))
-    users_list = cursor.fetchall()
+    users_list = [dict(row) for row in cursor.fetchall()]
     cursor.close()
     conn.close()
     return jsonify({'success': True, 'data': users_list, 'total': total})
@@ -587,16 +595,21 @@ def api_destinations():
     cursor = conn.cursor()
     if request.method == 'GET':
         cursor.execute('SELECT * FROM destinations ORDER BY code')
-        dest_list = cursor.fetchall()
+        dest_list = [dict(row) for row in cursor.fetchall()]
         cursor.close()
         conn.close()
         return jsonify({'success': True, 'data': dest_list})
     else:
         data = request.json
-        code = data.get('code').upper()
+        if not data:
+            return jsonify({'success': False, 'message': '请求体不能为空'}), 400
+        code = data.get('code')
         name = data.get('name')
         price = data.get('price')
         stock = data.get('stock')
+        if not code or not name or price is None or stock is None:
+            return jsonify({'success': False, 'message': 'code、name、price、stock 不能为空'}), 400
+        code = code.upper()
         try:
             cursor.execute('INSERT INTO destinations (code, name, price, stock) VALUES (?, ?, ?, ?)',
                           (code, name, price, stock))
@@ -607,6 +620,161 @@ def api_destinations():
             return jsonify({'success': True, 'message': '添加成功'})
         except sqlite3.IntegrityError:
             return jsonify({'success': False, 'message': '代码已存在'}), 400
+
+@app.route('/api/destinations/<string:code>', methods=['GET', 'PUT', 'DELETE'])
+def api_destination_detail(code):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'GET':
+        cursor.execute('SELECT * FROM destinations WHERE code = ?', (code,))
+        destination = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if destination:
+            return jsonify({'success': True, 'data': dict(destination)})
+        return jsonify({'success': False, 'message': '目的地不存在'}), 404
+
+    elif request.method == 'PUT':
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'message': '请求体不能为空'}), 400
+        name = data.get('name')
+        price = data.get('price')
+        stock = data.get('stock')
+        if not name or price is None or stock is None:
+            return jsonify({'success': False, 'message': 'name、price、stock 不能为空'}), 400
+        cursor.execute('SELECT * FROM destinations WHERE code = ?', (code,))
+        if not cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'message': '目的地不存在'}), 404
+        cursor.execute('UPDATE destinations SET name=?, price=?, stock=? WHERE code=?',
+                      (name, price, stock, code))
+        conn.commit()
+        tss.load_destinations()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'message': '更新成功'})
+
+    elif request.method == 'DELETE':
+        cursor.execute('SELECT * FROM destinations WHERE code = ?', (code,))
+        if not cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'message': '目的地不存在'}), 404
+        cursor.execute('DELETE FROM destinations WHERE code = ?', (code,))
+        conn.commit()
+        tss.load_destinations()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'message': '删除成功'})
+
+@app.route('/api/purchase/price', methods=['POST'])
+def api_calculate_price():
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'message': '请求体不能为空'}), 400
+    dest_code = data.get('dest_code')
+    ticket_type = data.get('ticket_type')
+    seat_type = data.get('seat_type')
+    if not dest_code or not ticket_type or not seat_type:
+        return jsonify({'success': False, 'message': 'dest_code、ticket_type、seat_type 不能为空'}), 400
+    tss.load_destinations()
+    if dest_code not in tss.destinations:
+        return jsonify({'success': False, 'message': '目的地不存在'}), 404
+    dest = tss.destinations[dest_code]
+    if dest['stock'] <= 0:
+        return jsonify({'success': False, 'message': '库存不足'}), 400
+    if ticket_type not in tss.ticket_types:
+        return jsonify({'success': False, 'message': '无效的票种类型'}), 400
+    if seat_type not in tss.seat_types:
+        return jsonify({'success': False, 'message': '无效的座位类型'}), 400
+    price = tss.calculate_price(dest_code, ticket_type, seat_type)
+    return jsonify({
+        'success': True,
+        'data': {
+            'dest_code': dest_code,
+            'dest_name': dest['name'],
+            'ticket_type': ticket_type,
+            'seat_type': seat_type,
+            'base_price': dest['price'],
+            'price': price,
+            'stock': dest['stock']
+        }
+    })
+
+@app.route('/api/purchase/buy', methods=['POST'])
+def api_buy_ticket():
+    data = request.json
+    if not data:
+        return jsonify({'success': False, 'message': '请求体不能为空'}), 400
+    dest_code = data.get('dest_code')
+    ticket_type = data.get('ticket_type')
+    seat_type = data.get('seat_type')
+    payment_method = data.get('payment_method')
+    user_id = data.get('user_id')
+    if not dest_code or not ticket_type or not seat_type or not payment_method:
+        return jsonify({'success': False, 'message': 'dest_code、ticket_type、seat_type、payment_method 不能为空'}), 400
+    if payment_method not in ['MCard', '现金']:
+        return jsonify({'success': False, 'message': '支付方式无效，仅支持 MCard 或 现金'}), 400
+    tss.load_destinations()
+    if dest_code not in tss.destinations:
+        return jsonify({'success': False, 'message': '目的地不存在'}), 404
+    dest = tss.destinations[dest_code]
+    if dest['stock'] <= 0:
+        return jsonify({'success': False, 'message': '库存不足'}), 400
+    price = tss.calculate_price(dest_code, ticket_type, seat_type)
+    try:
+        tss.save_ticket(dest_code, ticket_type, seat_type, price, payment_method, user_id)
+        return jsonify({
+            'success': True,
+            'message': '购票成功',
+            'data': {
+                'destination': dest['name'],
+                'ticket_type': ticket_type,
+                'seat_type': seat_type,
+                'price': price,
+                'payment_method': payment_method,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'ticket_id': random.randint(100000, 999999)
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': '购票失败，请重试'}), 500
+
+@app.route('/api/tickets/<int:ticket_id>', methods=['GET', 'DELETE'])
+def api_ticket_detail(ticket_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'GET':
+        cursor.execute('''
+            SELECT t.*, d.name as dest_name FROM tickets t
+            LEFT JOIN destinations d ON t.destination_code = d.code
+            WHERE t.id = ?
+        ''', (ticket_id,))
+        ticket = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if ticket:
+            return jsonify({'success': True, 'data': dict(ticket)})
+        return jsonify({'success': False, 'message': '订单不存在'}), 404
+
+    elif request.method == 'DELETE':
+        cursor.execute('SELECT destination_code FROM tickets WHERE id = ?', (ticket_id,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'message': '订单不存在'}), 404
+        cursor.execute('UPDATE destinations SET stock = stock + 1 WHERE code = ?', (result['destination_code'],))
+        cursor.execute('DELETE FROM tickets WHERE id = ?', (ticket_id,))
+        conn.commit()
+        tss.load_destinations()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'message': '删除成功'})
 
 @app.route('/api/tickets', methods=['GET'])
 def api_tickets():
@@ -622,10 +790,94 @@ def api_tickets():
         LEFT JOIN destinations d ON t.destination_code = d.code
         ORDER BY t.purchase_time DESC LIMIT ? OFFSET ?
     ''', (per_page, offset))
-    tickets_list = cursor.fetchall()
+    tickets_list = [dict(row) for row in cursor.fetchall()]
     cursor.close()
     conn.close()
     return jsonify({'success': True, 'data': tickets_list, 'total': total})
+
+@app.route('/api/users/<int:user_id>', methods=['GET', 'PUT', 'DELETE'])
+def api_user_detail(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'GET':
+        cursor.execute('SELECT id, username, email, role, status, created_at FROM users WHERE id = ?', (user_id,))
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if user:
+            return jsonify({'success': True, 'data': dict(user)})
+        return jsonify({'success': False, 'message': '用户不存在'}), 404
+
+    elif request.method == 'PUT':
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'message': '请求体不能为空'}), 400
+        username = data.get('username')
+        email = data.get('email', '')
+        role = data.get('role', 'user')
+        status = data.get('status', 1)
+        password = data.get('password', '')
+        if not username:
+            return jsonify({'success': False, 'message': '用户名不能为空'}), 400
+        cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'message': '用户不存在'}), 404
+        update_data = {'username': username, 'email': email, 'role': role, 'status': int(status)}
+        if password:
+            update_data['password'] = hashlib.md5(password.encode()).hexdigest()
+        set_clause = ', '.join([f'{k}=?' for k in update_data.keys()])
+        values = list(update_data.values()) + [user_id]
+        cursor.execute(f'UPDATE users SET {set_clause} WHERE id = ?', values)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'message': '更新成功'})
+
+    elif request.method == 'DELETE':
+        cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'message': '用户不存在'}), 404
+        cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'message': '删除成功'})
+
+@app.route('/api/dashboard', methods=['GET'])
+def api_dashboard():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) as count FROM users')
+    user_count = cursor.fetchone()['count']
+    cursor.execute('SELECT COUNT(*) as count FROM destinations')
+    dest_count = cursor.fetchone()['count']
+    cursor.execute('SELECT COUNT(*) as count FROM tickets')
+    ticket_count = cursor.fetchone()['count']
+    cursor.execute('SELECT COALESCE(SUM(price), 0) as total FROM tickets')
+    total_revenue = cursor.fetchone()['total'] or 0
+    cursor.execute('''
+        SELECT t.*, d.name as dest_name FROM tickets t
+        LEFT JOIN destinations d ON t.destination_code = d.code
+        ORDER BY t.purchase_time DESC LIMIT 5
+    ''')
+    recent_tickets = [dict(row) for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify({
+        'success': True,
+        'data': {
+            'user_count': user_count,
+            'destination_count': dest_count,
+            'ticket_count': ticket_count,
+            'total_revenue': total_revenue,
+            'recent_tickets': recent_tickets
+        }
+    })
 
 if __name__ == "__main__":
     init_database()
