@@ -1,0 +1,550 @@
+{% extends "layouts/sub_page.html" %}
+
+{% block title %}测试用例 - TSS AI测试平台{% endblock %}
+{% block page_title %}测试用例{% endblock %}
+
+{% set group_title = '核心测试流程' %}
+{% set sub_items = [
+    ('/requirements', 'fa-file-alt', '需求分析'),
+    ('/test-points', 'fa-crosshairs', '测试点管理'),
+    ('/test-plans', 'fa-clipboard-list', '测试方案'),
+    ('/test-cases', 'fa-list-check', '测试用例'),
+    ('/executions', 'fa-play-circle', '测试执行'),
+    ('/reports', 'fa-chart-bar', '分析报告'),
+] %}
+
+{% block sub_content %}
+<!-- 工具栏 -->
+<div class="toolbar">
+    <div class="toolbar-left">
+        <div class="search-box">
+            <i class="search-icon fas fa-search"></i>
+            <input type="text" id="searchKeyword" placeholder="搜索用例..." oninput="loadTestCases()">
+        </div>
+        <select id="filterType" class="form-select" onchange="loadTestCases()" style="width:120px;">
+            <option value="">全部类型</option>
+            <option value="功能测试">功能测试</option>
+            <option value="接口测试">接口测试</option>
+            <option value="性能测试">性能测试</option>
+            <option value="安全测试">安全测试</option>
+        </select>
+        <select id="filterPriority" class="form-select" onchange="loadTestCases()" style="width:110px;">
+            <option value="">全部优先级</option>
+            <option value="高">高</option>
+            <option value="中">中</option>
+            <option value="低">低</option>
+        </select>
+        <select id="filterStatus" class="form-select" onchange="loadTestCases()" style="width:110px;">
+            <option value="">全部状态</option>
+            <option value="draft">草稿</option>
+            <option value="ready">就绪</option>
+            <option value="passed">通过</option>
+            <option value="failed">失败</option>
+            <option value="blocked">阻塞</option>
+        </select>
+    </div>
+    <div class="toolbar-right">
+        <button class="btn btn-sm btn-danger" id="batchDeleteBtn" onclick="batchDelete()" style="display:none;">
+            <i class="fas fa-trash"></i> 批量删除 (<span id="selectedCount">0</span>)
+        </button>
+        <button class="btn btn-outline" onclick="exportTestCases('csv')">
+            <i class="fas fa-file-csv"></i> 导出CSV
+        </button>
+        <button class="btn btn-outline" onclick="showImportModal()">
+            <i class="fas fa-file-import"></i> 导入CSV
+        </button>
+        <button class="btn btn-success" onclick="showAiGenerateModal()">
+            <i class="fas fa-robot"></i> AI生成
+        </button>
+        <button class="btn btn-primary" onclick="showCreateModal()">
+            <i class="fas fa-plus"></i> 新建用例
+        </button>
+    </div>
+</div>
+
+<!-- 测试用例列表 -->
+<div class="card">
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:40px"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                    <th style="width:55px">ID</th>
+                    <th>标题</th>
+                    <th style="width:80px">类型</th>
+                    <th style="width:65px">优先级</th>
+                    <th style="width:70px">状态</th>
+                    <th style="width:50px">AI</th>
+                    <th style="width:130px">创建时间</th>
+                    <th style="width:120px" class="col-actions">操作</th>
+                </tr>
+            </thead>
+            <tbody id="testCasesList"></tbody>
+        </table>
+    </div>
+    <div id="emptyState" class="empty-state" style="display:none;">
+        <div class="empty-icon"><i class="fas fa-list-check"></i></div>
+        <p class="empty-text">暂无测试用例</p>
+        <button class="btn btn-primary" onclick="showCreateModal()">创建第一个用例</button>
+    </div>
+</div>
+
+<!-- 分页 -->
+<div class="pagination" id="pagination"></div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+let currentPage = 1;
+let selectedIds = new Set();
+let currentDetailId = null;
+let importData = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadTestCases();
+    loadPlansForSelect();
+});
+
+// ===== 数据加载 =====
+function loadTestCases() {
+    const keyword = document.getElementById('searchKeyword').value;
+    const type = document.getElementById('filterType').value;
+    const priority = document.getElementById('filterPriority').value;
+    const status = document.getElementById('filterStatus').value;
+    let url = `/api/test-cases?page=${currentPage}&per_page=20`;
+    if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+    if (type) url += `&type=${encodeURIComponent(type)}`;
+    if (priority) url += `&priority=${encodeURIComponent(priority)}`;
+    if (status) url += `&status=${status}`;
+    api.get(url).then(data => {
+        renderTestCases(data.items || []);
+        Components.renderPagination('pagination', data.page || 1, data.pages || 1, 'goToPage');
+    });
+}
+
+function goToPage(page) {
+    currentPage = page;
+    loadTestCases();
+}
+
+// ===== 渲染 =====
+function renderTestCases(items) {
+    const tbody = document.getElementById('testCasesList');
+    const empty = document.getElementById('emptyState');
+    if (!items || items.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'flex';
+        return;
+    }
+    empty.style.display = 'none';
+    selectedIds.clear();
+    document.getElementById('batchDeleteBtn').style.display = 'none';
+    document.getElementById('selectAll').checked = false;
+
+    tbody.innerHTML = items.map(tc => `
+        <tr data-id="${tc.id}">
+            <td><input type="checkbox" class="row-checkbox" value="${tc.id}" onchange="toggleSelect('${tc.id}')"></td>
+            <td class="font-mono text-xs text-[#BCAAA4]">${tc.id}</td>
+            <td>
+                <a href="javascript:void(0)" class="font-medium text-[#5D4037] hover:text-[#D4A574]"
+                   onclick="viewTestCase('${tc.id}')">${Utils.escapeHtml(tc.title)}</a>
+            </td>
+            <td><span class="tag tag-type">${tc.type}</span></td>
+            <td><span class="tag-priority-${tc.priority} tag">${tc.priority}</span></td>
+            <td>${Utils.statusBadge(tc.status)}</td>
+            <td>${tc.ai_generated ? '<span class="tag tag-ai" style="font-size:11px;padding:1px 6px;">AI</span>' : '<span class="text-xs text-[#BCAAA4]">-</span>'}</td>
+            <td class="text-sm text-[#BCAAA4]">${Utils.formatDate(tc.created_at)}</td>
+            <td class="col-actions">
+                <button class="btn btn-sm btn-outline" onclick="viewTestCase('${tc.id}')" title="查看"><i class="fas fa-eye"></i></button>
+                <button class="btn btn-sm btn-outline" onclick="editTestCase('${tc.id}')" title="编辑"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteTestCase('${tc.id}')" title="删除"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// ===== 全选 =====
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.checked = checked;
+        const id = cb.value;
+        if (checked) selectedIds.add(id); else selectedIds.delete(id);
+    });
+    updateBatchBtn();
+}
+function toggleSelect(id) {
+    if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+    updateBatchBtn();
+    const all = document.querySelectorAll('.row-checkbox:checked').length === document.querySelectorAll('.row-checkbox').length;
+    document.getElementById('selectAll').checked = all && document.querySelectorAll('.row-checkbox').length > 0;
+}
+function updateBatchBtn() {
+    const btn = document.getElementById('batchDeleteBtn');
+    const cnt = document.getElementById('selectedCount');
+    if (selectedIds.size > 0) {
+        btn.style.display = 'inline-flex';
+        cnt.textContent = selectedIds.size;
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
+// ===== 创建/编辑 =====
+function showCreateModal() {
+    const id = Components.modal.create(`
+        <input type="hidden" id="editId">
+        <div class="form-group">
+            <label class="required">用例标题</label>
+            <input type="text" id="editTitle" class="form-control" placeholder="请输入用例标题">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>类型</label>
+                <select id="editType" class="form-control">
+                    <option value="功能测试">功能测试</option>
+                    <option value="接口测试">接口测试</option>
+                    <option value="性能测试">性能测试</option>
+                    <option value="安全测试">安全测试</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>优先级</label>
+                <select id="editPriority" class="form-control">
+                    <option value="高">高</option>
+                    <option value="中" selected>中</option>
+                    <option value="低">低</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>前置条件</label>
+            <textarea id="editPrecondition" class="form-control" rows="2" placeholder="执行测试前需要满足的条件"></textarea>
+        </div>
+        <div class="form-group">
+            <label class="required">测试步骤</label>
+            <textarea id="editSteps" class="form-control" rows="4" placeholder="详细描述测试步骤，每行一个步骤"></textarea>
+        </div>
+        <div class="form-group">
+            <label class="required">预期结果</label>
+            <textarea id="editExpectedResult" class="form-control" rows="3" placeholder="描述期望的测试结果"></textarea>
+        </div>
+    `, { title: '新建测试用例',
+        footer: '<button class="btn btn-outline" onclick="Components.modal.hide(this.closest(\'.modal-overlay\').id)">取消</button><button class="btn btn-primary" onclick="saveTestCase()">保存</button>'
+    });
+    Components.modal.show(id);
+}
+
+function editTestCase(id) {
+    api.get(`/api/test-cases/${id}`).then(tc => {
+        const mid = Components.modal.create(`
+            <input type="hidden" id="editId" value="${tc.id}">
+            <div class="form-group">
+                <label class="required">用例标题</label>
+                <input type="text" id="editTitle" class="form-control" value="${Utils.escapeAttr(tc.title)}">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>类型</label>
+                    <select id="editType" class="form-control">
+                        <option value="功能测试" ${tc.type === '功能测试' ? 'selected' : ''}>功能测试</option>
+                        <option value="接口测试" ${tc.type === '接口测试' ? 'selected' : ''}>接口测试</option>
+                        <option value="性能测试" ${tc.type === '性能测试' ? 'selected' : ''}>性能测试</option>
+                        <option value="安全测试" ${tc.type === '安全测试' ? 'selected' : ''}>安全测试</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>优先级</label>
+                    <select id="editPriority" class="form-control">
+                        <option value="高" ${tc.priority === '高' ? 'selected' : ''}>高</option>
+                        <option value="中" ${tc.priority === '中' ? 'selected' : ''}>中</option>
+                        <option value="低" ${tc.priority === '低' ? 'selected' : ''}>低</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>前置条件</label>
+                <textarea id="editPrecondition" class="form-control" rows="2">${Utils.escapeAttr(tc.precondition || '')}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="required">测试步骤</label>
+                <textarea id="editSteps" class="form-control" rows="4">${Utils.escapeAttr(tc.steps || '')}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="required">预期结果</label>
+                <textarea id="editExpectedResult" class="form-control" rows="3">${Utils.escapeAttr(tc.expected_result || '')}</textarea>
+            </div>
+        `, { title: '编辑测试用例',
+            footer: '<button class="btn btn-outline" onclick="Components.modal.hide(this.closest(\'.modal-overlay\').id)">取消</button><button class="btn btn-primary" onclick="saveTestCase()">保存</button>'
+        });
+        Components.modal.show(mid);
+    });
+}
+
+function saveTestCase() {
+    const id = document.getElementById('editId').value;
+    const title = document.getElementById('editTitle').value.trim();
+    const steps = document.getElementById('editSteps').value.trim();
+    const expectedResult = document.getElementById('editExpectedResult').value.trim();
+    if (!title) { Components.toast('请输入用例标题', 'warning'); return; }
+    if (!steps) { Components.toast('请输入测试步骤', 'warning'); return; }
+    if (!expectedResult) { Components.toast('请输入预期结果', 'warning'); return; }
+    const data = {
+        title,
+        type: document.getElementById('editType').value,
+        priority: document.getElementById('editPriority').value,
+        precondition: document.getElementById('editPrecondition').value.trim(),
+        steps,
+        expected_result: expectedResult
+    };
+    const promise = id ? api.put(`/api/test-cases/${id}`, data) : api.post('/api/test-cases', data);
+    promise.then(() => {
+        Components.toast(id ? '用例更新成功' : '用例创建成功', 'success');
+        document.querySelector('.modal-overlay').classList.add('hidden');
+        loadTestCases();
+    }).catch(() => Components.toast('操作失败', 'error'));
+}
+
+// ===== 查看详情 =====
+function viewTestCase(id) {
+    api.get(`/api/test-cases/${id}`).then(tc => {
+        currentDetailId = id;
+        const content = Components.modal.create(`
+            <div class="detail-section">
+                <div class="detail-row"><span class="detail-label">标题:</span><span class="detail-value font-semibold">${Utils.escapeHtml(tc.title)}</span></div>
+                <div class="detail-row"><span class="detail-label">类型:</span><span class="detail-value"><span class="tag tag-type">${tc.type}</span></span></div>
+                <div class="detail-row"><span class="detail-label">优先级:</span><span class="detail-value"><span class="tag-priority-${tc.priority} tag">${tc.priority}</span></span></div>
+                <div class="detail-row"><span class="detail-label">状态:</span><span class="detail-value">${Utils.statusBadge(tc.status)}</span></div>
+                <div class="detail-row"><span class="detail-label">AI生成:</span><span class="detail-value">${tc.ai_generated ? '<span class="tag tag-ai">AI</span>' : '否'}</span></div>
+                <div class="detail-row"><span class="detail-label">创建时间:</span><span class="detail-value">${Utils.formatDate(tc.created_at)}</span></div>
+            </div>
+            <div class="detail-section">
+                <h4>前置条件</h4>
+                <div class="content-box">${Utils.escapeHtml(tc.precondition) || '暂无'}</div>
+            </div>
+            <div class="detail-section">
+                <h4>测试步骤</h4>
+                <div class="content-box" style="line-height:1.8;">${Utils.escapeHtml(tc.steps) || ''}</div>
+            </div>
+            <div class="detail-section">
+                <h4>预期结果</h4>
+                <div class="content-box">${Utils.escapeHtml(tc.expected_result) || ''}</div>
+            </div>
+        `, { title: '用例详情',
+            footer: '<button class="btn btn-outline" onclick="Components.modal.hide(this.closest(\'.modal-overlay\').id)">关闭</button><button class="btn btn-primary" onclick="editFromDetail()"><i class="fas fa-edit"></i> 编辑</button>'
+        });
+        Components.modal.show(content);
+    });
+}
+
+function editFromDetail() {
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+    editTestCase(currentDetailId);
+}
+
+// ===== 删除 =====
+function deleteTestCase(id) {
+    Components.confirm('确定要删除该测试用例吗？').then(ok => {
+        if (ok) api.delete(`/api/test-cases/${id}`).then(() => {
+            Components.toast('删除成功', 'success');
+            loadTestCases();
+        });
+    });
+}
+
+function batchDelete() {
+    if (selectedIds.size === 0) return;
+    Components.confirm(`确定要删除选中的 ${selectedIds.size} 个用例吗？`).then(ok => {
+        if (!ok) return;
+        const promises = Array.from(selectedIds).map(id => api.delete(`/api/test-cases/${id}`));
+        Promise.all(promises).then(() => {
+            Components.toast(`已删除 ${selectedIds.size} 个用例`, 'success');
+            selectedIds.clear();
+            loadTestCases();
+        });
+    });
+}
+
+// ===== 导出 =====
+function exportTestCases(format) {
+    Components.toast('正在导出测试用例...', 'info');
+    api.get('/api/test-cases').then(data => {
+        const items = data.items || [];
+        if (format === 'csv') {
+            let csv = 'ID,标题,前置条件,测试步骤,预期结果,类型,优先级,状态,AI生成\n';
+            items.forEach(tc => {
+                const esc = v => `"${(v || '').replace(/"/g, '""')}"`;
+                csv += `${tc.id},${esc(tc.title)},${esc(tc.precondition)},${esc(tc.steps)},${esc(tc.expected_result)},${esc(tc.type)},${esc(tc.priority)},${esc(tc.status)},${tc.ai_generated ? '是' : '否'}\n`;
+            });
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `test_cases_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            Components.toast(`已导出 ${items.length} 个测试用例`, 'success');
+        }
+    });
+}
+
+// ===== 导入 =====
+function showImportModal() {
+    importData = [];
+    const mid = Components.modal.create(`
+        <div class="form-group">
+            <label>选择CSV文件</label>
+            <div class="file-upload-area" style="border:2px dashed #E8D5C4;border-radius:10px;padding:30px;text-align:center;">
+                <input type="file" id="importFile" accept=".csv" onchange="handleImportFile(this)">
+                <p style="margin-top:8px;font-size:13px;color:#BCAAA4;">支持 CSV 格式，编码为 UTF-8</p>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>CSV格式说明</label>
+            <div style="background:#FCF3EB;padding:12px;border-radius:8px;font-size:13px;">
+                <p style="margin-bottom:6px;">第一行为表头，必须包含以下列：</p>
+                <code style="background:#FFFFFF;padding:3px 8px;border-radius:4px;">标题,前置条件,测试步骤,预期结果,类型,优先级</code>
+            </div>
+        </div>
+        <div id="importPreview" style="display:none;">
+            <label>预览（前5条）</label>
+            <div id="importPreviewContent" class="content-box" style="max-height:200px;overflow-y:auto;"></div>
+        </div>
+    `, { title: '导入测试用例',
+        footer: '<button class="btn btn-outline" onclick="Components.modal.hide(this.closest(\'.modal-overlay\').id)">取消</button><button class="btn btn-primary" id="importBtn" onclick="importTestCases()" disabled><i class="fas fa-file-import"></i> 导入</button>'
+    });
+    Components.modal.show(mid);
+}
+
+function handleImportFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const lines = e.target.result.split('\n');
+        if (lines.length < 2) { Components.toast('CSV文件格式错误', 'warning'); return; }
+        importData = [];
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            const parts = line.split(',');
+            if (parts.length >= 4) {
+                importData.push({
+                    title: parts[0] || '',
+                    precondition: parts[1] || '',
+                    steps: parts[2] || '',
+                    expected_result: parts[3] || '',
+                    type: parts[4] || '功能测试',
+                    priority: parts[5] || '中'
+                });
+            }
+        }
+        if (importData.length > 0) {
+            document.getElementById('importPreview').style.display = 'block';
+            document.getElementById('importPreviewContent').innerHTML =
+                `<p style="margin-bottom:8px;font-size:13px;color:#8D6E63;">共解析到 ${importData.length} 条用例，预览前5条：</p>` +
+                importData.slice(0, 5).map((tc, i) =>
+                    `<div style="padding:8px;background:#FEF9F4;border-radius:6px;margin-bottom:6px;display:flex;align-items:center;gap:8px;">
+                        <span style="font-weight:600;color:#5D4037;">${i+1}.</span>
+                        <span style="flex:1;">${Utils.escapeHtml(tc.title)}</span>
+                        <span class="tag tag-type">${tc.type}</span>
+                        <span class="tag-priority-${tc.priority} tag">${tc.priority}</span>
+                    </div>`).join('');
+            document.getElementById('importBtn').disabled = false;
+        } else {
+            Components.toast('未解析到有效的测试用例', 'warning');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function importTestCases() {
+    if (importData.length === 0) return;
+    Components.toast(`正在导入 ${importData.length} 个测试用例...`, 'info');
+    let imported = 0;
+    const promises = importData.map(tc => api.post('/api/test-cases', tc).then(() => { imported++; }));
+    Promise.all(promises).then(() => {
+        Components.toast(`成功导入 ${imported} 个测试用例`, 'success');
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+        loadTestCases();
+    });
+}
+
+// ===== AI生成 =====
+function loadPlansForSelect() {
+    api.get('/api/test-plans').then(data => {
+        const sel = document.getElementById('aiPlanId');
+        if (sel && data.items) {
+            data.items.forEach(plan => {
+                const opt = document.createElement('option');
+                opt.value = plan.id;
+                opt.textContent = plan.title;
+                sel.appendChild(opt);
+            });
+        }
+    });
+}
+
+function showAiGenerateModal() {
+    const mid = Components.modal.create(`
+        <div class="form-group">
+            <label>关联测试方案</label>
+            <select id="aiPlanId" class="form-control">
+                <option value="">请选择测试方案（可选）</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>生成数量</label>
+            <select id="aiCount" class="form-control">
+                <option value="5">5个</option>
+                <option value="10" selected>10个</option>
+                <option value="20">20个</option>
+            </select>
+        </div>
+        <div id="aiResult" style="display:none;"></div>
+    `, { title: 'AI生成测试用例',
+        footer: '<button class="btn btn-outline" onclick="Components.modal.hide(this.closest(\'.modal-overlay\').id)">关闭</button><button class="btn btn-success" id="aiGenerateBtn" onclick="startAiGenerate()"><i class="fas fa-robot"></i> 开始生成</button>'
+    });
+    Components.modal.show(mid);
+    // 填充方案列表（已缓存在API中）
+    loadPlansForSelect();
+}
+
+function startAiGenerate() {
+    const planId = document.getElementById('aiPlanId').value;
+    const btn = document.getElementById('aiGenerateBtn');
+    const resultDiv = document.getElementById('aiResult');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+
+    api.post('/api/test-cases/generate', { plan_id: planId || undefined }).then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-robot"></i> 开始生成';
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+            <div class="alert alert-success" style="margin-bottom:15px;"><i class="fas fa-check-circle"></i> 成功生成 ${data.cases.length} 个测试用例</div>
+            <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+                ${data.cases.map((tc, i) => `
+                    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px;background:#FEF9F4;border-radius:8px;">
+                        <span style="width:24px;height:24px;background:#D4A574;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">${i+1}</span>
+                        <div style="flex:1;">
+                            <div style="font-weight:500;margin-bottom:4px;">${Utils.escapeHtml(tc.title)}</div>
+                            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                <span class="tag tag-type">${tc.type}</span>
+                                <span class="tag-priority-${tc.priority} tag">${tc.priority}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        loadTestCases();
+    }).catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-robot"></i> 开始生成';
+        Components.toast('生成失败，请重试', 'error');
+    });
+}
+</script>
+{% endblock %}

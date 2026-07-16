@@ -1,0 +1,24 @@
+{
+  "name": "tts-paper-test",
+  "version": "1.0.0",
+  "description": "一个基于AI的智能软件测试平台，支持完整的测试流程自动化。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./web/static/css/style.css -o ./web/static/css/output.css --minify",
+    "watch:css": "tailwindcss -i ./web/static/css/style.css -o ./web/static/css/output.css --watch",
+    "build": "npm run build:css"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "autoprefixer": "^10.5.4",
+    "postcss": "^8.5.19",
+    "tailwindcss": "^3.4.19"
+  }
+}

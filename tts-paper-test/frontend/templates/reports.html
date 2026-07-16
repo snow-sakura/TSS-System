@@ -1,0 +1,252 @@
+{% extends "layouts/sub_page.html" %}
+
+{% block title %}分析报告 - TSS AI测试平台{% endblock %}
+{% block page_title %}分析报告{% endblock %}
+
+{% set group_title = '核心测试流程' %}
+{% set sub_items = [
+    ('/requirements', 'fa-file-alt', '需求分析'),
+    ('/test-points', 'fa-crosshairs', '测试点管理'),
+    ('/test-plans', 'fa-clipboard-list', '测试方案'),
+    ('/test-cases', 'fa-list-check', '测试用例'),
+    ('/executions', 'fa-play-circle', '测试执行'),
+    ('/reports', 'fa-chart-bar', '分析报告'),
+] %}
+
+{% block sub_content %}
+<!-- 统计概览 -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-[#F5EDE6]">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center">
+                <i class="fas fa-play-circle text-white text-xl"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-[#5D4037]" id="totalExecutions">0</div>
+                <div class="text-sm text-[#8D6E63]">总执行次数</div>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-[#F5EDE6]">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#11998e] to-[#38ef7d] flex items-center justify-center">
+                <i class="fas fa-check-circle text-white text-xl"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-[#5D4037]" id="avgPassRate">0%</div>
+                <div class="text-sm text-[#8D6E63]">平均通过率</div>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-[#F5EDE6]">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#f093fb] to-[#f5576c] flex items-center justify-center">
+                <i class="fas fa-list-check text-white text-xl"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-[#5D4037]" id="totalCases">0</div>
+                <div class="text-sm text-[#8D6E63]">总执行用例</div>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-[#F5EDE6]">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#4facfe] to-[#00f2fe] flex items-center justify-center">
+                <i class="fas fa-clock text-white text-xl"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-bold text-[#5D4037]" id="avgDuration">0s</div>
+                <div class="text-sm text-[#8D6E63]">平均耗时</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图表区域 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- 通过率趋势 -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-[#F5EDE6]">
+        <h3 class="text-base font-semibold text-[#5D4037] mb-4"><i class="fas fa-chart-line text-[#D4A574] mr-2"></i>通过率趋势</h3>
+        <div class="h-48">
+            <canvas id="passRateChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- 结果分布 -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-[#F5EDE6]">
+        <h3 class="text-base font-semibold text-[#5D4037] mb-4"><i class="fas fa-chart-pie text-[#D4A574] mr-2"></i>结果分布</h3>
+        <div class="h-48">
+            <canvas id="resultPieChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- 报告列表 -->
+<div class="bg-white rounded-xl shadow-sm border border-[#F5EDE6]">
+    <div class="flex items-center justify-between p-5 border-b border-[#F5EDE6]">
+        <h3 class="text-base font-semibold text-[#5D4037]"><i class="fas fa-file-alt text-[#D4A574] mr-2"></i>报告列表</h3>
+        <button onclick="loadReports()" class="text-sm text-[#D4A574] hover:text-[#C08D5E]">
+            <i class="fas fa-sync-alt mr-1"></i>刷新
+        </button>
+    </div>
+    <div class="p-5">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-[#EDE0D4]">
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">ID</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">状态</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">用例数</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">通过率</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">开始时间</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">操作</th>
+                </tr>
+            </thead>
+            <tbody id="reportsList">
+                <!-- 动态加载 -->
+            </tbody>
+        </table>
+        <div id="emptyState" class="hidden py-12 text-center">
+            <i class="fas fa-chart-bar text-4xl text-[#EDE0D4] mb-3"></i>
+            <p class="text-[#8D6E63]">暂无报告数据</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// 加载报告数据
+function loadReports() {
+    api.get('/api/executions').then(data => {
+        const items = (data.items || []).filter(i => i.status === 'completed' && i.results);
+        renderReports(items);
+        updateStatistics(items);
+        renderCharts(items);
+    });
+}
+
+function renderReports(items) {
+    const tbody = document.getElementById('reportsList');
+    const empty = document.getElementById('emptyState');
+    
+    if (items.length === 0) {
+        tbody.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+    }
+    
+    empty.classList.add('hidden');
+    items.sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
+    
+    tbody.innerHTML = items.map(exec => {
+        const result = exec.results || {};
+        const passRate = result.pass_rate ? result.pass_rate + '%' : '-';
+        
+        return `
+            <tr class="border-b border-[#F5EDE6] hover:bg-[#FEF9F4] transition-colors">
+                <td class="py-4 px-4 text-sm text-[#5D4037]">${exec.id.substring(0, 8)}</td>
+                <td class="py-4 px-4">${getStatusBadge(exec.status)}</td>
+                <td class="py-4 px-4 text-sm text-[#5D4037]">${result.total || '-'}</td>
+                <td class="py-4 px-4">
+                    <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getPassRateClass(result.pass_rate)}">${passRate}</span>
+                </td>
+                <td class="py-4 px-4 text-sm text-[#8D6E63]">${formatDate(exec.started_at)}</td>
+                <td class="py-4 px-4">
+                    <button onclick="viewReport('${exec.id}')" class="px-3 py-1.5 bg-[#FEF9F4] text-[#D4A574] rounded-lg text-sm hover:bg-[#F7EDE4] transition-colors">
+                        <i class="fas fa-eye mr-1"></i>查看
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getPassRateClass(rate) {
+    if (rate === undefined) return '';
+    if (rate >= 90) return 'bg-[#E8F5E9] text-[#2E7D32]';
+    if (rate >= 70) return 'bg-[#FFF8E1] text-[#F57F17]';
+    return 'bg-[#FFEBEE] text-[#C62828]';
+}
+
+function updateStatistics(items) {
+    document.getElementById('totalExecutions').textContent = items.length;
+    
+    if (items.length > 0) {
+        const totalCases = items.reduce((sum, i) => sum + (i.results.total || 0), 0);
+        const totalPassed = items.reduce((sum, i) => sum + (i.results.passed || 0), 0);
+        const avgPassRate = totalCases > 0 ? Math.round(totalPassed / totalCases * 100) : 0;
+        
+        const totalDuration = items.reduce((sum, i) => {
+            if (i.finished_at && i.started_at) {
+                return sum + Math.round((new Date(i.finished_at) - new Date(i.started_at)) / 1000);
+            }
+            return sum;
+        }, 0);
+        const avgDuration = items.length > 0 ? Math.round(totalDuration / items.length) : 0;
+        
+        document.getElementById('totalCases').textContent = totalCases;
+        document.getElementById('avgPassRate').textContent = avgPassRate + '%';
+        document.getElementById('avgDuration').textContent = avgDuration + 's';
+    }
+}
+
+function renderCharts(items) {
+    if (items.length === 0) return;
+    
+    // 通过率趋势图
+    const ctx1 = document.getElementById('passRateChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: items.map((_, i) => `第${i + 1}次`),
+            datasets: [{
+                label: '通过率 (%)',
+                data: items.map(i => i.results.pass_rate || 0),
+                borderColor: '#D4A574',
+                backgroundColor: 'rgba(212, 165, 116, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, max: 100 } }
+        }
+    });
+    
+    // 结果分布饼图
+    const totalPassed = items.reduce((sum, i) => sum + (i.results.passed || 0), 0);
+    const totalFailed = items.reduce((sum, i) => sum + (i.results.failed || 0), 0);
+    
+    const ctx2 = document.getElementById('resultPieChart').getContext('2d');
+    new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: ['通过', '失败'],
+            datasets: [{
+                data: [totalPassed, totalFailed],
+                backgroundColor: ['#81C784', '#E57373'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            cutout: '60%'
+        }
+    });
+}
+
+function viewReport(id) {
+    api.get(`/api/executions/${id}`).then(exec => {
+        const result = exec.results || {};
+        alert(`执行详情:\n\nID: ${exec.id}\n状态: ${exec.status}\n总用例: ${result.total}\n通过: ${result.passed}\n失败: ${result.failed}\n通过率: ${result.pass_rate}%`);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadReports();
+});
+</script>
+{% endblock %}

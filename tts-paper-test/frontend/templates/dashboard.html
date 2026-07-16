@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - TSS AI测试平台{% endblock %}
+
+{% block page_title %}仪表盘{% endblock %}
+
+{% block content %}
+<!-- 欢迎区域 -->
+<div class="mb-6 animate-fade-in">
+    <h2 class="text-xl font-semibold text-[#5D4037]">
+        欢迎回来，{{ session.get('username', '用户') }}
+    </h2>
+    <p class="text-sm text-[#BCAAA4] mt-1">选择功能模块开始您的测试工作</p>
+</div>
+
+<!-- TAB切换 -->
+<div class="tab-bar" id="moduleTabs">
+    {% set tabs = [
+        ('core', '核心测试流程', 'fa-flask'),
+        ('extended', '扩展测试', 'fa-puzzle-piece'),
+        ('config', '配置管理', 'fa-cogs'),
+        ('system', '系统管理', 'fa-shield-alt'),
+    ] %}
+    {% for tab_id, tab_label, tab_icon in tabs %}
+    <button class="tab-btn {% if loop.first %}active{% endif %}"
+            data-tab="{{ tab_id }}"
+            onclick="switchTab('{{ tab_id }}')">
+        <i class="fas {{ tab_icon }} mr-1.5"></i>
+        {{ tab_label }}
+    </button>
+    {% endfor %}
+</div>
+
+<!-- 功能模块卡片 -->
+<div id="tabContent">
+    <!-- 核心测试流程 -->
+    <div class="tab-panel active" id="panel-core">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {% set core_modules = [
+                ('requirements', 'fa-file-alt', '需求分析', '管理测试需求，AI自动分析提取测试点', '需求数', 'statRequirements'),
+                ('test-points', 'fa-crosshairs', '测试点管理', '细化需求为可测试的功能点', '测试点', 'statTestPoints'),
+                ('test-plans', 'fa-clipboard-list', '测试方案', 'AI自动生成测试方案，人工审核确认', '方案数', 'statTestPlans'),
+                ('test-cases', 'fa-list-check', '测试用例', 'AI生成用例，支持手动创建和批量生成', '用例数', 'statTestCases'),
+                ('executions', 'fa-play-circle', '测试执行', '选择用例执行，实时进度监控', '执行次数', 'statExecutions'),
+                ('reports', 'fa-chart-bar', '分析报告', '测试结果统计概览与可视化图表', '报告数', 'statReports'),
+            ] %}
+            {% for href, icon, title, desc, stat_label, stat_id in core_modules %}
+            <a href="{{ href }}" class="module-card group">
+                <div class="module-icon group-hover:scale-110 transition-transform duration-300">
+                    <i class="fas {{ icon }}"></i>
+                </div>
+                <h3 class="module-title">{{ title }}</h3>
+                <p class="module-desc">{{ desc }}</p>
+                <div class="flex items-center justify-between mt-auto pt-3 border-t border-[#F5EDE6]">
+                    <span class="module-stats">
+                        <span id="{{ stat_id }}">0</span> {{ stat_label }}
+                    </span>
+                    <span class="text-sm text-[#D4A574] group-hover:translate-x-1 transition-transform">
+                        进入 <i class="fas fa-arrow-right ml-1"></i>
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 扩展测试 -->
+    <div class="tab-panel hidden" id="panel-extended">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {% set extended_modules = [
+                ('web-automation', 'fa-robot', 'Web自动化', '创建、编辑、执行Web自动化测试脚本', '脚本数', 'statWebScripts'),
+                ('api-testing', 'fa-plug', 'API测试', 'API接口测试，支持RESTful/GraphQL', '接口数', 'statApiTests'),
+                ('performance-testing', 'fa-tachometer-alt', '性能测试', '系统性能测试与负载分析', '场景数', 'statPerfTests'),
+            ] %}
+            {% for href, icon, title, desc, stat_label, stat_id in extended_modules %}
+            <a href="{{ href }}" class="module-card group">
+                <div class="module-icon group-hover:scale-110 transition-transform duration-300">
+                    <i class="fas {{ icon }}"></i>
+                </div>
+                <h3 class="module-title">{{ title }}</h3>
+                <p class="module-desc">{{ desc }}</p>
+                <div class="flex items-center justify-between mt-auto pt-3 border-t border-[#F5EDE6]">
+                    <span class="module-stats">
+                        <span id="{{ stat_id }}">0</span> {{ stat_label }}
+                    </span>
+                    <span class="text-sm text-[#D4A574] group-hover:translate-x-1 transition-transform">
+                        进入 <i class="fas fa-arrow-right ml-1"></i>
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 配置管理 -->
+    <div class="tab-panel hidden" id="panel-config">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {% set config_modules = [
+                ('knowledge', 'fa-database', '知识库', '测试模式和Bug知识管理，向量化存储', '条目', 'statKnowledge'),
+                ('agents', 'fa-brain', 'Agent配置', '多智能体协作配置与管理', 'Agent数', 'statAgents'),
+                ('mcp-services', 'fa-plug', 'MCP服务', '模型上下文协议服务集成', '服务数', 'statMCPServices'),
+                ('skills', 'fa-magic', 'Skill配置', '可复用的专业技能模块', '技能数', 'statSkills'),
+                ('prompts', 'fa-comment-dots', '提示词工程', '提示词模板管理与测试', '模板数', 'statPrompts'),
+                ('llm', 'fa-microchip', '大模型配置', 'LLM提供商管理（OpenAI/Anthropic）', '提供商', 'statLLM'),
+            ] %}
+            {% for href, icon, title, desc, stat_label, stat_id in config_modules %}
+            <a href="{{ href }}" class="module-card group">
+                <div class="module-icon group-hover:scale-110 transition-transform duration-300">
+                    <i class="fas {{ icon }}"></i>
+                </div>
+                <h3 class="module-title">{{ title }}</h3>
+                <p class="module-desc">{{ desc }}</p>
+                <div class="flex items-center justify-between mt-auto pt-3 border-t border-[#F5EDE6]">
+                    <span class="module-stats">
+                        <span id="{{ stat_id }}">0</span> {{ stat_label }}
+                    </span>
+                    <span class="text-sm text-[#D4A574] group-hover:translate-x-1 transition-transform">
+                        进入 <i class="fas fa-arrow-right ml-1"></i>
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 系统管理 -->
+    <div class="tab-panel hidden" id="panel-system">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {% set system_modules = [
+                ('de-ai', 'fa-shield-alt', '去AI味', '降低AI检测率的文本优化策略', '策略数', 'statDeAI'),
+                ('users', 'fa-users', '用户管理', '多用户、角色权限控制管理', '用户数', 'statUsers'),
+                ('settings', 'fa-cog', '系统设置', '平台全局配置与参数设置', '设置项', 'statSettings'),
+            ] %}
+            {% for href, icon, title, desc, stat_label, stat_id in system_modules %}
+            <a href="{{ href }}" class="module-card group">
+                <div class="module-icon group-hover:scale-110 transition-transform duration-300">
+                    <i class="fas {{ icon }}"></i>
+                </div>
+                <h3 class="module-title">{{ title }}</h3>
+                <p class="module-desc">{{ desc }}</p>
+                <div class="flex items-center justify-between mt-auto pt-3 border-t border-[#F5EDE6]">
+                    <span class="module-stats">
+                        <span id="{{ stat_id }}">0</span> {{ stat_label }}
+                    </span>
+                    <span class="text-sm text-[#D4A574] group-hover:translate-x-1 transition-transform">
+                        进入 <i class="fas fa-arrow-right ml-1"></i>
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// TAB切换
+function switchTab(tabId) {
+    // 更新按钮状态
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    // 更新面板
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.id !== 'panel-' + tabId);
+        panel.classList.toggle('active', panel.id === 'panel-' + tabId);
+    });
+}
+
+// 加载统计数据
+document.addEventListener('DOMContentLoaded', function() {
+    Promise.all([
+        api.get('/api/requirements').catch(() => ({total: 0})),
+        api.get('/api/test-points').catch(() => ({total: 0})),
+        api.get('/api/test-plans').catch(() => ({total: 0})),
+        api.get('/api/test-cases').catch(() => ({total: 0})),
+        api.get('/api/executions').catch(() => ({total: 0})),
+        api.get('/api/agents').catch(() => ({total: 0})),
+        api.get('/api/knowledge/patterns').catch(() => ({total: 0})),
+        api.get('/api/knowledge/bugs').catch(() => ({total: 0})),
+        api.get('/api/mcp-services').catch(() => ({total: 0})),
+        api.get('/api/skills').catch(() => ({total: 0})),
+        api.get('/api/prompts').catch(() => ({total: 0})),
+        api.get('/api/llm/providers').catch(() => ({total: 0})),
+        api.get('/api/de-ai/strategies').catch(() => ({total: 0})),
+        api.get('/api/users').catch(() => ({total: 0})),
+        api.get('/api/web-scripts').catch(() => ({total: 0})),
+    ]).then(([reqs, tps, plans, cases, execs, agents, patterns, bugs, mcps, skills, prompts, llms, deai, users, scripts]) => {
+        setStat('statRequirements', reqs.total);
+        setStat('statTestPoints', tps.total);
+        setStat('statTestPlans', plans.total);
+        setStat('statTestCases', cases.total);
+        setStat('statExecutions', execs.total);
+        setStat('statReports', (execs.items || []).filter(e => e.status === 'completed').length);
+        setStat('statAgents', agents.total);
+        setStat('statKnowledge', (patterns.total || 0) + (bugs.total || 0));
+        setStat('statMCPServices', mcps.total);
+        setStat('statSkills', skills.total);
+        setStat('statPrompts', prompts.total);
+        setStat('statLLM', llms.total);
+        setStat('statDeAI', deai.total);
+        setStat('statUsers', users.total);
+        setStat('statWebScripts', scripts.total);
+        setStat('statApiTests', 0);
+        setStat('statPerfTests', 0);
+        setStat('statSettings', 0);
+    });
+});
+
+function setStat(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value || 0;
+}
+</script>
+{% endblock %}

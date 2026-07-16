@@ -1,0 +1,118 @@
+/* ============================================
+   TSS AI测试平台 - 日系清新暖色调 设计系统
+   ============================================ */
+
+:root {
+  /* === 主色调 - 暖杏色系 === */
+  --color-primary:       #D4A574;
+  --color-primary-dark:  #C08D5E;
+  --color-primary-light: #E8C9A8;
+  --color-primary-bg:    #FFF8F0;
+
+  /* === 辅助色 - 淡粉暖色 === */
+  --color-secondary:     #F4C7AB;
+  --color-blush:         #E8A87C;
+  --color-blush-light:   #FADBD6;
+
+  /* === 背景色系 === */
+  --color-bg:           #FEF9F4;
+  --color-bg-card:      #FFFFFF;
+  --color-bg-sidebar:   #F7EDE4;
+  --color-bg-hover:     #FCF3EB;
+  --color-bg-input:     #FFFCF8;
+  --color-bg-tooltip:   #5D4037;
+
+  /* === 文字色系 === */
+  --color-text-primary:   #5D4037;
+  --color-text-secondary: #8D6E63;
+  --color-text-muted:     #BCAAA4;
+  --color-text-on-primary:#FFFFFF;
+  --color-text-link:      #C08D5E;
+
+  /* === 边框色系 === */
+  --color-border:       #EDE0D4;
+  --color-border-light: #F5EDE6;
+  --color-border-input: #E0D5C8;
+
+  /* === 语义色 - 柔和版本 === */
+  --color-success:      #81C784;
+  --color-success-bg:   #E8F5E9;
+  --color-success-text: #2E7D32;
+
+  --color-danger:       #E57373;
+  --color-danger-bg:    #FFEBEE;
+  --color-danger-text:  #C62828;
+
+  --color-warning:      #FFD54F;
+  --color-warning-bg:   #FFF8E1;
+  --color-warning-text: #F57F17;
+
+  --color-info:         #64B5F6;
+  --color-info-bg:      #E3F2FD;
+  --color-info-text:    #1565C0;
+
+  /* === 状态色 === */
+  --color-status-draft:     #BCAAA4;
+  --color-status-pending:   #FFB74D;
+  --color-status-running:   #64B5F6;
+  --color-status-completed: #81C784;
+  --color-status-failed:    #E57373;
+  --color-status-active:    #81C784;
+  --color-status-inactive:  #BCAAA4;
+  --color-status-analyzing: #64B5F6;
+  --color-status-analyzed:  #81C784;
+  --color-status-approved:  #81C784;
+  --color-status-rejected:  #E57373;
+
+  /* === 阴影 === */
+  --shadow-xs:  0 1px 2px rgba(93, 64, 55, 0.04);
+  --shadow-sm:  0 1px 3px rgba(93, 64, 55, 0.06);
+  --shadow-md:  0 4px 12px rgba(93, 64, 55, 0.08);
+  --shadow-lg:  0 8px 24px rgba(93, 64, 55, 0.10);
+  --shadow-xl:  0 12px 36px rgba(93, 64, 55, 0.12);
+
+  /* === 圆角 === */
+  --radius-xs:  4px;
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  16px;
+  --radius-full: 9999px;
+
+  /* === 间距 === */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+
+  /* === 字体 === */
+  --font-family: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* === 字号 === */
+  --text-xs:   0.75rem;   /* 12px */
+  --text-sm:   0.8125rem; /* 13px */
+  --text-base: 0.875rem;  /* 14px */
+  --text-lg:   1rem;      /* 16px */
+  --text-xl:   1.125rem;  /* 18px */
+  --text-2xl:  1.5rem;    /* 24px */
+
+  /* === 布局 === */
+  --sidebar-width:      260px;
+  --sidebar-collapsed:  68px;
+  --topbar-height:      60px;
+
+  /* === 过渡 === */
+  --transition-fast:   0.15s ease;
+  --transition-base:   0.25s ease;
+  --transition-slow:   0.35s ease;
+}
+
+/* === 暗色模式（预留） === */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 暂时保持暖色调不变 */
+  }
+}

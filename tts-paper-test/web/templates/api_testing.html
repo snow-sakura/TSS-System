@@ -1,0 +1,566 @@
+{% extends "layouts/sub_page.html" %}
+
+{% block title %}API测试 - TSS AI测试平台{% endblock %}
+{% block page_title %}API测试{% endblock %}
+
+{% set group_title = '扩展测试' %}
+{% set sub_items = [
+    ('/web-automation', 'fa-robot', 'Web自动化'),
+    ('/api-testing', 'fa-plug', 'API测试'),
+    ('/performance-testing', 'fa-tachometer-alt', '性能测试'),
+] %}
+
+{% block sub_content %}
+<!-- 工具栏 -->
+<div class="toolbar">
+    <div class="toolbar-left">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchKeyword" placeholder="搜索测试..." oninput="loadTests()">
+        </div>
+        <select id="filterStatus" class="form-select" onchange="loadTests()">
+            <option value="">全部状态</option>
+            <option value="draft">草稿</option>
+            <option value="passed">通过</option>
+            <option value="failed">失败</option>
+        </select>
+    </div>
+    <div class="toolbar-right">
+        <button class="btn btn-success" onclick="batchRunTests()">
+            <i class="fas fa-play"></i> 批量执行
+        </button>
+        <button class="btn btn-primary" onclick="showCreateModal()">
+            <i class="fas fa-plus"></i> 新建测试
+        </button>
+    </div>
+</div>
+
+<!-- 测试列表 -->
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th width="40">
+                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                    </th>
+                    <th width="60">ID</th>
+                    <th>名称</th>
+                    <th width="80">方法</th>
+                    <th>URL</th>
+                    <th width="80">状态</th>
+                    <th width="100">上次执行</th>
+                    <th width="150">操作</th>
+                </tr>
+            </thead>
+            <tbody id="testsList"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <i class="fas fa-plug"></i>
+            <p>暂无API测试</p>
+            <button class="btn btn-primary" onclick="showCreateModal()">创建第一个测试</button>
+        </div>
+    </div>
+</div>
+
+<!-- 新建/编辑测试模态框 -->
+<div class="modal" id="editModal">
+    <div class="modal-content modal-xl">
+        <div class="modal-header">
+            <h3 id="editModalTitle">新建API测试</h3>
+            <button class="modal-close" onclick="hideModal('editModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editId">
+            <div class="form-group">
+                <label for="editName">测试名称 <span class="required">*</span></label>
+                <input type="text" id="editName" class="form-control" placeholder="如: 测试登录接口">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="editMethod">请求方法</label>
+                    <select id="editMethod" class="form-control">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editUrl">请求URL <span class="required">*</span></label>
+                    <input type="text" id="editUrl" class="form-control" placeholder="http://localhost:5000/api/login">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="editHeaders">请求头 (JSON格式)</label>
+                <textarea id="editHeaders" class="form-control code-editor" rows="3" placeholder='{"Content-Type": "application/json"}'></textarea>
+            </div>
+            <div class="form-group">
+                <label for="editBody">请求体</label>
+                <textarea id="editBody" class="form-control code-editor" rows="4" placeholder='{"username": "admin", "password": "admin123"}'></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="editExpectedStatus">预期状态码</label>
+                    <input type="number" id="editExpectedStatus" class="form-control" value="200">
+                </div>
+                <div class="form-group">
+                    <label for="editDescription">描述</label>
+                    <input type="text" id="editDescription" class="form-control" placeholder="测试描述">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="hideModal('editModal')">取消</button>
+            <button class="btn btn-success" onclick="runTestFromModal()">
+                <i class="fas fa-play"></i> 执行测试
+            </button>
+            <button class="btn btn-primary" onclick="saveTest()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 查看测试详情模态框 -->
+<div class="modal" id="detailModal">
+    <div class="modal-content modal-xl">
+        <div class="modal-header">
+            <h3>测试详情</h3>
+            <button class="modal-close" onclick="hideModal('detailModal')">&times;</button>
+        </div>
+        <div class="modal-body" id="detailContent">
+            <!-- 动态加载 -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="hideModal('detailModal')">关闭</button>
+            <button class="btn btn-success" onclick="runTestFromDetail()">
+                <i class="fas fa-play"></i> 执行测试
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedTestIds = new Set();
+let currentDetailId = null;
+
+// 页面加载
+document.addEventListener('DOMContentLoaded', function() {
+    loadTests();
+});
+
+// 加载测试列表
+function loadTests() {
+    const keyword = document.getElementById('searchKeyword').value;
+    const status = document.getElementById('filterStatus').value;
+    
+    let url = '/api/api-tests?';
+    if (keyword) url += `keyword=${encodeURIComponent(keyword)}&`;
+    if (status) url += `status=${status}`;
+    
+    api.get(url).then(data => {
+        renderTests(data.items || []);
+    });
+}
+
+// 渲染测试列表
+function renderTests(items) {
+    const tbody = document.getElementById('testsList');
+    const empty = document.getElementById('emptyState');
+    
+    if (items.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+    
+    empty.style.display = 'none';
+    tbody.innerHTML = items.map(t => `
+        <tr>
+            <td>
+                <input type="checkbox" class="test-checkbox" value="${t.id}" onchange="toggleSelect('${t.id}')">
+            </td>
+            <td>${t.id}</td>
+            <td><a href="javascript:void(0)" class="link-primary" onclick="viewTest('${t.id}')">${t.name}</a></td>
+            <td><span class="method-badge method-${t.method.toLowerCase()}">${t.method}</span></td>
+            <td><span class="url-text">${truncateUrl(t.url)}</span></td>
+            <td>${getStatusBadge(t.status)}</td>
+            <td>${t.last_run ? formatDate(t.last_run) : '-'}</td>
+            <td>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline" onclick="viewTest('${t.id}')" title="查看"><i class="fas fa-eye"></i></button>
+                    <button class="btn btn-sm btn-success" onclick="runTest('${t.id}')" title="执行"><i class="fas fa-play"></i></button>
+                    <button class="btn btn-sm btn-outline" onclick="editTest('${t.id}')" title="编辑"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteTest('${t.id}')" title="删除"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 截断URL显示
+function truncateUrl(url) {
+    if (!url) return '-';
+    return url.length > 40 ? url.substring(0, 40) + '...' : url;
+}
+
+// 选择相关
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.test-checkbox').forEach(cb => {
+        cb.checked = checked;
+        const id = cb.value;
+        if (checked) {
+            selectedTestIds.add(id);
+        } else {
+            selectedTestIds.delete(id);
+        }
+    });
+}
+
+function toggleSelect(id) {
+    if (selectedTestIds.has(id)) {
+        selectedTestIds.delete(id);
+    } else {
+        selectedTestIds.add(id);
+    }
+}
+
+// 显示创建模态框
+function showCreateModal() {
+    document.getElementById('editModalTitle').textContent = '新建API测试';
+    document.getElementById('editId').value = '';
+    document.getElementById('editName').value = '';
+    document.getElementById('editMethod').value = 'GET';
+    document.getElementById('editUrl').value = '';
+    document.getElementById('editHeaders').value = '{}';
+    document.getElementById('editBody').value = '';
+    document.getElementById('editExpectedStatus').value = '200';
+    document.getElementById('editDescription').value = '';
+    showModal('editModal');
+}
+
+// 编辑测试
+function editTest(id) {
+    api.get(`/api/api-tests/${id}`).then(t => {
+        document.getElementById('editModalTitle').textContent = '编辑API测试';
+        document.getElementById('editId').value = t.id;
+        document.getElementById('editName').value = t.name;
+        document.getElementById('editMethod').value = t.method;
+        document.getElementById('editUrl').value = t.url;
+        document.getElementById('editHeaders').value = JSON.stringify(t.headers || {}, null, 2);
+        document.getElementById('editBody').value = t.body || '';
+        document.getElementById('editExpectedStatus').value = t.expected_status;
+        document.getElementById('editDescription').value = t.description || '';
+        showModal('editModal');
+    });
+}
+
+// 保存测试
+function saveTest() {
+    const id = document.getElementById('editId').value;
+    const name = document.getElementById('editName').value.trim();
+    const url = document.getElementById('editUrl').value.trim();
+    
+    if (!name || !url) {
+        showAlert('请填写测试名称和URL', 'warning');
+        return;
+    }
+    
+    let headers = {};
+    try {
+        headers = JSON.parse(document.getElementById('editHeaders').value || '{}');
+    } catch (e) {
+        showAlert('请求头格式错误', 'warning');
+        return;
+    }
+    
+    const data = {
+        name,
+        method: document.getElementById('editMethod').value,
+        url,
+        headers,
+        body: document.getElementById('editBody').value,
+        expected_status: parseInt(document.getElementById('editExpectedStatus').value),
+        description: document.getElementById('editDescription').value
+    };
+    
+    const promise = id ? api.put(`/api/api-tests/${id}`, data) : api.post('/api/api-tests', data);
+    promise.then(() => {
+        showAlert(id ? '更新成功' : '创建成功', 'success');
+        hideModal('editModal');
+        loadTests();
+    });
+}
+
+// 查看测试详情
+function viewTest(id) {
+    api.get(`/api/api-tests/${id}`).then(t => {
+        currentDetailId = t.id;
+        document.getElementById('detailContent').innerHTML = `
+            <div class="detail-section">
+                <div class="detail-row"><span class="label">名称:</span><span>${t.name}</span></div>
+                <div class="detail-row"><span class="label">方法:</span><span class="method-badge method-${t.method.toLowerCase()}">${t.method}</span></div>
+                <div class="detail-row"><span class="label">URL:</span><span class="url-text">${t.url}</span></div>
+                <div class="detail-row"><span class="label">预期状态码:</span><span>${t.expected_status}</span></div>
+                <div class="detail-row"><span class="label">状态:</span>${getStatusBadge(t.status)}</div>
+                <div class="detail-row"><span class="label">创建时间:</span><span>${formatDate(t.created_at)}</span></div>
+            </div>
+            ${t.description ? `<div class="detail-section"><h4>描述</h4><div class="content-box">${t.description}</div></div>` : ''}
+            ${t.headers && Object.keys(t.headers).length > 0 ? `
+                <div class="detail-section">
+                    <h4>请求头</h4>
+                    <pre class="code-preview">${JSON.stringify(t.headers, null, 2)}</pre>
+                </div>
+            ` : ''}
+            ${t.body ? `
+                <div class="detail-section">
+                    <h4>请求体</h4>
+                    <pre class="code-preview">${t.body}</pre>
+                </div>
+            ` : ''}
+            ${t.last_result ? `
+                <div class="detail-section">
+                    <h4>上次执行结果</h4>
+                    <div class="result-box ${t.last_result.passed ? 'success' : 'failed'}">
+                        <p><strong>状态:</strong> ${t.last_result.passed ? '通过' : '失败'}</p>
+                        <p><strong>状态码:</strong> ${t.last_result.status_code || '-'}</p>
+                        ${t.last_result.response_time ? `<p><strong>响应时间:</strong> ${t.last_result.response_time.toFixed(3)}秒</p>` : ''}
+                        ${t.last_result.error ? `<p><strong>错误:</strong> ${t.last_result.error}</p>` : ''}
+                    </div>
+                </div>
+            ` : ''}
+        `;
+        showModal('detailModal');
+    });
+}
+
+// 执行测试
+function runTest(id) {
+    showAlert('正在执行测试...', 'info');
+    api.post(`/api/api-tests/${id}/run`).then(result => {
+        if (result.passed) {
+            showAlert('测试通过', 'success');
+        } else {
+            showAlert('测试失败: ' + (result.error || `状态码: ${result.status_code}`), 'danger');
+        }
+        loadTests();
+    });
+}
+
+// 从模态框执行测试
+function runTestFromModal() {
+    const url = document.getElementById('editUrl').value.trim();
+    if (!url) {
+        showAlert('请先填写URL', 'warning');
+        return;
+    }
+    
+    // 先保存再执行
+    saveTest();
+    setTimeout(() => {
+        const id = document.getElementById('editId').value;
+        if (id) runTest(id);
+    }, 500);
+}
+
+// 从详情页执行测试
+function runTestFromDetail() {
+    if (currentDetailId) {
+        hideModal('detailModal');
+        runTest(currentDetailId);
+    }
+}
+
+// 批量执行
+function batchRunTests() {
+    if (selectedTestIds.size === 0) {
+        showAlert('请先选择要执行的测试', 'warning');
+        return;
+    }
+    
+    showAlert(`正在批量执行 ${selectedTestIds.size} 个测试...`, 'info');
+    api.post('/api/api-tests/batch-run', { test_ids: Array.from(selectedTestIds) }).then(data => {
+        const passed = data.results.filter(r => r.passed).length;
+        const failed = data.results.length - passed;
+        showAlert(`批量执行完成: ${passed} 通过, ${failed} 失败`, passed === data.results.length ? 'success' : 'warning');
+        loadTests();
+    });
+}
+
+// 删除测试
+function deleteTest(id) {
+    if (confirm('确定要删除这个测试吗？')) {
+        api.delete(`/api/api-tests/${id}`).then(() => {
+            showAlert('删除成功', 'success');
+            loadTests();
+        });
+    }
+}
+</script>
+
+<style>
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.toolbar-left {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 10px;
+}
+
+.search-box {
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+}
+
+.search-box input {
+    padding-left: 36px;
+    width: 200px;
+}
+
+.form-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.method-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.method-get { background: #d4edda; color: #155724; }
+.method-post { background: #cce5ff; color: #004085; }
+.method-put { background: #fff3cd; color: #856404; }
+.method-delete { background: #f8d7da; color: #721c24; }
+
+.url-text {
+    font-family: monospace;
+    font-size: 12px;
+    color: #666;
+}
+
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.detail-section h4 {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.detail-row {
+    display: flex;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.detail-row .label {
+    width: 100px;
+    color: #999;
+}
+
+.content-box, .code-preview {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.code-editor {
+    font-family: monospace;
+    font-size: 13px;
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+.result-box {
+    padding: 15px;
+    border-radius: 6px;
+}
+
+.result-box.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.result-box.failed {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.empty-state p {
+    margin-bottom: 15px;
+}
+
+.link-primary {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.link-primary:hover {
+    text-decoration: underline;
+}
+
+.btn-group {
+    display: flex;
+    gap: 5px;
+}
+
+.modal-xl .modal-content {
+    max-width: 800px;
+}
+
+.required {
+    color: #dc3545;
+}
+</style>
+{% endblock %}

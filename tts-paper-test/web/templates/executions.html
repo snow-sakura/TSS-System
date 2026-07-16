@@ -1,0 +1,262 @@
+{% extends "layouts/sub_page.html" %}
+
+{% block title %}测试执行 - TSS AI测试平台{% endblock %}
+{% block page_title %}测试执行{% endblock %}
+
+{% set group_title = '核心测试流程' %}
+{% set sub_items = [
+    ('/requirements', 'fa-file-alt', '需求分析'),
+    ('/test-points', 'fa-crosshairs', '测试点管理'),
+    ('/test-plans', 'fa-clipboard-list', '测试方案'),
+    ('/test-cases', 'fa-list-check', '测试用例'),
+    ('/executions', 'fa-play-circle', '测试执行'),
+    ('/reports', 'fa-chart-bar', '分析报告'),
+] %}
+
+{% block sub_content %}
+<!-- 执行控制卡片 -->
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-[#5D4037]"><i class="fas fa-play-circle text-[#D4A574] mr-2"></i>执行控制</h3>
+        <div id="statusIndicator" class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E8F5E9] text-[#2E7D32] text-sm font-medium">
+            <span class="w-2 h-2 rounded-full bg-[#81C784]"></span>
+            <span id="statusText">空闲</span>
+        </div>
+    </div>
+    <div class="p-6">
+        <!-- 选择执行用例 -->
+        <div id="executionForm">
+            <label class="block text-sm font-medium text-[#5D4037] mb-3">选择要执行的测试用例</label>
+            <div class="border border-[#EDE0D4] rounded-xl overflow-hidden">
+                <div class="flex items-center gap-3 px-4 py-3 bg-[#FEF9F4] border-b border-[#EDE0D4]">
+                    <input type="checkbox" id="selectAllCases" onchange="toggleAllCases()" class="w-4 h-4 rounded border-[#BCAAA4] text-[#D4A574] focus:ring-[#D4A574]">
+                    <span class="text-sm text-[#5D4037]">全选</span>
+                    <span class="ml-auto text-sm text-[#8D6E63]">已选 <strong id="selectedCount" class="text-[#D4A574]">0</strong> 个用例</span>
+                </div>
+                <div id="caseList" class="max-h-64 overflow-y-auto">
+                    <!-- 动态加载用例列表 -->
+                </div>
+            </div>
+            <div class="flex justify-center mt-6">
+                <button id="startBtn" onclick="startExecution()" class="px-8 py-3 bg-[#D4A574] text-white rounded-xl font-medium hover:bg-[#C08D5E] transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-play mr-2"></i>开始执行
+                </button>
+            </div>
+        </div>
+
+        <!-- 执行进度 -->
+        <div id="executionProgress" class="hidden mt-6">
+            <div class="flex justify-between items-center mb-2">
+                <span id="phaseText" class="text-sm font-medium text-[#5D4037]">准备中...</span>
+                <span id="progressPercent" class="text-sm font-semibold text-[#D4A574]">0%</span>
+            </div>
+            <div class="w-full h-2 bg-[#F7EDE4] rounded-full overflow-hidden">
+                <div id="progressBar" class="h-full bg-gradient-to-r from-[#D4A574] to-[#C08D5E] transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between items-center mt-2 text-sm text-[#8D6E63]">
+                <span id="progressDetail">正在初始化...</span>
+                <span id="elapsedTime">耗时: 0秒</span>
+            </div>
+        </div>
+
+        <!-- 执行结果统计 -->
+        <div id="executionResults" class="hidden mt-6">
+            <h4 class="text-lg font-semibold text-[#5D4037] mb-4">执行结果</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-4 bg-[#FEF9F4] rounded-xl border-l-4 border-[#BCAAA4]">
+                    <div class="text-2xl font-bold text-[#5D4037]" id="resultTotal">0</div>
+                    <div class="text-sm text-[#8D6E63]">总用例</div>
+                </div>
+                <div class="text-center p-4 bg-[#E8F5E9] rounded-xl border-l-4 border-[#81C784]">
+                    <div class="text-2xl font-bold text-[#2E7D32]" id="resultPassed">0</div>
+                    <div class="text-sm text-[#8D6E63]">通过</div>
+                </div>
+                <div class="text-center p-4 bg-[#FFEBEE] rounded-xl border-l-4 border-[#E57373]">
+                    <div class="text-2xl font-bold text-[#C62828]" id="resultFailed">0</div>
+                    <div class="text-sm text-[#8D6E63]">失败</div>
+                </div>
+                <div class="text-center p-4 bg-[#FFF8E1] rounded-xl border-l-4 border-[#FFD54F]">
+                    <div class="text-2xl font-bold text-[#F57F17]" id="resultRate">0%</div>
+                    <div class="text-sm text-[#8D6E63]">通过率</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 执行历史 -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-[#5D4037]"><i class="fas fa-history text-[#D4A574] mr-2"></i>执行历史</h3>
+        <button onclick="loadExecutions()" class="text-sm text-[#D4A574] hover:text-[#C08D5E]">
+            <i class="fas fa-sync-alt mr-1"></i>刷新
+        </button>
+    </div>
+    <div class="p-6">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-[#EDE0D4]">
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">ID</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">状态</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">用例数</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">通过/失败</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">通过率</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">开始时间</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">耗时</th>
+                    <th class="text-left text-xs font-semibold text-[#8D6E63] uppercase tracking-wider pb-3">操作</th>
+                </tr>
+            </thead>
+            <tbody id="executionsList">
+                <!-- 动态加载 -->
+            </tbody>
+        </table>
+        <div id="emptyState" class="hidden py-12 text-center">
+            <i class="fas fa-play-circle text-4xl text-[#EDE0D4] mb-3"></i>
+            <p class="text-[#8D6E63]">暂无执行记录</p>
+        </div>
+    </div>
+</div>
+
+<!-- 执行详情模态框 -->
+<div id="detailModal" class="modal-overlay hidden">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 class="text-lg font-semibold text-[#5D4037]">执行详情</h3>
+            <button onclick="hideModal('detailModal')" class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body p-6">
+            <div class="space-y-4">
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm text-[#8D6E63]">执行ID:</span>
+                    <span id="detailId" class="text-[#5D4037]"></span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm text-[#8D6E63]">状态:</span>
+                    <span id="detailStatus"></span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm text-[#8D6E63]">开始时间:</span>
+                    <span id="detailStartTime" class="text-[#5D4037]"></span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm text-[#8D6E63]">结束时间:</span>
+                    <span id="detailEndTime" class="text-[#5D4037]">-</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="w-24 text-sm text-[#8D6E63]">耗时:</span>
+                    <span id="detailDuration" class="text-[#5D4037]">-</span>
+                </div>
+            </div>
+            <div id="resultSection" class="hidden mt-6 pt-6 border-t border-[#EDE0D4]">
+                <h4 class="text-base font-semibold text-[#5D4037] mb-4">结果统计</h4>
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="text-center p-3 bg-[#FEF9F4] rounded-lg">
+                        <div class="text-xl font-bold text-[#5D4037]" id="detailTotal">0</div>
+                        <div class="text-xs text-[#8D6E63]">总用例</div>
+                    </div>
+                    <div class="text-center p-3 bg-[#E8F5E9] rounded-lg">
+                        <div class="text-xl font-bold text-[#2E7D32]" id="detailPassed">0</div>
+                        <div class="text-xs text-[#8D6E63]">通过</div>
+                    </div>
+                    <div class="text-center p-3 bg-[#FFEBEE] rounded-lg">
+                        <div class="text-xl font-bold text-[#C62828]" id="detailFailed">0</div>
+                        <div class="text-xs text-[#8D6E63]">失败</div>
+                    </div>
+                    <div class="text-center p-3 bg-[#FFF8E1] rounded-lg">
+                        <div class="text-xl font-bold text-[#F57F17]" id="detailRate">0%</div>
+                        <div class="text-xs text-[#8D6E63]">通过率</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="hideModal('detailModal')" class="px-4 py-2 bg-[#F7EDE4] text-[#8D6E63] rounded-lg hover:bg-[#EDE0D4] transition-colors">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 加载执行历史
+function loadExecutions() {
+    api.get('/api/executions').then(data => {
+        renderExecutions(data.items || []);
+    });
+}
+
+function renderExecutions(items) {
+    const tbody = document.getElementById('executionsList');
+    const empty = document.getElementById('emptyState');
+    
+    if (items.length === 0) {
+        tbody.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+    }
+    
+    empty.classList.add('hidden');
+    items.sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
+    
+    tbody.innerHTML = items.map(exec => {
+        const result = exec.results || {};
+        const passRate = result.pass_rate ? result.pass_rate + '%' : '-';
+        const passFail = result.passed !== undefined ? `${result.passed}/${result.failed}` : '-';
+        const duration = exec.finished_at ? 
+            Math.round((new Date(exec.finished_at) - new Date(exec.started_at)) / 1000) + '秒' : '-';
+        
+        return `
+            <tr class="border-b border-[#F5EDE6] hover:bg-[#FEF9F4] transition-colors">
+                <td class="py-4 px-4 text-sm text-[#5D4037]">${exec.id.substring(0, 8)}</td>
+                <td class="py-4 px-4">${getStatusBadge(exec.status)}</td>
+                <td class="py-4 px-4 text-sm text-[#5D4037]">${result.total || '-'}</td>
+                <td class="py-4 px-4 text-sm text-[#5D4037]">${passFail}</td>
+                <td class="py-4 px-4">
+                    <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getPassRateClass(result.pass_rate)}">${passRate}</span>
+                </td>
+                <td class="py-4 px-4 text-sm text-[#8D6E63]">${formatDate(exec.started_at)}</td>
+                <td class="py-4 px-4 text-sm text-[#8D6E63]">${duration}</td>
+                <td class="py-4 px-4">
+                    <button onclick="viewExecution('${exec.id}')" class="px-3 py-1.5 bg-[#FEF9F4] text-[#D4A574] rounded-lg text-sm hover:bg-[#F7EDE4] transition-colors">
+                        <i class="fas fa-eye mr-1"></i>查看
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function getPassRateClass(rate) {
+    if (rate === undefined) return '';
+    if (rate >= 90) return 'bg-[#E8F5E9] text-[#2E7D32]';
+    if (rate >= 70) return 'bg-[#FFF8E1] text-[#F57F17]';
+    return 'bg-[#FFEBEE] text-[#C62828]';
+}
+
+function viewExecution(id) {
+    api.get(`/api/executions/${id}`).then(exec => {
+        document.getElementById('detailId').textContent = exec.id.substring(0, 8);
+        document.getElementById('detailStatus').innerHTML = getStatusBadge(exec.status);
+        document.getElementById('detailStartTime').textContent = formatDate(exec.started_at);
+        document.getElementById('detailEndTime').textContent = exec.finished_at ? formatDate(exec.finished_at) : '-';
+        
+        const duration = exec.finished_at ? 
+            Math.round((new Date(exec.finished_at) - new Date(exec.started_at)) / 1000) + '秒' : '-';
+        document.getElementById('detailDuration').textContent = duration;
+        
+        if (exec.results) {
+            document.getElementById('resultSection').classList.remove('hidden');
+            document.getElementById('detailTotal').textContent = exec.results.total;
+            document.getElementById('detailPassed').textContent = exec.results.passed;
+            document.getElementById('detailFailed').textContent = exec.results.failed;
+            document.getElementById('detailRate').textContent = exec.results.pass_rate + '%';
+        }
+        
+        showModal('detailModal');
+    });
+}
+
+// 页面加载时执行
+document.addEventListener('DOMContentLoaded', function() {
+    loadExecutions();
+});
+</script>
+{% endblock %}

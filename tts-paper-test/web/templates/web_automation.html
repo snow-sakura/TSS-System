@@ -1,0 +1,892 @@
+{% extends "layouts/sub_page.html" %}
+
+{% block title %}Web自动化测试 - TSS AI测试平台{% endblock %}
+{% block page_title %}Web自动化测试{% endblock %}
+
+{% set group_title = '扩展测试' %}
+{% set sub_items = [
+    ('/web-automation', 'fa-robot', 'Web自动化'),
+    ('/api-testing', 'fa-plug', 'API测试'),
+    ('/performance-testing', 'fa-tachometer-alt', '性能测试'),
+] %}
+
+{% block sub_content %}
+<!-- 工具栏 -->
+<div class="toolbar">
+    <div class="toolbar-left">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchKeyword" placeholder="搜索脚本..." oninput="loadScripts()">
+        </div>
+        <select id="filterStatus" class="form-select" onchange="loadScripts()">
+            <option value="">全部状态</option>
+            <option value="draft">草稿</option>
+            <option value="running">执行中</option>
+            <option value="completed">已完成</option>
+            <option value="failed">失败</option>
+        </select>
+    </div>
+    <div class="toolbar-right">
+        <button class="btn btn-success" onclick="showRecordModal()">
+            <i class="fas fa-video"></i> 录制脚本
+        </button>
+        <button class="btn btn-primary" onclick="showCreateModal()">
+            <i class="fas fa-plus"></i> 新建脚本
+        </button>
+    </div>
+</div>
+
+<!-- 脚本列表 -->
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th width="60">ID</th>
+                    <th>名称</th>
+                    <th>目标URL</th>
+                    <th width="60">步骤</th>
+                    <th width="80">状态</th>
+                    <th width="100">上次执行</th>
+                    <th width="150">操作</th>
+                </tr>
+            </thead>
+            <tbody id="scriptsList"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <i class="fas fa-robot"></i>
+            <p>暂无自动化脚本</p>
+            <button class="btn btn-primary" onclick="showCreateModal()">创建第一个脚本</button>
+        </div>
+    </div>
+</div>
+
+<!-- 统计信息 -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fas fa-file-code"></i></div>
+        <div class="stat-info">
+            <h3 id="totalScripts">0</h3>
+            <p>脚本总数</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green"><i class="fas fa-play-circle"></i></div>
+        <div class="stat-info">
+            <h3 id="totalExecutions">0</h3>
+            <p>执行次数</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon orange"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-info">
+            <h3 id="successRate">0%</h3>
+            <p>成功率</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple"><i class="fas fa-clock"></i></div>
+        <div class="stat-info">
+            <h3 id="avgDuration">0s</h3>
+            <p>平均耗时</p>
+        </div>
+    </div>
+</div>
+
+<!-- 执行历史 -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-history"></i> 执行历史</h3>
+    </div>
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>脚本名称</th>
+                    <th>状态</th>
+                    <th>耗时</th>
+                    <th>步骤</th>
+                    <th>执行时间</th>
+                </tr>
+            </thead>
+            <tbody id="historyList"></tbody>
+        </table>
+        <div id="historyEmpty" class="empty-state-sm" style="display: none;">
+            暂无执行记录
+        </div>
+    </div>
+</div>
+
+<!-- 新建/编辑脚本模态框 -->
+<div class="modal" id="editModal">
+    <div class="modal-content modal-xl">
+        <div class="modal-header">
+            <h3 id="editModalTitle">新建脚本</h3>
+            <button class="modal-close" onclick="hideModal('editModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editId">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="editName">脚本名称 <span class="required">*</span></label>
+                    <input type="text" id="editName" class="form-control" placeholder="如: 登录测试">
+                </div>
+                <div class="form-group">
+                    <label for="editTargetUrl">目标URL <span class="required">*</span></label>
+                    <input type="text" id="editTargetUrl" class="form-control" placeholder="http://localhost:5000">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="editDescription">描述</label>
+                <textarea id="editDescription" class="form-control" rows="2" placeholder="描述脚本功能"></textarea>
+            </div>
+            <div class="form-group">
+                <label>测试步骤</label>
+                <div id="stepsContainer" class="steps-container">
+                    <!-- 动态生成步骤 -->
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="addStep()">
+                    <i class="fas fa-plus"></i> 添加步骤
+                </button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="hideModal('editModal')">取消</button>
+            <button class="btn btn-primary" onclick="saveScript()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 录制脚本模态框 -->
+<div class="modal" id="recordModal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>录制新脚本</h3>
+            <button class="modal-close" onclick="hideModal('recordModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="recordTargetUrl">目标网站URL <span class="required">*</span></label>
+                <input type="text" id="recordTargetUrl" class="form-control" placeholder="http://localhost:5000">
+            </div>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                录制功能将打开目标网站，记录您的所有操作步骤。
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="hideModal('recordModal')">取消</button>
+            <button class="btn btn-success" onclick="startRecording()">
+                <i class="fas fa-circle"></i> 开始录制
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 查看脚本详情模态框 -->
+<div class="modal" id="detailModal">
+    <div class="modal-content modal-xl">
+        <div class="modal-header">
+            <h3>脚本详情</h3>
+            <button class="modal-close" onclick="hideModal('detailModal')">&times;</button>
+        </div>
+        <div class="modal-body" id="detailContent">
+            <!-- 动态加载 -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="hideModal('detailModal')">关闭</button>
+            <button class="btn btn-primary" id="editFromDetailBtn" onclick="editFromDetail()">
+                <i class="fas fa-edit"></i> 编辑
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentDetailId = null;
+let stepCount = 0;
+
+// 页面加载
+document.addEventListener('DOMContentLoaded', function() {
+    loadScripts();
+    loadStats();
+    loadHistory();
+});
+
+// 加载统计信息
+function loadStats() {
+    api.get('/api/web-scripts/stats').then(data => {
+        document.getElementById('totalScripts').textContent = data.total_scripts || 0;
+        document.getElementById('totalExecutions').textContent = data.total_executions || 0;
+        document.getElementById('successRate').textContent = (data.success_rate || 0) + '%';
+        document.getElementById('avgDuration').textContent = (data.avg_duration || 0) + 's';
+    });
+}
+
+// 加载执行历史
+function loadHistory() {
+    api.get('/api/web-scripts/stats').then(() => {
+        // 从所有脚本的历史中获取
+        api.get('/api/web-scripts').then(data => {
+            const scripts = data.items || [];
+            let allHistory = [];
+            scripts.forEach(s => {
+                if (s.last_result) {
+                    allHistory.push({
+                        script_id: s.id,
+                        script_name: s.name,
+                        status: s.status,
+                        duration: s.last_result.duration,
+                        steps_passed: s.last_result.steps_passed,
+                        steps_total: s.last_result.steps_total,
+                        executed_at: s.last_run
+                    });
+                }
+            });
+            renderHistory(allHistory.sort((a, b) => new Date(b.executed_at) - new Date(a.executed_at)));
+        });
+    });
+}
+
+// 渲染执行历史
+function renderHistory(items) {
+    const tbody = document.getElementById('historyList');
+    const empty = document.getElementById('historyEmpty');
+    
+    if (items.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+    
+    empty.style.display = 'none';
+    tbody.innerHTML = items.slice(0, 10).map(h => `
+        <tr>
+            <td>${h.script_id}</td>
+            <td>${h.script_name}</td>
+            <td>${getStatusBadge(h.status)}</td>
+            <td>${h.duration || '-'}s</td>
+            <td>${h.steps_passed || 0}/${h.steps_total || 0}</td>
+            <td>${h.executed_at ? formatDate(h.executed_at) : '-'}</td>
+        </tr>
+    `).join('');
+}
+
+// 加载脚本列表
+function loadScripts() {
+    const keyword = document.getElementById('searchKeyword').value;
+    const status = document.getElementById('filterStatus').value;
+    
+    let url = '/api/web-scripts?';
+    if (keyword) url += `keyword=${encodeURIComponent(keyword)}&`;
+    if (status) url += `status=${status}`;
+    
+    api.get(url).then(data => {
+        renderScripts(data.items || []);
+    });
+}
+
+// 渲染脚本列表
+function renderScripts(items) {
+    const tbody = document.getElementById('scriptsList');
+    const empty = document.getElementById('emptyState');
+    
+    if (items.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+    
+    empty.style.display = 'none';
+    tbody.innerHTML = items.map(s => `
+        <tr>
+            <td>${s.id}</td>
+            <td><a href="javascript:void(0)" class="link-primary" onclick="viewScript('${s.id}')">${s.name}</a></td>
+            <td><span class="url-text">${truncateUrl(s.target_url)}</span></td>
+            <td>${(s.steps || []).length}</td>
+            <td>${getStatusBadge(s.status)}</td>
+            <td>${s.last_run ? formatDate(s.last_run) : '-'}</td>
+            <td>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline" onclick="viewScript('${s.id}')" title="查看"><i class="fas fa-eye"></i></button>
+                    <button class="btn btn-sm btn-success" onclick="runScript('${s.id}')" title="执行" ${s.status === 'running' ? 'disabled' : ''}>
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline" onclick="editScript('${s.id}')" title="编辑"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline" onclick="duplicateScript('${s.id}')" title="复制"><i class="fas fa-copy"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteScript('${s.id}')" title="删除"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 截断URL显示
+function truncateUrl(url) {
+    if (!url) return '-';
+    return url.length > 30 ? url.substring(0, 30) + '...' : url;
+}
+
+// 显示创建模态框
+function showCreateModal() {
+    document.getElementById('editModalTitle').textContent = '新建脚本';
+    document.getElementById('editId').value = '';
+    document.getElementById('editName').value = '';
+    document.getElementById('editTargetUrl').value = '';
+    document.getElementById('editDescription').value = '';
+    document.getElementById('stepsContainer').innerHTML = '';
+    stepCount = 0;
+    addStep();
+    showModal('editModal');
+}
+
+// 显示录制模态框
+function showRecordModal() {
+    document.getElementById('recordTargetUrl').value = '';
+    showModal('recordModal');
+}
+
+// 添加步骤
+function addStep(action = 'click', target = '', value = '') {
+    stepCount++;
+    const stepsContainer = document.getElementById('stepsContainer');
+    const stepHtml = `
+        <div class="step-item" id="step-${stepCount}">
+            <div class="step-header">
+                <span class="step-number">${stepCount}</span>
+                <select class="form-select step-action" data-step="${stepCount}">
+                    <option value="navigate" ${action === 'navigate' ? 'selected' : ''}>导航</option>
+                    <option value="click" ${action === 'click' ? 'selected' : ''}>点击</option>
+                    <option value="input" ${action === 'input' ? 'selected' : ''}>输入</option>
+                    <option value="select" ${action === 'select' ? 'selected' : ''}>选择</option>
+                    <option value="hover" ${action === 'hover' ? 'selected' : ''}>悬停</option>
+                    <option value="scroll" ${action === 'scroll' ? 'selected' : ''}>滚动</option>
+                    <option value="wait" ${action === 'wait' ? 'selected' : ''}>等待</option>
+                    <option value="assert" ${action === 'assert' ? 'selected' : ''}>断言</option>
+                    <option value="screenshot" ${action === 'screenshot' ? 'selected' : ''}>截图</option>
+                </select>
+                <input type="text" class="form-control step-target" placeholder="目标选择器" value="${target}">
+                <input type="text" class="form-control step-value" placeholder="值" value="${value}">
+                <button class="btn btn-sm btn-danger" onclick="removeStep(${stepCount})"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+    `;
+    stepsContainer.insertAdjacentHTML('beforeend', stepHtml);
+}
+
+// 移除步骤
+function removeStep(num) {
+    const step = document.getElementById(`step-${num}`);
+    if (step) step.remove();
+}
+
+// 保存脚本
+function saveScript() {
+    const id = document.getElementById('editId').value;
+    const name = document.getElementById('editName').value.trim();
+    const targetUrl = document.getElementById('editTargetUrl').value.trim();
+    
+    if (!name || !targetUrl) {
+        showAlert('请填写脚本名称和目标URL', 'warning');
+        return;
+    }
+    
+    // 收集步骤
+    const steps = [];
+    document.querySelectorAll('.step-item').forEach(item => {
+        steps.push({
+            action: item.querySelector('.step-action').value,
+            target: item.querySelector('.step-target').value,
+            value: item.querySelector('.step-value').value
+        });
+    });
+    
+    const data = {
+        name,
+        target_url: targetUrl,
+        description: document.getElementById('editDescription').value.trim(),
+        steps
+    };
+    
+    const promise = id ? api.put(`/api/web-scripts/${id}`, data) : api.post('/api/web-scripts', data);
+    promise.then(() => {
+        showAlert(id ? '更新成功' : '创建成功', 'success');
+        hideModal('editModal');
+        loadScripts();
+    });
+}
+
+// 编辑脚本
+function editScript(id) {
+    api.get(`/api/web-scripts/${id}`).then(s => {
+        document.getElementById('editModalTitle').textContent = '编辑脚本';
+        document.getElementById('editId').value = s.id;
+        document.getElementById('editName').value = s.name;
+        document.getElementById('editTargetUrl').value = s.target_url || '';
+        document.getElementById('editDescription').value = s.description || '';
+        
+        // 加载步骤
+        document.getElementById('stepsContainer').innerHTML = '';
+        stepCount = 0;
+        (s.steps || []).forEach(step => {
+            addStep(step.action, step.target, step.value);
+        });
+        
+        showModal('editModal');
+    });
+}
+
+// 查看脚本详情
+function viewScript(id) {
+    api.get(`/api/web-scripts/${id}`).then(s => {
+        currentDetailId = s.id;
+        document.getElementById('detailContent').innerHTML = `
+            <div class="detail-section">
+                <div class="detail-row"><span class="label">名称:</span><span>${s.name}</span></div>
+                <div class="detail-row"><span class="label">目标URL:</span><span class="url-text">${s.target_url || '-'}</span></div>
+                <div class="detail-row"><span class="label">状态:</span>${getStatusBadge(s.status)}</div>
+                <div class="detail-row"><span class="label">创建时间:</span><span>${formatDate(s.created_at)}</span></div>
+                ${s.last_run ? `<div class="detail-row"><span class="label">上次执行:</span><span>${formatDate(s.last_run)}</span></div>` : ''}
+            </div>
+            ${s.description ? `<div class="detail-section"><h4>描述</h4><div class="content-box">${s.description}</div></div>` : ''}
+            <div class="detail-section">
+                <h4>测试步骤 (${(s.steps || []).length}个)</h4>
+                <div class="steps-list">
+                    ${(s.steps || []).map((step, i) => `
+                        <div class="step-preview">
+                            <span class="step-num">${i + 1}</span>
+                            <span class="step-action-tag">${getActionLabel(step.action)}</span>
+                            <span class="step-target">${step.target}</span>
+                            ${step.value ? `<span class="step-value">→ ${step.value}</span>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            ${s.last_result ? `
+                <div class="detail-section">
+                    <h4>上次执行结果</h4>
+                    <div class="result-box ${s.last_result.passed ? 'success' : 'failed'}">
+                        <p><strong>状态:</strong> ${s.last_result.passed ? '通过' : '失败'}</p>
+                        <p><strong>耗时:</strong> ${s.last_result.duration}秒</p>
+                        <p><strong>步骤:</strong> ${s.last_result.steps_passed}/${s.last_result.steps_total}</p>
+                    </div>
+                </div>
+            ` : ''}
+        `;
+        showModal('detailModal');
+    });
+}
+
+// 获取操作标签
+function getActionLabel(action) {
+    const labels = {
+        'navigate': '导航',
+        'click': '点击',
+        'input': '输入',
+        'select': '选择',
+        'hover': '悬停',
+        'scroll': '滚动',
+        'wait': '等待',
+        'assert': '断言',
+        'screenshot': '截图'
+    };
+    return labels[action] || action;
+}
+
+// 从详情页编辑
+function editFromDetail() {
+    hideModal('detailModal');
+    editScript(currentDetailId);
+}
+
+// 执行脚本
+function runScript(id) {
+    if (confirm('确定要执行这个脚本吗？')) {
+        showAlert('正在执行脚本...', 'info');
+        api.post(`/api/web-scripts/${id}/run`).then(data => {
+            showAlert('脚本开始执行', 'success');
+            // 轮询执行状态
+            pollScriptStatus(id);
+            loadScripts();
+        });
+    }
+}
+
+// 轮询脚本执行状态
+function pollScriptStatus(id) {
+    const checkStatus = () => {
+        api.get(`/api/web-scripts/${id}`).then(script => {
+            if (script.status === 'completed' || script.status === 'failed') {
+                if (script.last_result) {
+                    const result = script.last_result;
+                    if (result.passed) {
+                        showAlert(`脚本执行成功: ${result.steps_passed}/${result.steps_total} 步骤通过`, 'success');
+                    } else {
+                        showAlert(`脚本执行失败: ${result.log || '未知错误'}`, 'danger');
+                    }
+                }
+            } else if (script.status === 'running') {
+                setTimeout(checkStatus, 1000);
+            }
+        });
+    };
+    setTimeout(checkStatus, 1000);
+}
+
+// 开始录制
+function startRecording() {
+    const targetUrl = document.getElementById('recordTargetUrl').value.trim();
+    if (!targetUrl) {
+        showAlert('请输入目标网站URL', 'warning');
+        return;
+    }
+    
+    // 模拟录制
+    showAlert('录制功能需要浏览器扩展支持，目前使用模拟录制', 'info');
+    
+    api.post('/api/web-scripts/0/record', { target_url: targetUrl }).then(data => {
+        // 创建新脚本
+        const scriptData = {
+            name: `录制的脚本 - ${new Date().toLocaleString()}`,
+            target_url: targetUrl,
+            description: '通过录制功能创建的脚本',
+            steps: data.steps || []
+        };
+        
+        api.post('/api/web-scripts', scriptData).then(() => {
+            showAlert('录制完成，脚本已创建', 'success');
+            hideModal('recordModal');
+            loadScripts();
+        });
+    });
+}
+
+// 删除脚本
+function deleteScript(id) {
+    if (confirm('确定要删除这个脚本吗？')) {
+        api.delete(`/api/web-scripts/${id}`).then(() => {
+            showAlert('删除成功', 'success');
+            loadScripts();
+        });
+    }
+}
+
+// 复制脚本
+function duplicateScript(id) {
+    api.get(`/api/web-scripts/${id}`).then(script => {
+        const newScript = {
+            name: `${script.name} (副本)`,
+            description: script.description,
+            target_url: script.target_url,
+            steps: script.steps || []
+        };
+        
+        api.post('/api/web-scripts', newScript).then(() => {
+            showAlert('脚本复制成功', 'success');
+            loadScripts();
+        });
+    });
+}
+</script>
+
+<style>
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.toolbar-left {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 10px;
+}
+
+.search-box {
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+}
+
+.search-box input {
+    padding-left: 36px;
+    width: 200px;
+}
+
+.form-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.url-text {
+    font-family: monospace;
+    font-size: 12px;
+    color: #666;
+}
+
+.steps-container {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.step-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.step-header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.step-number {
+    width: 24px;
+    height: 24px;
+    background: #667eea;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.step-action {
+    width: 100px;
+}
+
+.step-target, .step-value {
+    flex: 1;
+}
+
+.steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.step-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.step-num {
+    width: 24px;
+    height: 24px;
+    background: #667eea;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.step-action-tag {
+    padding: 2px 8px;
+    background: #e3f2fd;
+    color: #1976d2;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.step-target {
+    font-family: monospace;
+    font-size: 13px;
+    color: #333;
+}
+
+.step-value {
+    color: #666;
+    font-size: 13px;
+}
+
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.detail-section h4 {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.detail-row {
+    display: flex;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.detail-row .label {
+    width: 80px;
+    color: #999;
+}
+
+.content-box {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    white-space: pre-wrap;
+}
+
+.result-box {
+    padding: 15px;
+    border-radius: 6px;
+}
+
+.result-box.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.result-box.failed {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.empty-state p {
+    margin-bottom: 15px;
+}
+
+.link-primary {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.link-primary:hover {
+    text-decoration: underline;
+}
+
+.btn-group {
+    display: flex;
+    gap: 5px;
+}
+
+.modal-xl .modal-content {
+    max-width: 900px;
+}
+
+.modal-lg .modal-content {
+    max-width: 600px;
+}
+
+.required {
+    color: #dc3545;
+}
+
+.alert {
+    padding: 12px 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+}
+
+.alert-info {
+    background: #cce5ff;
+    color: #004085;
+    border: 1px solid #b8daff;
+}
+
+/* 统计信息 */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    font-size: 20px;
+    color: white;
+}
+
+.stat-icon.blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.stat-icon.green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+.stat-icon.orange { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.stat-icon.purple { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+
+.stat-info h3 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.stat-info p {
+    color: #888;
+    font-size: 13px;
+}
+
+.empty-state-sm {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+}
+</style>
+{% endblock %}

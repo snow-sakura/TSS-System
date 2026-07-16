@@ -1,0 +1,173 @@
+{% extends "layouts/sub_page.html" %}
+
+{% block title %}Skill配置 - TSS AI测试平台{% endblock %}
+{% block page_title %}Skill配置{% endblock %}
+
+{% set group_title = '配置管理' %}
+{% set sub_items = [
+    ('/knowledge', 'fa-database', '知识库'),
+    ('/agents', 'fa-brain', 'Agent配置'),
+    ('/mcp-services', 'fa-plug', 'MCP服务'),
+    ('/skills', 'fa-magic', 'Skill配置'),
+    ('/prompts', 'fa-comment-dots', '提示词工程'),
+    ('/llm', 'fa-microchip', '大模型配置'),
+] %}
+
+{% block sub_content %}
+<!-- 工具栏 -->
+<div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+        <div class="relative">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[#BCAAA4]"></i>
+            <input type="text" id="searchKeyword" placeholder="搜索Skill..." oninput="loadSkills()" class="pl-10 pr-4 py-2 border border-[#EDE0D4] rounded-lg text-sm focus:outline-none focus:border-[#D4A574] w-64">
+        </div>
+    </div>
+    <button onclick="showCreateModal()" class="px-4 py-2 bg-[#D4A574] text-white rounded-lg text-sm font-medium hover:bg-[#C08D5E] transition-colors">
+        <i class="fas fa-plus mr-2"></i>新建Skill
+    </button>
+</div>
+
+<!-- Skill卡片网格 -->
+<div id="skillsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+
+<div id="emptyState" class="hidden py-16 text-center">
+    <i class="fas fa-magic text-5xl text-[#EDE0D4] mb-4"></i>
+    <p class="text-[#8D6E63] mb-4">暂无Skill</p>
+    <button onclick="showCreateModal()" class="px-4 py-2 bg-[#D4A574] text-white rounded-lg hover:bg-[#C08D5E] transition-colors">
+        创建第一个Skill
+    </button>
+</div>
+
+<!-- Skill模态框 -->
+<div id="editModal" class="modal-overlay hidden">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 id="editModalTitle" class="text-lg font-semibold text-[#5D4037]">新建Skill</h3>
+            <button onclick="hideModal('editModal')" class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body p-6">
+            <input type="hidden" id="editId">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-[#5D4037] mb-1">Skill名称 <span class="text-[#E57373]">*</span></label>
+                    <input type="text" id="editName" class="form-control" placeholder="如: test-generation">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-[#5D4037] mb-1">描述</label>
+                    <textarea id="editDescription" class="form-control min-h-[80px]" placeholder="描述这个Skill的功能"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-[#5D4037] mb-1">提示词模板</label>
+                    <textarea id="editPromptTemplate" class="form-control min-h-[120px] font-mono text-sm" placeholder="输入提示词模板，使用 {variable} 格式定义变量"></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="hideModal('editModal')" class="px-4 py-2 bg-[#F7EDE4] text-[#8D6E63] rounded-lg hover:bg-[#EDE0D4] transition-colors">取消</button>
+            <button onclick="saveSkill()" class="px-4 py-2 bg-[#D4A574] text-white rounded-lg hover:bg-[#C08D5E] transition-colors">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadSkills() {
+    api.get('/api/skills').then(data => {
+        renderSkills(data.items || []);
+    });
+}
+
+function renderSkills(items) {
+    const grid = document.getElementById('skillsGrid');
+    const empty = document.getElementById('emptyState');
+    
+    if (items.length === 0) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+    }
+    
+    empty.classList.add('hidden');
+    grid.innerHTML = items.map(s => `
+        <div class="bg-white rounded-xl p-5 shadow-sm border border-[#F5EDE6] hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between mb-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F093FB] to-[#F5576C] flex items-center justify-center">
+                    <i class="fas fa-magic text-white text-xl"></i>
+                </div>
+                <span class="px-2 py-0.5 bg-[#F7EDE4] text-[#8D6E63] rounded text-xs font-medium">v${s.version}</span>
+            </div>
+            <div class="mb-3">
+                <h4 class="text-base font-semibold text-[#5D4037]">${s.name}</h4>
+                <p class="text-sm text-[#8D6E63] mt-1 line-clamp-2">${s.description || '暂无描述'}</p>
+            </div>
+            <div class="flex items-center justify-between pt-3 border-t border-[#F5EDE6]">
+                <span class="text-xs text-[#BCAAA4]">${formatDate(s.created_at)}</span>
+                <div class="flex gap-2">
+                    <button onclick="editSkill('${s.id}')" class="p-1.5 hover:bg-[#F7EDE4] rounded-lg transition-colors">
+                        <i class="fas fa-edit text-[#D4A574]"></i>
+                    </button>
+                    <button onclick="deleteSkill('${s.id}')" class="p-1.5 hover:bg-[#FFEBEE] rounded-lg transition-colors">
+                        <i class="fas fa-trash text-[#E57373]"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function showCreateModal() {
+    document.getElementById('editModalTitle').textContent = '新建Skill';
+    document.getElementById('editId').value = '';
+    document.getElementById('editName').value = '';
+    document.getElementById('editDescription').value = '';
+    document.getElementById('editPromptTemplate').value = '';
+    showModal('editModal');
+}
+
+function editSkill(id) {
+    api.get(`/api/skills/${id}`).then(s => {
+        document.getElementById('editModalTitle').textContent = '编辑Skill';
+        document.getElementById('editId').value = s.id;
+        document.getElementById('editName').value = s.name;
+        document.getElementById('editDescription').value = s.description || '';
+        document.getElementById('editPromptTemplate').value = s.prompt_template || '';
+        showModal('editModal');
+    });
+}
+
+function saveSkill() {
+    const id = document.getElementById('editId').value;
+    const name = document.getElementById('editName').value.trim();
+    
+    if (!name) {
+        alert('请填写Skill名称');
+        return;
+    }
+    
+    const data = {
+        name,
+        description: document.getElementById('editDescription').value.trim(),
+        prompt_template: document.getElementById('editPromptTemplate').value.trim()
+    };
+    
+    const promise = id ? api.put(`/api/skills/${id}`, data) : api.post('/api/skills', data);
+    promise.then(() => {
+        alert(id ? '更新成功' : '创建成功');
+        hideModal('editModal');
+        loadSkills();
+    });
+}
+
+function deleteSkill(id) {
+    if (confirm('确定要删除这个Skill吗？')) {
+        api.delete(`/api/skills/${id}`).then(() => {
+            alert('删除成功');
+            loadSkills();
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadSkills();
+});
+</script>
+{% endblock %}

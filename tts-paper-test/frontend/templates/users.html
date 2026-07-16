@@ -1,0 +1,319 @@
+{% extends "layouts/sub_page.html" %}
+
+{% block title %}用户管理 - TSS AI测试平台{% endblock %}
+{% block page_title %}用户管理{% endblock %}
+
+{% set group_title = '系统管理' %}
+{% set sub_items = [
+    ('/de-ai', 'fa-shield-alt', '去AI味'),
+    ('/users', 'fa-users', '用户管理'),
+    ('/settings', 'fa-cog', '系统设置'),
+] %}
+
+{% block sub_content %}
+<!-- 工具栏 -->
+<div class="toolbar">
+    <div class="toolbar-left">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchKeyword" placeholder="搜索用户..." oninput="loadUsers()">
+        </div>
+    </div>
+    <div class="toolbar-right">
+        <button class="btn btn-primary" onclick="showCreateModal()">
+            <i class="fas fa-plus"></i> 新建用户
+        </button>
+    </div>
+</div>
+
+<!-- 用户列表 -->
+<div class="card">
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th width="60">ID</th>
+                    <th>用户名</th>
+                    <th>邮箱</th>
+                    <th width="80">角色</th>
+                    <th width="80">状态</th>
+                    <th width="140">创建时间</th>
+                    <th width="120">操作</th>
+                </tr>
+            </thead>
+            <tbody id="usersList"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <i class="fas fa-users"></i>
+            <p>暂无用户</p>
+            <button class="btn btn-primary" onclick="showCreateModal()">创建第一个用户</button>
+        </div>
+    </div>
+</div>
+
+<!-- 新建/编辑用户模态框 -->
+<div class="modal" id="editModal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 id="editModalTitle">新建用户</h3>
+            <button class="modal-close" onclick="hideModal('editModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editId">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="editUsername">用户名 <span class="required">*</span></label>
+                    <input type="text" id="editUsername" class="form-control" placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label for="editEmail">邮箱</label>
+                    <input type="email" id="editEmail" class="form-control" placeholder="请输入邮箱">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="editPassword" id="passwordLabel">密码 <span class="required">*</span></label>
+                    <input type="password" id="editPassword" class="form-control" placeholder="请输入密码">
+                </div>
+                <div class="form-group">
+                    <label for="editRole">角色</label>
+                    <select id="editRole" class="form-control">
+                        <option value="user">普通用户</option>
+                        <option value="admin">管理员</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="hideModal('editModal')">取消</button>
+            <button class="btn btn-primary" onclick="saveUser()">保存</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 页面加载
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
+});
+
+// 加载用户列表
+function loadUsers() {
+    const keyword = document.getElementById('searchKeyword').value;
+    
+    let url = '/api/users?';
+    if (keyword) url += `keyword=${encodeURIComponent(keyword)}`;
+    
+    api.get(url).then(data => {
+        renderUsers(data.items || []);
+    });
+}
+
+// 渲染用户列表
+function renderUsers(items) {
+    const tbody = document.getElementById('usersList');
+    const empty = document.getElementById('emptyState');
+    
+    if (items.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+    
+    empty.style.display = 'none';
+    tbody.innerHTML = items.map(u => `
+        <tr>
+            <td>${u.id}</td>
+            <td>${u.username}</td>
+            <td>${u.email || '-'}</td>
+            <td><span class="role-tag role-${u.role}">${u.role === 'admin' ? '管理员' : '用户'}</span></td>
+            <td>${getStatusBadge(u.status)}</td>
+            <td>${formatDate(u.created_at)}</td>
+            <td>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline" onclick="editUser('${u.id}')" title="编辑"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')" title="删除" ${u.id === '${getCurrentUserId()}' ? 'disabled' : ''}><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 获取当前用户ID
+function getCurrentUserId() {
+    // 从页面数据或API获取
+    return '';
+}
+
+// 显示创建模态框
+function showCreateModal() {
+    document.getElementById('editModalTitle').textContent = '新建用户';
+    document.getElementById('editId').value = '';
+    document.getElementById('editUsername').value = '';
+    document.getElementById('editEmail').value = '';
+    document.getElementById('editPassword').value = '';
+    document.getElementById('editRole').value = 'user';
+    document.getElementById('editUsername').disabled = false;
+    document.getElementById('passwordLabel').innerHTML = '密码 <span class="required">*</span>';
+    showModal('editModal');
+}
+
+// 编辑用户
+function editUser(id) {
+    // 获取用户信息
+    api.get('/api/users').then(data => {
+        const user = data.items.find(u => u.id === id);
+        if (user) {
+            document.getElementById('editModalTitle').textContent = '编辑用户';
+            document.getElementById('editId').value = user.id;
+            document.getElementById('editUsername').value = user.username;
+            document.getElementById('editEmail').value = user.email || '';
+            document.getElementById('editPassword').value = '';
+            document.getElementById('editRole').value = user.role;
+            document.getElementById('editUsername').disabled = true;
+            document.getElementById('passwordLabel').innerHTML = '密码 (留空则不修改)';
+            showModal('editModal');
+        }
+    });
+}
+
+// 保存用户
+function saveUser() {
+    const id = document.getElementById('editId').value;
+    const username = document.getElementById('editUsername').value.trim();
+    const email = document.getElementById('editEmail').value.trim();
+    const password = document.getElementById('editPassword').value;
+    const role = document.getElementById('editRole').value;
+    
+    if (!username) {
+        showAlert('请填写用户名', 'warning');
+        return;
+    }
+    
+    if (!id && !password) {
+        showAlert('请填写密码', 'warning');
+        return;
+    }
+    
+    const data = { username, email, role };
+    if (password) {
+        data.password = password;
+    }
+    
+    const promise = id ? api.put(`/api/users/${id}`, data) : api.post('/api/users', data);
+    promise.then(response => {
+        if (response.error) {
+            showAlert(response.error, 'danger');
+            return;
+        }
+        showAlert(id ? '更新成功' : '创建成功', 'success');
+        hideModal('editModal');
+        loadUsers();
+    }).catch(err => {
+        showAlert('操作失败', 'danger');
+    });
+}
+
+// 删除用户
+function deleteUser(id) {
+    if (confirm('确定要删除这个用户吗？')) {
+        api.delete(`/api/users/${id}`).then(response => {
+            if (response.error) {
+                showAlert(response.error, 'danger');
+                return;
+            }
+            showAlert('删除成功', 'success');
+            loadUsers();
+        });
+    }
+}
+</script>
+
+<style>
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.toolbar-left {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.search-box {
+    position: relative;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+}
+
+.search-box input {
+    padding-left: 36px;
+    width: 200px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.role-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.role-admin {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.role-user {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.btn-group {
+    display: flex;
+    gap: 5px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.empty-state p {
+    margin-bottom: 15px;
+}
+
+.modal-lg .modal-content {
+    max-width: 600px;
+}
+
+.required {
+    color: #dc3545;
+}
+</style>
+{% endblock %}
