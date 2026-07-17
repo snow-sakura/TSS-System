@@ -41,3 +41,13 @@ package-lock.json
 
 # Research
 research/
+
+# Logs
+logs/
+*.log
+
+# Uploads
+uploads/
+
+# Frontend build output
+tts-paper-test/frontend/dist/

@@ -1,0 +1,29 @@
+# TSS AI测试平台 — Python 依赖
+# Python 3.12+
+# 安装: pip install -r requirements.txt
+# 开发/单机运行 或 pip install -r requirements-prod.txt（含MySQL支持）
+
+# ==========================================
+# 核心依赖（必须安装）
+# ==========================================
+
+# === 后端框架 ===
+fastapi==0.115.*
+uvicorn[standard]==0.34.*
+pydantic==2.*
+pydantic-settings==2.*
+python-multipart==0.0.*
+pydantic[email]==2.*          # EmailStr 验证
+
+# === 数据库 ===
+sqlalchemy==2.0.*
+
+# === 认证安全 ===
+python-jose[cryptography]==3.*
+passlib[bcrypt]==1.7.*
+slowapi==0.1.*                # 速率限制
+cryptography==44.*            # 加密
+
+# === 日志 ===
+loguru==0.7.*
+rich==13.*                    # 终端美化
