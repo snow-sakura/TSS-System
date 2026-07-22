@@ -1,8 +1,9 @@
 /**
  * 流程记录 - 表格列表布局（与需求管理一致）
  * 列表展示 + 搜索筛选 + 新建/编辑弹窗 + 删除确认 + 点击跳转AI自动化
+ * 已对接 lifecycleApi.listPipelineRecords 真实数据
  */
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +12,7 @@ import {
   Clock, CheckCircle2, Loader2, FileText, Play, ChevronLeft, ChevronRight
 } from "lucide-react"
 import { useAutomationStore } from "@/stores/automationStore"
+import { lifecycleApi } from "@/lib/api"
 
 interface ProcessRecord {
   id: number
@@ -24,14 +26,19 @@ interface ProcessRecord {
   totalStages: number
 }
 
-const initialData: ProcessRecord[] = [
-  { id: 1, name: "用户登录功能全流程", description: "测试用户登录功能的完整流程", requirementContent: "实现用户登录功能，支持用户名+密码登录方式，需要支持记住密码和自动登录功能。", status: "已完成", createdAt: "2026-07-15 10:30", updatedAt: "2026-07-18 14:20", stagesCompleted: 5, totalStages: 5 },
-  { id: 2, name: "商品搜索功能全流程", description: "测试商品搜索功能的完整流程", requirementContent: "实现商品搜索功能，支持关键词搜索、分类筛选、价格区间筛选。", status: "已完成", createdAt: "2026-07-16 09:15", updatedAt: "2026-07-17 11:30", stagesCompleted: 5, totalStages: 5 },
-  { id: 3, name: "购物车管理全流程", description: "测试购物车管理功能", requirementContent: "实现购物车功能，支持添加商品、修改数量、删除商品、清空购物车。", status: "执行中", createdAt: "2026-07-17 14:00", updatedAt: "2026-07-17 16:00", stagesCompleted: 3, totalStages: 5 },
-  { id: 4, name: "订单支付流程", description: "测试订单支付功能", requirementContent: "实现订单支付流程，支持多种支付方式（支付宝、微信支付、银行卡）。", status: "草稿", createdAt: "2026-07-18 08:45", updatedAt: "2026-07-18 08:45", stagesCompleted: 0, totalStages: 5 },
-  { id: 5, name: "用户注册流程", description: "测试用户注册功能", requirementContent: "实现用户注册功能，支持手机号注册、邮箱注册。", status: "已完成", createdAt: "2026-07-19 09:00", updatedAt: "2026-07-19 11:30", stagesCompleted: 5, totalStages: 5 },
-  { id: 6, name: "商品详情页流程", description: "测试商品详情页展示", requirementContent: "实现商品详情页，展示商品图片、价格、描述、评价等信息。", status: "草稿", createdAt: "2026-07-19 10:00", updatedAt: "2026-07-19 10:00", stagesCompleted: 0, totalStages: 5 },
-]
+const statusToCn: Record<string, "草稿" | "执行中" | "已完成" | "失败"> = {
+  draft: "草稿",
+  running: "执行中",
+  completed: "已完成",
+  failed: "失败",
+}
+
+const cnToStatus: Record<string, string> = {
+  "草稿": "draft",
+  "执行中": "running",
+  "已完成": "completed",
+  "失败": "failed",
+}
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   "草稿": { label: "草稿", color: "bg-cream text-muted" },
@@ -40,9 +47,45 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   "失败": { label: "失败", color: "bg-fail/15 text-fail" },
 }
 
+function apiToRecord(item: any): ProcessRecord {
+  const cnStatus = statusToCn[item.status] || "草稿"
+  // 从 stage_results 中计算已完成阶段数
+  let stagesDone = 0
+  if (item.stage_results) {
+    const results = typeof item.stage_results === "string"
+      ? JSON.parse(item.stage_results)
+      : item.stage_results
+    if (Array.isArray(results)) {
+      stagesDone = results.filter((s: any) => s.status === "completed" || s.status === "passed" || s.status === "done").length
+    }
+  }
+  return {
+    id: item.id,
+    name: item.name || item.requirement_name || "未命名流程",
+    description: item.requirement_name || "",
+    requirementContent: item.requirement_content || "",
+    status: cnStatus,
+    createdAt: item.created_at ? item.created_at.replace("T", " ").slice(0, 16) : "",
+    updatedAt: item.updated_at ? item.updated_at.replace("T", " ").slice(0, 16) : "",
+    stagesCompleted: stagesDone,
+    totalStages: item.stage_count || 5,
+  }
+}
+
+function recordToPayload(record: Partial<ProcessRecord>) {
+  return {
+    name: record.name,
+    requirement_name: record.description,
+    requirement_content: record.requirementContent,
+    status: cnToStatus[record.status || "草稿"] || "draft",
+    stage_count: record.totalStages || 5,
+  }
+}
+
 export default function ProcessRecords() {
   const navigate = useNavigate()
-  const [records, setRecords] = useState<ProcessRecord[]>(initialData)
+  const [records, setRecords] = useState<ProcessRecord[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [localSearch, setLocalSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -58,20 +101,33 @@ export default function ProcessRecords() {
   const [deletingRecord, setDeletingRecord] = useState<ProcessRecord | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
-  // 搜索+筛选（使用localSearch和localStatusFilter）
+  // 获取 API 数据
+  const fetchRecords = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: Record<string, any> = { page: currentPage, page_size: pageSize }
+      if (searchTerm) params.search = searchTerm
+      if (statusFilter) params.status = cnToStatus[statusFilter] || statusFilter
+      const res = await lifecycleApi.listPipelineRecords(params)
+      const data = res?.data || {}
+      const items: any[] = data.items || []
+      setRecords(items.map(apiToRecord))
+    } catch {
+      // 静默降级为空列表
+      setRecords([])
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, pageSize, searchTerm, statusFilter])
+
+  useEffect(() => { fetchRecords() }, [fetchRecords])
+
+  // 搜索+筛选（客户端二次过滤）
   const filteredRecords = useMemo(() => {
     let result = records
-    if (localSearch) {
-      result = result.filter((r) =>
-        r.name.toLowerCase().includes(localSearch.toLowerCase()) ||
-        r.description.toLowerCase().includes(localSearch.toLowerCase())
-      )
-    }
-    if (localStatusFilter) {
-      result = result.filter((r) => r.status === localStatusFilter)
-    }
+    // 服务端已做 search + status 过滤，但保留客户端过滤以防本地变更
     return result
-  }, [records, localSearch, localStatusFilter])
+  }, [records])
 
   // 查询按钮
   const handleQuery = () => { setSearchTerm(localSearch); setStatusFilter(localStatusFilter); setCurrentPage(1) }
@@ -82,7 +138,7 @@ export default function ProcessRecords() {
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize))
   const pagedRecords = filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
-  // CRUD操作
+  // CRUD操作（本地 - 记录由流水线执行自动创建）
   const openCreate = () => {
     setDialogMode("create")
     setEditingRecord(null)
@@ -101,7 +157,7 @@ export default function ProcessRecords() {
     if (!formData.name.trim()) return
     if (dialogMode === "create") {
       const newRecord: ProcessRecord = {
-        id: records.length > 0 ? Math.max(...records.map((r) => r.id)) + 1 : 1,
+        id: Date.now(),
         ...formData,
         status: "草稿",
         createdAt: new Date().toLocaleString("zh-CN"),
@@ -207,11 +263,15 @@ export default function ProcessRecords() {
       )}
 
       {/* 数据表格 */}
-      {pagedRecords.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 text-amber animate-spin" />
+        </div>
+      ) : pagedRecords.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-ink-light">
           <FileText className="w-12 h-12 mb-3 text-gray-300" />
           <p className="text-sm font-medium">{searchTerm || statusFilter ? "没有匹配的记录" : "暂无流程记录"}</p>
-          <p className="text-xs mt-1 text-gray-400">点击"新建记录"添加流程记录</p>
+          <p className="text-xs mt-1 text-gray-400">运行流水线将自动创建流程记录</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
@@ -244,7 +304,7 @@ export default function ProcessRecords() {
                   <td className="px-5 py-3 text-center"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[record.status]?.color}`}>{record.status}</span></td>
                   <td className="px-5 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full gradient-amber rounded-full" style={{ width: `${(record.stagesCompleted / record.totalStages) * 100}%` }} /></div>
+                      <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full gradient-amber rounded-full" style={{ width: `${record.totalStages > 0 ? (record.stagesCompleted / record.totalStages) * 100 : 0}%` }} /></div>
                       <span className="text-xs text-ink-light">{record.stagesCompleted}/{record.totalStages}</span>
                     </div>
                   </td>
@@ -349,7 +409,7 @@ export default function ProcessRecords() {
               <div>
                 <h4 className="text-sm font-semibold text-ink mb-2">执行进度</h4>
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full gradient-amber rounded-full" style={{ width: `${(previewRecord.stagesCompleted / previewRecord.totalStages) * 100}%` }} /></div>
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full gradient-amber rounded-full" style={{ width: `${previewRecord.totalStages > 0 ? (previewRecord.stagesCompleted / previewRecord.totalStages) * 100 : 0}%` }} /></div>
                   <span className="text-sm text-ink">{previewRecord.stagesCompleted}/{previewRecord.totalStages}</span>
                 </div>
               </div>

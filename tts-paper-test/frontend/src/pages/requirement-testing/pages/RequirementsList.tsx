@@ -86,7 +86,7 @@ export default function RequirementsList() {
         onPageSizeChange={(s) => setPagination((prev) => ({ ...prev, page_size: s, page: 1 }))}
         onCreate={openCreate} onEdit={openEdit} onDelete={handleDelete} onBatchDelete={handleBatchDelete}
         onUpload={() => fileInputRef.current?.click()} onRowClick={setPreviewItem} title="" />
-      <input ref={fileInputRef} type="file" className="hidden" accept=".docx,.pdf,.txt,.md" onChange={handleFileUpload} />
+      <input ref={fileInputRef} type="file" className="hidden" accept=".docx,.doc,.pdf,.xlsx,.xls,.pptx,.ppt,.md,.txt,.csv,.xmind" onChange={handleFileUpload} />
       {uploadError && <div className="flex items-center gap-1.5 mt-2 text-xs text-fail bg-fail/10 px-3 py-2 rounded-xl border border-fail/20"><AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {uploadError}<button onClick={() => setUploadError(null)} className="ml-auto text-fail/60 hover:text-fail">✕</button></div>}
       {uploading && <div className="flex items-center gap-1.5 mt-2 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-xl border border-amber-200"><Loader2 className="w-3.5 h-3.5 animate-spin" /> 正在上传解析文档...</div>}
       {showModal && (

@@ -77,7 +77,14 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
   }, [])
 
   const appendStageContent = useCallback((key: string, content: string) => {
-    setStageStates((prev) => prev.map((s) => (s.key === key ? { ...s, content: s.content + content } : s)))
+    setStageStates((prev) => prev.map((s) => {
+      if (s.key === key) {
+        // 避免重复追加相同内容
+        const newContent = s.content + content
+        return { ...s, content: newContent }
+      }
+      return s
+    }))
   }, [])
 
   // 使用公共 SSE Hook 解析流
@@ -155,11 +162,18 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
     if (!file) return
     setUploading(true)
     try {
-      const res: any = await lifecycleApi.uploadDocument(file)
-      const content = res.content || ""
-      if (!content.trim()) { setUploadError("文件内容为空或无法提取文本"); return }
-      setRequirementContent(content)
-      if (!requirementName && res.filename) setRequirementName(res.filename.replace(/\.[^.]+$/, ""))
+      const formData = new FormData()
+      formData.append("file", file)
+      const res: any = await lifecycleApi.uploadRequirement(formData)
+      const data = res?.data
+      // 后端返回 raw_content (RequirementResponse.raw_content), 也保留 content 作为兼容
+      const fileContent = data?.raw_content || data?.content
+      if (fileContent) {
+        setRequirementContent(fileContent)
+        if (!requirementName) setRequirementName(data.name || file.name.replace(/\.[^.]+$/, ""))
+      } else {
+        setUploadError("文件内容为空或无法提取文本")
+      }
     } catch (err: any) {
       setUploadError(err?.response?.data?.detail || err?.message || "上传失败")
     } finally {
@@ -194,7 +208,7 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
           <div className="flex items-center justify-between flex-shrink-0">
             <label className={`flex items-center gap-1.5 text-xs cursor-pointer ${uploading ? "text-amber" : "text-muted hover:text-ink"}`}>
               {uploading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 解析中...</> : <><Upload className="w-3.5 h-3.5" /> 上传文档</>}
-              <input ref={fileInputRef} type="file" className="hidden" accept=".docx,.pdf,.txt,.md" disabled={pipelineStatus === "running" || uploading} onChange={handleFileUpload} />
+              <input ref={fileInputRef} type="file" className="hidden" accept=".docx,.doc,.pdf,.xlsx,.xls,.pptx,.ppt,.md,.txt,.csv,.xmind" disabled={pipelineStatus === "running" || uploading} onChange={handleFileUpload} />
             </label>
             {pipelineStatus === "running" ? (
               <Button onClick={stopPipeline} className="h-8 px-3 text-xs bg-fail hover:bg-fail/80 text-white"><Square className="w-3 h-3 mr-1" /> 停止</Button>

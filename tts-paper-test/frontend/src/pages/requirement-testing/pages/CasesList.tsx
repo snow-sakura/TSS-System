@@ -102,7 +102,9 @@ export default function CasesList() {
         }))
         setCases(mapped)
       }
-    } catch {
+    } catch (err) {
+      console.error("获取用例列表失败:", err)
+      toast.error("获取用例列表失败，已使用本地数据")
       // 保持mock数据
     } finally {
       setLoading(false)
