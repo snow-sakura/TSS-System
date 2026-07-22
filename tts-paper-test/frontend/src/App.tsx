@@ -11,7 +11,7 @@ import AiAssistant from "@/components/ai-assistant/AiAssistant"
 
 // 懒加载页面组件（按路由分割代码）
 const ActivitiesPage = lazy(() => import("@/pages/dashboard/ActivitiesPage"))
-const TestLifecyclePage = lazy(() => import("@/pages/test-lifecycle/TestLifecyclePage"))
+const TestCasePage = lazy(() => import("@/pages/test-cases/TestCasePage"))
 const RequirementTestingPage = lazy(() => import("@/pages/requirement-testing/RequirementTestingPage"))
 const ModulePage = lazy(() => import("@/pages/module/ModulePage"))
 const DetailPage = lazy(() => import("@/pages/module/DetailPage"))
@@ -21,15 +21,7 @@ const DefectManagementPage = lazy(() => import("@/pages/defect-management/Defect
 const ExecutionManagementPage = lazy(() => import("@/pages/execution-management/ExecutionManagementPage"))
 const ReportManagementPage = lazy(() => import("@/pages/report-management/ReportManagementPage"))
 const SystemManagementPage = lazy(() => import("@/pages/system-management/SystemManagementPage"))
-const EnvironmentPage = lazy(() => import("@/pages/config-standalone/EnvironmentPage"))
-const LLMPage = lazy(() => import("@/pages/config-standalone/LLMPage"))
-const PromptPage = lazy(() => import("@/pages/config-standalone/PromptPage"))
-const DeAIPage = lazy(() => import("@/pages/config-standalone/DeAIPage"))
-const MCPPage = lazy(() => import("@/pages/config-standalone/MCPPage"))
 const MCPMarketplacePage = lazy(() => import("@/pages/mcp-marketplace/MCPMarketplacePage"))
-const SkillsPage = lazy(() => import("@/pages/config-standalone/SkillsPage"))
-const HermesPage = lazy(() => import("@/pages/config-standalone/HermesPage"))
-const OperationLogsPage = lazy(() => import("@/pages/config-standalone/OperationLogsPage"))
 const AiWebAutomationPage = lazy(() => import("@/pages/ai-web-automation/AiWebAutomationPage"))
 const KnowledgeBasePage = lazy(() => import("@/pages/knowledge-base/KnowledgeBasePage"))
 const WorkflowEditorPage = lazy(() => import("@/pages/workflow-editor/WorkflowEditorPage"))
@@ -59,21 +51,13 @@ export default function App() {
             <Route path="/activities" element={<ActivitiesPage />} />
             <Route path="/ai-automation" element={<AiAutomationPage />} />
             <Route path="/requirement-testing" element={<RequirementTestingPage />} />
-            <Route path="/test-lifecycle" element={<TestLifecyclePage />} />
+            <Route path="/test-cases" element={<TestCasePage />} />
             <Route path="/users" element={<UserManagementPage />} />
             <Route path="/defects" element={<DefectManagementPage />} />
             <Route path="/executions" element={<ExecutionManagementPage />} />
             <Route path="/reports" element={<ReportManagementPage />} />
             <Route path="/system" element={<SystemManagementPage />} />
-            <Route path="/environments" element={<EnvironmentPage />} />
-            <Route path="/llm" element={<LLMPage />} />
-            <Route path="/prompts" element={<PromptPage />} />
-            <Route path="/de-ai" element={<DeAIPage />} />
-            <Route path="/mcp" element={<MCPPage />} />
             <Route path="/mcp-marketplace" element={<MCPMarketplacePage />} />
-            <Route path="/skills" element={<SkillsPage />} />
-            <Route path="/hermes" element={<HermesPage />} />
-            <Route path="/operation-logs" element={<OperationLogsPage />} />
             <Route path="/ai-web-automation" element={<AiWebAutomationPage />} />
             <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
             <Route path="/workflow-orchestration" element={<WorkflowEditorPage />} />
