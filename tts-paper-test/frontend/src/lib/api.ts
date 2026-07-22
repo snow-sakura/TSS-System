@@ -80,6 +80,20 @@ export function createCrudApi<T>(endpoint: string) {
   }
 }
 
+/** 封装的fetch调用 — 自动注入Authorization头和Content-Type，返回原生Response用于SSE流式读取 */
+function apiFetch(url: string, options?: { method?: string; body?: unknown; signal?: AbortSignal }) {
+  const token = localStorage.getItem("access_token")
+  return fetch(url, {
+    method: options?.method ?? "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
+    signal: options?.signal,
+  })
+}
+
 // Web Automation API
 export const webApi = {
   listProjects: (page = 1) =>
@@ -93,31 +107,15 @@ export const webApi = {
   explore: (projectId: number) =>
     api.post(`/web-automation/projects/${projectId}/explore`),
   /** SSE流式探索 - 返回原生Response用于读取流 */
-  exploreSSE: (projectId: number) => {
-    const token = localStorage.getItem("access_token")
-    return fetch(`/api/v1/web-automation/projects/${projectId}/explore`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    })
-  },
+  exploreSSE: (projectId: number) =>
+    apiFetch(`/api/v1/web-automation/projects/${projectId}/explore`, { method: "POST" }),
   listPages: (projectId: number) =>
     api.get(`/web-automation/projects/${projectId}/pages`),
   generateTestCases: (projectId: number) =>
     api.post(`/web-automation/projects/${projectId}/generate`),
   /** SSE流式生成用例 - 返回原生Response用于读取流 */
-  generateTestCasesSSE: (projectId: number) => {
-    const token = localStorage.getItem("access_token")
-    return fetch(`/api/v1/web-automation/projects/${projectId}/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    })
-  },
+  generateTestCasesSSE: (projectId: number) =>
+    apiFetch(`/api/v1/web-automation/projects/${projectId}/generate`, { method: "POST" }),
   listTestCases: (projectId: number, status?: string) =>
     api.get(`/web-automation/projects/${projectId}/test-cases`, { params: { status } }),
   updateTestCase: (caseId: number, data: any) =>
@@ -254,18 +252,8 @@ export const lifecycleApi = {
   getSupportedFormats: () => api.get("/data/upload/supported"),
 
   // 全流程 Pipeline
-  startPipelineSSE: (data: { requirement_content: string; requirement_name?: string }, signal?: AbortSignal) => {
-    const token = localStorage.getItem("access_token")
-    return fetch("/api/v1/pipeline/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(data),
-      signal,
-    })
-  },
+  startPipelineSSE: (data: { requirement_content: string; requirement_name?: string }, signal?: AbortSignal) =>
+    apiFetch("/api/v1/pipeline/start", { method: "POST", body: data, signal }),
 
   // === 用例确认 ===
   confirmCases: (case_ids: string[], confirmed_by = "manual") =>
@@ -276,12 +264,9 @@ export const lifecycleApi = {
 
   // === 用例导出 ===
   exportCases: (format: string, ids?: string[]) => {
-    const token = localStorage.getItem("access_token")
     const params = new URLSearchParams({ format })
     if (ids?.length) params.set("ids", ids.join(","))
-    return fetch(`/api/v1/data/cases/export?${params}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
+    return apiFetch(`/api/v1/data/cases/export?${params}`)
   },
 
   // === 流程记录 (DB版) ===
@@ -436,14 +421,9 @@ export const aiChatApi = {
     onError: (error: string) => void,
   ) => {
     try {
-      const token = localStorage.getItem("access_token")
-      const response = await fetch("/api/v1/ai/chat", {
+      const response = await apiFetch("/api/v1/ai/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ messages, stream: true }),
+        body: { messages, stream: true },
       })
 
       if (!response.ok) {
