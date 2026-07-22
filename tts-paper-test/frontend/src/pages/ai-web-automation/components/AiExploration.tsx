@@ -81,13 +81,7 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
       addLog("info", "启动AI视觉探索引擎...")
       addLog("info", "正在使用midscene.js + Playwright + AI Agent分析页面...")
 
-      const response = await fetch(`/api/v1/web-automation/projects/${projectId}/explore`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-        },
-      })
+      const response = await webApi.exploreSSE(projectId)
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
 

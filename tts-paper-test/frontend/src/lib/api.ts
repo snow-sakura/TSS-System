@@ -92,10 +92,32 @@ export const webApi = {
     api.delete(`/web-automation/projects/${id}`),
   explore: (projectId: number) =>
     api.post(`/web-automation/projects/${projectId}/explore`),
+  /** SSE流式探索 - 返回原生Response用于读取流 */
+  exploreSSE: (projectId: number) => {
+    const token = localStorage.getItem("access_token")
+    return fetch(`/api/v1/web-automation/projects/${projectId}/explore`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+  },
   listPages: (projectId: number) =>
     api.get(`/web-automation/projects/${projectId}/pages`),
   generateTestCases: (projectId: number) =>
     api.post(`/web-automation/projects/${projectId}/generate`),
+  /** SSE流式生成用例 - 返回原生Response用于读取流 */
+  generateTestCasesSSE: (projectId: number) => {
+    const token = localStorage.getItem("access_token")
+    return fetch(`/api/v1/web-automation/projects/${projectId}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+  },
   listTestCases: (projectId: number, status?: string) =>
     api.get(`/web-automation/projects/${projectId}/test-cases`, { params: { status } }),
   updateTestCase: (caseId: number, data: any) =>

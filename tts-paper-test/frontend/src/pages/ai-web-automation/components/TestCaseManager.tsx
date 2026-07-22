@@ -96,10 +96,7 @@ export default function TestCaseManager() {
     if (!selectedProjectId) { toast.error("请先选择项目"); return }
     setGenerating(true)
     try {
-      const response = await fetch(`/api/v1/web-automation/projects/${selectedProjectId}/generate`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
-      })
+      const response = await webApi.generateTestCasesSSE(selectedProjectId)
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
       const reader = response.body?.getReader()
