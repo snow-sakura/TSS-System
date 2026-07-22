@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+@theme {
+  /* 拍立得暖色调 */
+  --color-ink: #1A0F08;
+  --color-ink-light: #4A3828;
+  --color-paper: #FAF5F0;
+  --color-cream: #F3EDE4;
+  --color-cream-dark: #E8DDD0;
+
+  /* 品牌色 - 琥珀金 */
+  --color-amber: #D4A574;
+  --color-amber-hover: #B8860B;
+  --color-amber-light: #F5EDE4;
+  --color-amber-50: #FDF8F2;
+
+  /* 语义色 */
+  --color-pass: #4A7C59;
+  --color-pass-light: #E8F5E9;
+  --color-fail: #C75050;
+  --color-fail-light: #FDECEA;
+  --color-info: #5B7FA5;
+  --color-info-light: #E8F0F8;
+  --color-warn: #C4872F;
+  --color-warn-light: #FFF3E0;
+
+  /* 中性色 */
+  --color-muted: #5A4D42;
+  --color-muted-light: #8A7C70;
+  --color-border: #E8DDD0;
+  --color-border-light: #F0E8DE;
+
+  /* shadcn语义色 */
+  --color-background: #FAF5F0;
+  --color-foreground: #2C1810;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #2C1810;
+  --color-primary: #D4A574;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #F3EDE4;
+  --color-secondary-foreground: #2C1810;
+  --color-muted-foreground: #4A3828;
+  --color-accent: #F5EDE4;
+  --color-accent-foreground: #2C1810;
+  --color-destructive: #C75050;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #E8DDD0;
+  --color-input: #E8DDD0;
+  --color-ring: #D4A574;
+
+  /* 侧边栏 */
+  --color-sidebar-bg: #2C1810;
+  --color-sidebar-fg: #D4C8BC;
+  --color-sidebar-accent: #D4A574;
+  --color-sidebar-hover: #3D2A1E;
+
+  --radius: 0.75rem;
+}
+
+/* ========== 全局基础 ========== */
+* { box-sizing: border-box; }
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== 滚动条 ========== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D4C8BC; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9C8E82; }
+
+/* ========== 拍立得阴影系统 ========== */
+.shadow-card {
+  box-shadow: 0 2px 8px rgba(139, 105, 20, 0.08), 0 1px 3px rgba(0,0,0,0.06);
+}
+.shadow-card-hover {
+  box-shadow: 0 8px 24px rgba(139, 105, 20, 0.12), 0 4px 8px rgba(0,0,0,0.08);
+}
+.shadow-elevated {
+  box-shadow: 0 12px 40px rgba(139, 105, 20, 0.15), 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* ========== 侧边栏菜单 ========== */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #9C8E82;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+.sidebar-item:hover {
+  background: #3D2A1E;
+  color: #D4C8BC;
+}
+.sidebar-item.active {
+  background: rgba(212, 165, 116, 0.2);
+  color: #D4A574;
+  font-weight: 500;
+}
+
+/* ========== 动画 ========== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fadeInUp 0.4s ease-out; }
+
+/* ========== 渐变背景 ========== */
+.gradient-brand {
+  background: linear-gradient(135deg, #2C1810 0%, #4A3228 40%, #6B4C3B 100%);
+}
+.gradient-amber {
+  background: linear-gradient(135deg, #D4A574 0%, #B8860B 100%);
+}
+
+/* ========== AI标识 ========== */
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: #F5EDE4;
+  color: #B8860B;
+  border: 1px solid #E8DDD0;
+}
+
+/* ========== 加载动画 ========== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ========== 淡入动画 ========== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ========== 缩放动画 ========== */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+/* ========== 按钮点击效果 ========== */
+.btn-click:active {
+  transform: scale(0.98);
+}
+
+/* ========== 表格行悬浮效果 ========== */
+.table-row-hover {
+  transition: background-color 0.15s ease;
+}
+.table-row-hover:hover {
+  background-color: #FAF5F0;
+}
+
+/* ========== 输入框聚焦效果 ========== */
+.input-focus {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-focus:focus {
+  border-color: #D4A574;
+  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.1);
+}

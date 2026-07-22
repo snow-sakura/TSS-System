@@ -1,5 +1,0 @@
-# TSS AI测试平台 — AI Agent 附加依赖（CrewAI 真实推理模式）
-# 注意: 不安装不影响核心功能，Agent自动降级为模拟模式
-# 使用: pip install -r requirements.txt -r requirements-ai.txt
-
-crewai==1.15.*

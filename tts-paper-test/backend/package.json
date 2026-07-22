@@ -1,0 +1,16 @@
+{
+  "name": "tss-backend-node",
+  "version": "1.0.0",
+  "description": "Node.js dependencies for TSS AI Web Automation (midscene.js + Playwright)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "explore": "node scripts/explore.mjs",
+    "test-explore": "node scripts/test-explore.mjs"
+  },
+  "dependencies": {
+    "@midscene/web": "^1.10.6",
+    "@playwright/test": "^1.61.1",
+    "playwright": "^1.61.1"
+  }
+}

@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.db
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Config
+.opencode/
+.playwright-mcp/
+
+# Screenshots
+*.png
+*.jpg
+*.jpeg

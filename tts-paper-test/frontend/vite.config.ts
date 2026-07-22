@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { resolve } from 'path'
+import path from 'path'
 
 export default defineConfig({
-  plugins: [vue(), tailwindcss()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
@@ -16,10 +16,6 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-      },
-      '/ws': {
-        target: 'ws://localhost:8000',
-        ws: true,
       },
     },
   },

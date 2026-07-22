@@ -1,7 +1,7 @@
 # TSS AI测试平台 — 文档中心
 
 > 项目: tts-paper-test / TSS (Test System Service)
-> 更新: 2026-07-17
+> 更新: 2026-07-18
 
 ---
 
@@ -10,7 +10,8 @@
 ### 📐 架构设计
 | 文件 | 说明 | 版本 |
 |------|------|------|
-| [架构设计-v2.md](./architecture/架构设计-v2.md) | **当前方案** — 完整架构设计（技术选型/模块/布局/AI/数据库/UI） | v2.0-R2 |
+| [架构设计-v3.md](./architecture/架构设计-v3.md) | **当前方案** — React 19 + FastAPI + PostgreSQL + CrewAI 1.15.4 | v3.0 |
+| [架构设计-v2.md](./architecture/架构设计-v2.md) | 旧方案 — Vue 3 + FastAPI + MySQL | v2.0-R2 |
 | [架构设计-v1.md](./architecture/架构设计-v1.md) | 原始方案（基于PRD的初始设计） | v1.0 |
 
 ### 📋 PRD与功能清单
@@ -19,19 +20,31 @@
 | [PRD-v1.md](./prd/PRD-v1.md) | 产品需求文档（原版） |
 | [功能点清单-v1.md](./prd/功能点清单-v1.md) | 68项功能点清单（原版） |
 
-### 📁 项目结构
+### 🎨 前端设计
+| 文件 | 说明 |
+|------|------|
+| [frontend-design-spec.md](./frontend-design-spec.md) | **Polaroid暖白主题** — React 19 + shadcn/ui 完整UI/UX规格 |
+
+### 🚀 启动指南
+| 文件 | 说明 |
+|------|------|
+| [STARTUP-GUIDE.md](./STARTUP-GUIDE.md) | 后端(FastAPI)+前端(React)分离启动流程 |
+
+### 📁 项目结构（架构v3）
 ```
-TSS-System/
-├── frontend/          # Vue 3 + shadcn-vue 前端工程
-├── backend/           # FastAPI + SQLAlchemy 后端工程
-├── agents/            # CrewAI → LangGraph 多智能体系统
-├── knowledge/         # 知识库/向量存储
+tts-paper-test/
+├── frontend/          # React 19 + Vite 8 + Tailwind CSS v4 + shadcn/ui
+├── backend/           # FastAPI 0.136.x + SQLAlchemy 2.0 async
+├── agents/            # CrewAI 1.15.4 多智能体系统
+├── knowledge/         # ChromaDB 向量存储/RAG知识检索
 ├── docs/              # 项目文档
-└── scripts/           # 部署脚本
+└── logs/              # 三层日志文件
 ```
 
 ### 🔑 已确认的决策
-- **前端主题**: 暖阳专业风（森林绿 #2E7D32 + 沉稳蓝 #1565C0）
-- **AI框架**: CrewAI → LangGraph 渐进迁移
-- **实施策略**: CRUD基础 + AI功能同步开发
-- **数据库**: MySQL 8.0+ (生产) + SQLite (开发/单机)
+- **前端**: React 19 + Vite 8 + Tailwind CSS v4 + shadcn/ui + Polaroid暖白主题
+- **后端**: FastAPI 0.136.x + SQLAlchemy 2.0 async + PostgreSQL 16
+- **AI框架**: CrewAI 1.15.4 (Flows+Crews) + ChromaDB + Sentence-Transformers
+- **数据库**: 22张表（认证4+测试基础7+基础配置8+知识库2+AI系统2）
+- **日志**: 三层体系（前端Sonner+后端Loguru+文件持久化）
+- **核心UX**: AI生成→人工审核编辑→确认入库

@@ -1,7 +1,0 @@
-# TSS AI测试平台 — 生产环境附加依赖（MySQL + 迁移）
-# 使用: pip install -r requirements.txt -r requirements-prod.txt
-
-# === 数据库（生产MySQL） ===
-pymysql==1.1.*          # MySQL驱动
-aiomysql==0.2.*         # MySQL异步驱动
-alembic==1.14.*         # 数据库迁移管理
