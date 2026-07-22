@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Search, X, Activity, Play, Bug, FileText, CheckCircle, Users, FlaskConical, Download, RefreshCw, Loader2, BarChart3, Clock, AlertTriangle } from "lucide-react"
 import { configApi } from "@/lib/api"
+import { SkeletonTable } from "@/components/ui/Skeleton"
 import * as XLSX from "xlsx"
 
 const iconMap: Record<string, any> = {
@@ -237,7 +238,7 @@ export default function ActivitiesPage() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={7} className="px-4 py-16 text-center text-muted text-sm"><Loader2 className="w-5 h-5 animate-spin text-amber mx-auto mb-2" />加载中...</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-16 text-center text-muted text-sm"><SkeletonTable rows={5} cols={6} /></td></tr>
                   ) : filtered.length === 0 ? (
                     <tr><td colSpan={7} className="px-4 py-16 text-center text-muted"><Activity className="w-10 h-10 mx-auto mb-2 text-muted-light" /><p className="text-sm font-medium">暂无活动记录</p></td></tr>
                   ) : (

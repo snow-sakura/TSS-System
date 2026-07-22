@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Search, Plus, Edit, Trash2, Shield, X, Check, ChevronDown, ChevronRight, ShieldCheck, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { usersApi } from "@/lib/api"
+import { SkeletonCard } from "@/components/ui/Skeleton"
 
 interface RoleItem {
   key: string
@@ -187,7 +188,7 @@ export default function RolePermission() {
       </div>
       {/* 角色卡片网格 */}
       {loading ? (
-        <div className="flex items-center justify-center h-48"><Loader2 className="w-6 h-6 animate-spin text-amber" /></div>
+        <div className="flex items-center justify-center h-48"><SkeletonCard count={4} /></div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 flex-1">
           {filtered.length === 0 ? (

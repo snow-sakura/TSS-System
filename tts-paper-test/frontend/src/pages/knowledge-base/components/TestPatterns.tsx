@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Search, Plus, Edit, Trash2, Eye, X, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { knowledgeApi } from "@/lib/api"
+import { Skeleton } from "@/components/ui/Skeleton"
 
 interface TestPattern {
   id: number
@@ -127,7 +128,7 @@ export default function TestPatterns() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48"><Loader2 className="w-6 h-6 animate-spin text-amber" /></div>
+        <div className="flex items-center justify-center h-48"><Skeleton className="h-4 w-48" count={3} /></div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 overflow-y-auto">
           {patterns.map((p) => (

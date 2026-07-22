@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Search, Plus, Edit, Trash2, X, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { usersApi } from "@/lib/api"
+import { Skeleton } from "@/components/ui/Skeleton"
 
 interface UserItem {
   id: number
@@ -152,7 +153,7 @@ export default function UserList() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48"><Loader2 className="w-6 h-6 animate-spin text-amber" /></div>
+        <div className="flex items-center justify-center h-48"><Skeleton className="h-4 w-48" count={3} /></div>
       ) : (
         <div className="flex-1 overflow-y-auto">
           <table className="w-full text-sm">
