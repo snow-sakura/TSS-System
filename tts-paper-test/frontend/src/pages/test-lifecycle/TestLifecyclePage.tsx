@@ -11,13 +11,14 @@ import {
   Search, Loader2, Plus, Eye, Edit, Trash2, RefreshCw
 } from "lucide-react"
 import { toast } from "sonner"
+import { lifecycleApi } from "@/lib/api"
 
-// 阶段对应的API端点
-const STAGE_API_MAP: Record<string, string> = {
-  "test-review": "/api/v1/test-lifecycle/test-cases",
-  "executions": "/api/v1/test-lifecycle/executions",
-  "defects": "/api/v1/test-lifecycle/defects",
-  "reports": "/api/v1/test-lifecycle/reports",
+// 阶段对应的API方法映射
+const STAGE_API_MAP: Record<string, (params?: any) => Promise<any>> = {
+  "test-review": (p) => lifecycleApi.listTestCases(p),
+  "executions": (p) => lifecycleApi.listExecutions(p),
+  "defects": (p) => lifecycleApi.listDefects(p),
+  "reports": (p) => lifecycleApi.listReports(p),
 }
 
 // 阶段列定义
@@ -50,10 +51,6 @@ const stageColumnDefs: Record<string, { key: string; label: string }[]> = {
 // 前5个阶段已整合为「需求测试」全流程
 const integratedStages = ["requirements", "test-plans", "test-points", "test-cases", "test-review"]
 
-function getToken(): string {
-  return localStorage.getItem("access_token") || ""
-}
-
 export default function TestLifecyclePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -78,14 +75,12 @@ export default function TestLifecyclePage() {
 
   // 加载阶段数据
   const fetchStageData = useCallback(async (key: string) => {
-    const apiBase = STAGE_API_MAP[key]
-    if (!apiBase) return
+    const apiMethod = STAGE_API_MAP[key]
+    if (!apiMethod) return
 
     setLoading((prev) => ({ ...prev, [key]: true }))
     try {
-      const res = await fetch(`${apiBase}?page=1&page_size=100`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      }).then((r) => r.json())
+      const res: any = await apiMethod({ page: 1, page_size: 100 })
       const items = res?.data?.items || res?.data || []
       setStageData((prev) => ({ ...prev, [key]: Array.isArray(items) ? items : [] }))
     } catch (e) {
