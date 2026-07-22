@@ -86,6 +86,7 @@ async def list_users(
     page: int = 1, page_size: int = 20, search: str = None,
     role: str = None, status: str = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
 ):
     """用户列表（分页）"""
     query = select(User)
@@ -95,8 +96,8 @@ async def list_users(
         query = query.where(or_(User.username.contains(search), User.email.contains(search), User.display_name.contains(search)))
         count_query = count_query.where(or_(User.username.contains(search), User.email.contains(search), User.display_name.contains(search)))
     if role:
-        query = query.where(User.role == role)
-        count_query = count_query.where(User.role == role)
+        query = query.join(UserRole).join(Role).where(Role.name == role)
+        count_query = count_query.join(UserRole).join(Role).where(Role.name == role)
     if status == "active":
         query = query.where(User.is_active == True)
         count_query = count_query.where(User.is_active == True)
@@ -118,7 +119,10 @@ async def list_users(
 
 
 @router.get("/all", response_model=ResponseModel)
-async def list_all_users(db: AsyncSession = Depends(get_db)):
+async def list_all_users(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
     """获取所有用户（不分页，用于下拉选择）"""
     result = await db.execute(select(User).order_by(User.username))
     users = result.scalars().all()
@@ -131,6 +135,7 @@ async def list_all_users(db: AsyncSession = Depends(get_db)):
 async def list_login_logs(
     page: int = 1, page_size: int = 20, search: str = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
 ):
     """登录日志列表"""
     query = select(OperationLog).where(OperationLog.action == "login")
@@ -161,6 +166,7 @@ async def list_login_logs(
         "total": total,
         "page": page,
         "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
     })
 
 
@@ -188,13 +194,16 @@ ROLES = [
 
 
 @router.get("/roles/list", response_model=ResponseModel)
-async def list_roles():
+async def list_roles(user: User = Depends(get_current_user_dep)):
     """获取角色列表"""
     return ResponseModel(data=ROLES)
 
 
 @router.get("/roles/stats", response_model=ResponseModel)
-async def get_role_stats(db: AsyncSession = Depends(get_db)):
+async def get_role_stats(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
     """获取角色统计"""
     from sqlalchemy import text
     sql = text("""
@@ -209,7 +218,7 @@ async def get_role_stats(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/roles", response_model=ResponseModel)
-async def create_role(data: RoleCreate):
+async def create_role(data: RoleCreate, user: User = Depends(get_current_user_dep)):
     """创建角色"""
     if any(r["key"] == data.code for r in ROLES):
         return ResponseModel(success=False, message="角色编码已存在")
@@ -223,7 +232,7 @@ async def create_role(data: RoleCreate):
 
 
 @router.put("/roles/{role_key}", response_model=ResponseModel)
-async def update_role(role_key: str, data: RoleUpdate):
+async def update_role(role_key: str, data: RoleUpdate, user: User = Depends(get_current_user_dep)):
     """更新角色"""
     for r in ROLES:
         if r["key"] == role_key:
@@ -238,7 +247,7 @@ async def update_role(role_key: str, data: RoleUpdate):
 
 
 @router.delete("/roles/{role_key}", response_model=ResponseModel)
-async def delete_role(role_key: str):
+async def delete_role(role_key: str, user: User = Depends(get_current_user_dep)):
     """删除角色"""
     if role_key == "admin":
         return ResponseModel(success=False, message="管理员角色不可删除")
@@ -275,6 +284,7 @@ class DeviceStatusUpdate(BaseModel):
 async def list_devices(
     page: int = 1, page_size: int = 20, search: str = None,
     status: str = None, db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
 ):
     """设备列表（分页）"""
     query = select(UserDevice)
@@ -309,7 +319,10 @@ async def list_devices(
 
 
 @router.get("/devices/{device_id}", response_model=ResponseModel)
-async def get_device(device_id: int, db: AsyncSession = Depends(get_db)):
+async def get_device(
+    device_id: int, db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
     """获取设备详情"""
     device = (await db.execute(select(UserDevice).where(UserDevice.id == device_id))).scalar_one_or_none()
     if not device:
@@ -318,7 +331,10 @@ async def get_device(device_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/devices/{device_id}/status", response_model=ResponseModel)
-async def update_device_status(device_id: int, data: DeviceStatusUpdate, db: AsyncSession = Depends(get_db)):
+async def update_device_status(
+    device_id: int, data: DeviceStatusUpdate, db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
     """更新设备状态"""
     device = (await db.execute(select(UserDevice).where(UserDevice.id == device_id))).scalar_one_or_none()
     if not device:
@@ -330,7 +346,10 @@ async def update_device_status(device_id: int, data: DeviceStatusUpdate, db: Asy
 
 
 @router.delete("/devices/{device_id}", response_model=ResponseModel)
-async def delete_device(device_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_device(
+    device_id: int, db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
     """删除设备"""
     device = (await db.execute(select(UserDevice).where(UserDevice.id == device_id))).scalar_one_or_none()
     if not device:
@@ -343,7 +362,10 @@ async def delete_device(device_id: int, db: AsyncSession = Depends(get_db)):
 # ── 用户 CRUD（参数化路由放在最后）──
 
 @router.get("/{user_id}", response_model=ResponseModel)
-async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
+async def get_user(
+    user_id: int, db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
     """获取用户详情"""
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user:
@@ -352,7 +374,10 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", response_model=ResponseModel)
-async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db)):
+async def create_user(
+    data: UserCreate, db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
     """创建用户"""
     # 检查用户名是否已存在
     existing = (await db.execute(select(User).where(User.username == data.username))).scalar_one_or_none()
@@ -385,7 +410,10 @@ async def create_user(data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{user_id}", response_model=ResponseModel)
-async def update_user(user_id: int, data: UserUpdate, db: AsyncSession = Depends(get_db)):
+async def update_user(
+    user_id: int, data: UserUpdate, db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
     """更新用户"""
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user:
@@ -416,12 +444,15 @@ async def update_user(user_id: int, data: UserUpdate, db: AsyncSession = Depends
 
 
 @router.delete("/{user_id}", response_model=ResponseModel)
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_user(
+    user_id: int, db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
     """删除用户"""
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
-    if not user:
+    user_obj = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user_obj:
         return ResponseModel(success=False, message="用户不存在")
-    await db.delete(user)
+    await db.delete(user_obj)
     await db.commit()
     return ResponseModel(message="用户已删除")
 
@@ -431,15 +462,18 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
 # ============================
 
 @router.get("/{user_id}/status", response_model=ResponseModel)
-async def get_user_status(user_id: int, db: AsyncSession = Depends(get_db)):
+async def get_user_status(
+    user_id: int, db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
     """获取用户在线状态"""
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
-    if not user:
+    user_obj = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user_obj:
         return ResponseModel(success=False, message="用户不存在")
     return ResponseModel(data={
-        "user_id": user.id,
-        "status": "active" if user.is_active else "inactive",
-        "last_login_at": user.last_login,
+        "user_id": user_obj.id,
+        "status": "active" if user_obj.is_active else "inactive",
+        "last_login_at": user_obj.last_login,
     })
 
 

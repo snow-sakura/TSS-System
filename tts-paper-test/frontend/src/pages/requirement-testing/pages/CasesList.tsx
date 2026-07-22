@@ -179,8 +179,7 @@ export default function CasesList() {
       toast.success("用例已删除")
       fetchCases()
     } catch {
-      setCases(cases.filter((x) => x.id !== c.id))
-      toast.success("用例已删除")
+      toast.error("删除失败，请重试")
     }
   }
 
@@ -191,8 +190,7 @@ export default function CasesList() {
       toast.success("批量删除成功")
       fetchCases()
     } catch {
-      setCases(cases.filter((c) => !ids.has(String(c.id))))
-      toast.success("批量删除成功")
+      toast.error("批量删除失败，请重试")
     }
   }
 
@@ -225,8 +223,7 @@ export default function CasesList() {
       toast.success(`用例「${c.title}」已标记为通过`)
       fetchCases()
     } catch {
-      setCases(cases.map((x) => x.id === c.id ? { ...x, status: "已完成", executor: "当前用户", executedAt: new Date().toLocaleString("zh-CN"), result: "通过" } : x))
-      toast.success(`用例「${c.title}」已标记为通过`)
+      toast.error(`用例「${c.title}」标记失败，请重试`)
     }
   }
 
