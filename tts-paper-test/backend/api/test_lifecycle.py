@@ -23,12 +23,13 @@ from schemas.test_lifecycle import (
     ExecutionCreate, ExecutionUpdate, ExecutionResponse,
     DefectCreate, DefectUpdate, DefectResponse,
     ReportCreate, ReportUpdate, ReportResponse,
+    ReviewCreate, ReviewUpdate, ReviewResponse,
 )
 from services import test_lifecycle_service as tls
 from services.log_service import create_operation_log
 from models.test_lifecycle import (
     Requirement, TestPlan, TestPoint, TestCase,
-    TestExecution, Defect, TestReport, PipelineRecord,
+    TestExecution, Defect, TestReport, PipelineRecord, Review,
 )
 from services.document_parser import parse_document, SUPPORTED_EXTENSIONS, SUPPORTED_EXTENSIONS_LABEL, DocumentParseError
 from agents.requirement_agent import RequirementAnalysisStreamAgent
@@ -1024,7 +1025,9 @@ async def create_report(
     user: User = Depends(get_current_user_dep),
 ):
     report = await tls.create_report(db, body.model_dump(), user.id)
-    return ResponseModel(message="报告创建成功", data=ReportResponse.model_validate(report))
+    resp = ReportResponse.model_validate(report)
+    resp.created_by_username = user.username
+    return ResponseModel(message="报告创建成功", data=resp)
 
 
 @router.get("/reports", response_model=ResponseModel)
@@ -1034,6 +1037,19 @@ async def list_reports(
     user: User = Depends(get_current_user_dep),
 ):
     result = await tls.list_reports(db, page, page_size, status)
+    # 解析 created_by → username
+    user_ids = set()
+    for item in result.get("items", []):
+        if item.get("created_by"):
+            user_ids.add(item["created_by"])
+    if user_ids:
+        from models.user import User as UserModel
+        user_result = await db.execute(
+            select(UserModel).where(UserModel.id.in_(user_ids))
+        )
+        user_map = {u.id: u.username for u in user_result.scalars().all()}
+        for item in result.get("items", []):
+            item["created_by_username"] = user_map.get(item.get("created_by"))
     return ResponseModel(data=result)
 
 
@@ -1041,7 +1057,15 @@ async def list_reports(
 async def get_report(report_id: int, db: AsyncSession = Depends(get_db),
                      user: User = Depends(get_current_user_dep)):
     report = await tls.get_report(db, report_id)
-    return ResponseModel(data=ReportResponse.model_validate(report))
+    resp = ReportResponse.model_validate(report)
+    # 解析创建者用户名
+    if resp.created_by:
+        from models.user import User as UserModel
+        u_result = await db.execute(select(UserModel).where(UserModel.id == resp.created_by))
+        u = u_result.scalar_one_or_none()
+        if u:
+            resp.created_by_username = u.username
+    return ResponseModel(data=resp)
 
 
 @router.put("/reports/{report_id}", response_model=ResponseModel)
@@ -1278,6 +1302,72 @@ async def get_quality_trends(
             logger.warning(f"AI 趋势分析失败: {e}")
 
     return ResponseModel(data={"weekly": weekly_data, "ai_trend": ai_trend})
+
+
+# ============ 评审 CRUD ============
+
+@router.get("/reviews", response_model=ResponseModel)
+async def list_reviews(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str = Query(None),
+    review_type: str = Query(None, alias="type"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """分页查询评审列表"""
+    result = await tls.list_reviews(db, page, page_size, status, review_type)
+    return ResponseModel(data=result)
+
+
+@router.get("/reviews/{review_id}", response_model=ResponseModel)
+async def get_review(
+    review_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    review = await tls.get_review(db, review_id)
+    return ResponseModel(data=ReviewResponse.model_validate(review))
+
+
+@router.post("/reviews", response_model=ResponseModel)
+async def create_review(
+    body: ReviewCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    review = await tls.create_review(db, body.model_dump(), user.id)
+    await create_operation_log(db, module="test-lifecycle", action="create_review",
+                               user_id=user.id, username=user.username,
+                               target_id=str(review.id), target_type="review")
+    return ResponseModel(message="评审创建成功", data=ReviewResponse.model_validate(review))
+
+
+@router.put("/reviews/{review_id}", response_model=ResponseModel)
+async def update_review(
+    review_id: int,
+    body: ReviewUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    review = await tls.update_review(db, review_id, body.model_dump(exclude_unset=True))
+    await create_operation_log(db, module="test-lifecycle", action="update_review",
+                               user_id=user.id, username=user.username,
+                               target_id=str(review_id), target_type="review")
+    return ResponseModel(message="评审更新成功", data=ReviewResponse.model_validate(review))
+
+
+@router.delete("/reviews/{review_id}", response_model=ResponseModel)
+async def delete_review(
+    review_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    await tls.delete_review(db, review_id)
+    await create_operation_log(db, module="test-lifecycle", action="delete_review",
+                               user_id=user.id, username=user.username,
+                               target_id=str(review_id), target_type="review")
+    return ResponseModel(message="评审已删除")
 
 
 # ============ 流程记录（DB 版，替代 JSON 存储） ============

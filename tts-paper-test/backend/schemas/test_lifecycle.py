@@ -157,6 +157,64 @@ class TestCaseUpdate(BaseModel):
     priority: Optional[str] = None
 
 
+# ============ 评审 ============
+class ReviewCreate(BaseModel):
+    title: str = Field(..., max_length=500)
+    review_type: Optional[str] = None
+    content: Optional[str] = None
+    status: str = "draft"
+    source: Optional[str] = "manual"
+    reviewer: Optional[str] = None
+    reviewer2: Optional[str] = None
+    case_count: int = 0
+    passed_count: int = 0
+    rejected_count: int = 0
+    summary: Optional[str] = None
+    comments: Optional[str] = None
+
+
+class ReviewUpdate(BaseModel):
+    title: Optional[str] = None
+    review_type: Optional[str] = None
+    content: Optional[str] = None
+    status: Optional[str] = None
+    source: Optional[str] = None
+    reviewer: Optional[str] = None
+    reviewer2: Optional[str] = None
+    case_count: Optional[int] = None
+    passed_count: Optional[int] = None
+    rejected_count: Optional[int] = None
+    summary: Optional[str] = None
+    comments: Optional[str] = None
+    completed_at: Optional[datetime] = None
+
+
+class ReviewResponse(BaseModel):
+    id: int
+    title: str
+    review_type: Optional[str] = None
+    content: Optional[str] = None
+    status: str
+    source: Optional[str] = None
+    reviewer: Optional[str] = None
+    reviewer2: Optional[str] = None
+    case_count: int = 0
+    passed_count: int = 0
+    rejected_count: int = 0
+    summary: Optional[str] = None
+    comments: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    pipeline_id: Optional[str] = None
+    stage_key: Optional[str] = None
+    case_ids: Optional[list] = None
+    created_by: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TestCaseReviewCreate(BaseModel):
     """用例评审"""
     action: str = Field(..., description="评审动作: approved / rejected / needs_modification")
@@ -309,6 +367,7 @@ class ReportResponse(BaseModel):
     report_type: Optional[str] = None
     summary: Optional[dict] = None
     metrics: Optional[dict] = None
+    charts: Optional[dict] = None
     ai_analysis: Optional[dict] = None
     conclusion: Optional[str] = None
     recommendations: Optional[dict] = None
@@ -317,6 +376,7 @@ class ReportResponse(BaseModel):
     plan_id: Optional[int] = None
     ai_generated: bool = False
     created_by: Optional[int] = None
+    created_by_username: Optional[str] = None
     published_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

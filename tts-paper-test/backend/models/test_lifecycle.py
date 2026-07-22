@@ -153,8 +153,17 @@ class Review(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=True)         # 评审内容
+    review_type: Mapped[str] = mapped_column(String(50), nullable=True)  # 用例评审/方案评审/报告评审/AI自动评审
     status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False, index=True)
     source: Mapped[str] = mapped_column(String(50), nullable=True)     # manual / ai
+    reviewer: Mapped[str] = mapped_column(String(100), nullable=True)  # 评审人
+    reviewer2: Mapped[str] = mapped_column(String(100), nullable=True) # 二次评审人
+    case_count: Mapped[int] = mapped_column(Integer, default=0)        # 关联用例数
+    passed_count: Mapped[int] = mapped_column(Integer, default=0)      # 通过数
+    rejected_count: Mapped[int] = mapped_column(Integer, default=0)    # 驳回数
+    summary: Mapped[str] = mapped_column(Text, nullable=True)          # 评审摘要
+    comments: Mapped[str] = mapped_column(Text, nullable=True)         # 评审意见
+    completed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     pipeline_id: Mapped[str] = mapped_column(String(100), nullable=True)
     stage_key: Mapped[str] = mapped_column(String(50), nullable=True)
     case_ids: Mapped[dict] = mapped_column(JSON, nullable=True)       # 关联用例ID

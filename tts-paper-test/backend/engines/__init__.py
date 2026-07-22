@@ -28,10 +28,14 @@ from .base import (
 from .mock_engine import MockEngine
 from .midscene_engine import MidsceneEngine
 from .playwright_mcp_engine import PlaywrightMCPEngine
+from .browser_use_engine import BrowserUseEngine
+from .ui_tars_engine import UITarsEngine
 
 EngineRegistry.register(EngineType.MOCK, MockEngine)
 EngineRegistry.register(EngineType.MIDSCENE, MidsceneEngine)
 EngineRegistry.register(EngineType.PLAYWRIGHT_MCP, PlaywrightMCPEngine)
+EngineRegistry.register(EngineType.BROWSER_USE, BrowserUseEngine)
+EngineRegistry.register(EngineType.UI_TARS, UITarsEngine)
 
 
 # 便捷函数

@@ -42,7 +42,10 @@ export default function RootCauseAnalysis() {
         }))
         setDefects(mapped)
       }
-    } catch {}
+    } catch (err) {
+      console.error("获取缺陷列表失败:", err)
+      toast.error("获取缺陷列表失败，已使用本地数据")
+    }
     finally { setLoading(false) }
   }, [])
 

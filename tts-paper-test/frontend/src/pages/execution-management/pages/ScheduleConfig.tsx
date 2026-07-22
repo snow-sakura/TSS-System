@@ -46,7 +46,9 @@ export default function ScheduleConfig() {
           }))
         setSchedules(scheduled.length > 0 ? scheduled : initialSchedules)
       }
-    } catch {
+    } catch (err) {
+      console.error("获取调度配置失败:", err)
+      toast.error("获取调度配置失败，已使用本地数据")
       // 保持mock数据
     } finally {
       setLoading(false)

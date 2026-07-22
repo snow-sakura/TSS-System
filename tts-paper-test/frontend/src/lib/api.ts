@@ -240,16 +240,7 @@ export const lifecycleApi = {
   getQualityMetrics: () => api.get("/test-lifecycle/quality/metrics"),
   getQualityTrends: () => api.get("/test-lifecycle/quality/trends"),
 
-  // 文档上传解析
-  uploadDocument: (file: File) => {
-    const formData = new FormData()
-    formData.append("file", file)
-    return api.post("/data/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-      timeout: 60000,
-    })
-  },
-  getSupportedFormats: () => api.get("/data/upload/supported"),
+
 
   // 全流程 Pipeline
   startPipelineSSE: (data: { requirement_content: string; requirement_name?: string }, signal?: AbortSignal) =>
@@ -268,6 +259,13 @@ export const lifecycleApi = {
     if (ids?.length) params.set("ids", ids.join(","))
     return apiFetch(`/api/v1/data/cases/export?${params}`)
   },
+
+  // 评审管理
+  listReviews: (params?: Record<string, any>) => api.get("/test-lifecycle/reviews", { params }),
+  getReview: (id: number) => api.get(`/test-lifecycle/reviews/${id}`),
+  createReview: (data: any) => api.post("/test-lifecycle/reviews", data),
+  updateReview: (id: number, data: any) => api.put(`/test-lifecycle/reviews/${id}`, data),
+  deleteReview: (id: number) => api.delete(`/test-lifecycle/reviews/${id}`),
 
   // === 流程记录 (DB版) ===
   listPipelineRecords: (params?: Record<string, any>) =>

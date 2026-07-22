@@ -18,7 +18,6 @@
 │   ├── ReviewsList          评审管理
 │   ├── AIPipeline           AI全流程Pipeline
 │   └── ProcessRecords       流程记录
-├── /test-lifecycle          测试生命周期（只读导航）
 ├── /defects                 缺陷管理（4个子页面）
 │   ├── DefectList           缺陷列表
 │   ├── DefectKanban         看板视图
@@ -33,23 +32,31 @@
 │   ├── AiReport             AI报告生成
 │   ├── QualityOverview      质量概览
 │   └── TrendCharts          趋势图表
-└── /ai-web-automation       AI Web自动化（5个子页面）
-    ├── ProjectList          项目管理
-    ├── AiExploration        AI探索
-    ├── TestCaseManager      用例管理
-    ├── ExecutionView        执行视图
-    └── AiAgentPanel         AI智能体
+├── /ai-web-automation       AI Web自动化（6个子页面）
+│   ├── ProjectList          项目管理
+│   ├── AiAgentPanel         AI智能体（自然语言→全流程）
+│   ├── AiExploration        AI探索
+│   ├── TestCaseManager      用例管理
+│   ├── ExecutionView        执行视图
+│   └── TestSkillLibrary     测试技能库
+└── /system                  系统管理（7个子页面）
+    ├── EnvironmentConfig    环境配置
+    ├── LLMConfig            LLM配置
+    ├── PromptConfig         提示词配置
+    ├── DeAIConfig           DeAI配置
+    ├── MCPConfig            MCP配置
+    ├── SkillsConfig         Skills配置
+    └── OperationLogs        操作日志
 ```
 
 ### 1.2 冗余问题识别
 
 | 问题 | 严重度 | 说明 |
 |------|--------|------|
-| TestLifecyclePage是纯导航页 | 🔴 高 | 前5阶段跳转到requirement-testing，后3阶段是只读表格，无实际功能 |
 | 测试用例出现在3个地方 | 🔴 高 | CasesList + AICaseGeneration + TestCaseManager(独立后端) |
-| 执行记录出现在3个地方 | 🔴 高 | TestLifecyclePage只读 + ExecutionManagement完整 + AI Web独立 |
-| 缺陷数据出现在2个地方 | 🟡 中 | TestLifecyclePage只读 + DefectManagement完整 |
-| 报告数据出现在2个地方 | 🟡 中 | TestLifecyclePage只读 + ReportManagement完整 |
+| 执行记录出现在2个地方 | 🟡 中 | ExecutionManagement完整 + AI Web独立 |
+| 缺陷数据出现在2个地方 | 🟡 中 | DefectManagement完整 + TestLifecycle API |
+| 报告数据出现在2个地方 | 🟡 中 | ReportManagement完整 + TestLifecycle API |
 | 趋势图表重复 | 🟡 中 | TrendAnalysis(缺陷) + TrendCharts(报告) 有交叉 |
 | 导出逻辑重复 | 🟢 低 | 5个页面各自实现XLSX导出 |
 | 需求双存储 | 🟡 中 | JSON存储 + DB存储并存，旧代码未清理 |

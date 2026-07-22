@@ -3,9 +3,10 @@
  * AI生成用例 + 审核 + 批准
  */
 import { useState, useEffect, useCallback } from "react"
-import { Search, Plus, Edit, Trash2, Eye, X, FlaskConical, Check, XCircle, CheckCircle, Download, Loader2, RefreshCw, Sparkles } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Eye, X, FlaskConical, Check, XCircle, CheckCircle, Download, Loader2, RefreshCw, Sparkles, BookOpen, PanelRightClose } from "lucide-react"
 import { toast } from "sonner"
 import { webApi } from "@/lib/api"
+import TestSkillLibrary from "./TestSkillLibrary"
 
 interface TestCase {
   id: number; project_id: number; title: string; description?: string; preconditions?: string;
@@ -32,6 +33,7 @@ export default function TestCaseManager() {
   const [projects, setProjects] = useState<any[]>([])
   const [generating, setGenerating] = useState(false)
   const [previewCase, setPreviewCase] = useState<TestCase | null>(null)
+  const [showSkillLibrary, setShowSkillLibrary] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
   const [editingCase, setEditingCase] = useState<TestCase | null>(null)
   const [form, setForm] = useState({ title: "", description: "", expected_result: "", priority: "P1", preconditions: "" })
@@ -48,7 +50,9 @@ export default function TestCaseManager() {
           setSelectedProjectId(res.data.items[0].id)
         }
       }
-    } catch {}
+    } catch (err) {
+      console.error("获取项目列表失败:", err)
+    }
   }, [selectedProjectId])
 
   // 加载测试用例
@@ -73,8 +77,10 @@ export default function TestCaseManager() {
           page_url: c.page_url,
         })))
       }
-    } catch {
+    } catch (err) {
+      console.error("获取测试用例失败:", err)
       setCases([])
+      toast.error("无法加载测试用例，请检查服务器连接")
     } finally {
       setLoading(false)
     }
@@ -126,7 +132,9 @@ export default function TestCaseManager() {
               } else if (currentEvent === "generation_error") {
                 toast.error(`生成失败: ${data.error}`)
               }
-            } catch {}
+              } catch (parseErr) {
+                console.warn("SSE data parse error:", parseErr)
+              }
             currentEvent = ""
             currentData = ""
           }
@@ -200,6 +208,7 @@ export default function TestCaseManager() {
             {generating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 生成中...</> : <><Sparkles className="w-3.5 h-3.5" /> AI生成用例</>}
           </button>
           <button onClick={openCreate} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> 新建用例</button>
+          <button onClick={() => setShowSkillLibrary(!showSkillLibrary)} className={`h-9 px-3 rounded-xl border text-sm flex items-center gap-1.5 transition-all ${showSkillLibrary ? "bg-amber text-white border-amber" : "border-border text-ink-light hover:bg-cream"}`}><BookOpen className="w-3.5 h-3.5" /> 技能库</button>
         </div>
       </div>
 
@@ -321,6 +330,27 @@ export default function TestCaseManager() {
           </div>
         </div>
       )}
+      {/* 技能库 slide-over 面板 */}
+      {showSkillLibrary && (
+        <>
+          <div className="fixed inset-0 bg-black/20 z-30" onClick={() => setShowSkillLibrary(false)} />
+          <div className="fixed top-0 right-0 z-40 h-full w-[480px] max-w-[90vw] bg-white shadow-elevated border-l border-border overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-border px-4 py-3 flex items-center justify-between z-10">
+              <h3 className="text-sm font-bold text-ink flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-amber" />
+                测试技能库
+              </h3>
+              <button onClick={() => setShowSkillLibrary(false)} className="p-1.5 rounded-lg hover:bg-cream transition-colors">
+                <X className="w-4 h-4 text-muted" />
+              </button>
+            </div>
+            <div className="p-4">
+              <TestSkillLibrary />
+            </div>
+          </div>
+        </>
+      )}
+
     </div>
   )
 }

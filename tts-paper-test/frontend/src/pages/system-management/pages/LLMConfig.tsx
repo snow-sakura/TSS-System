@@ -16,6 +16,15 @@ const MODEL_TYPES = [
   { key: "embedding", label: "Embedding模型", icon: Cpu, color: "from-rose-500 to-red-600" },
 ]
 
+const TYPE_LABEL_TO_KEY: Record<string, string> = {
+  "Chat模型": "chat", "视觉模型": "vision", "多模态模型": "multimodal",
+  "代码模型": "code", "Embedding模型": "embedding",
+}
+const TYPE_KEY_TO_LABEL: Record<string, string> = {
+  "chat": "Chat模型", "vision": "视觉模型", "multimodal": "多模态模型",
+  "code": "代码模型", "embedding": "Embedding模型",
+}
+
 // 最新国产大模型预设（2025-2026）
 const PRESET_MODELS = [
   { name: "DeepSeek-V3", provider: "深度求索", model: "deepseek-chat", type: "chat", params: "671B MoE", context: 64000, price: { input: 0.001, output: 0.002 }, features: ["Function Calling", "JSON Mode", "Streaming"], desc: "推理能力强，代码生成优秀" },
@@ -47,30 +56,91 @@ const ROUTE_RULES = [
   { id: "embed", label: "向量嵌入", targetType: "embedding", icon: Cpu, desc: "知识库检索、语义搜索" },
 ]
 
-// Mock已配置的模型
-const mockProviders = [
-  { id: "llm-1", name: "DeepSeek-V3", provider: "深度求索", model: "deepseek-chat", type: "chat", params: "671B MoE", context: 64000, maxTokens: 8192, temperature: 0.7, status: "enabled", price: { input: 0.001, output: 0.002 }, features: ["Function Calling", "JSON Mode", "Streaming"], stats: { today_calls: 1250, today_tokens: 2500000, today_cost: 5.0, avg_latency: 1200, success_rate: 99.2 }, linked_agents: ["测试用例生成Agent", "缺陷分析Agent", "代码审查Agent"], route: { weight: 40, priority: 1 } },
-  { id: "llm-2", name: "Qwen2.5-72B-Instruct", provider: "阿里通义", model: "qwen2.5-72b-instruct", type: "chat", params: "72B", context: 131072, maxTokens: 8192, temperature: 0.7, status: "enabled", price: { input: 0.001, output: 0.002 }, features: ["Function Calling", "JSON Mode"], stats: { today_calls: 890, today_tokens: 1800000, today_cost: 3.6, avg_latency: 980, success_rate: 99.5 }, linked_agents: ["需求分析Agent", "报告生成Agent"], route: { weight: 30, priority: 2 } },
-  { id: "llm-3", name: "GLM-4-Plus", provider: "智谱AI", model: "glm-4-plus", type: "chat", params: "130B", context: 128000, maxTokens: 4096, temperature: 0.7, status: "enabled", price: { input: 0.005, output: 0.005 }, features: ["Function Calling", "工具调用"], stats: { today_calls: 320, today_tokens: 640000, today_cost: 6.4, avg_latency: 1500, success_rate: 98.8 }, linked_agents: ["工具调用Agent", "多步骤推理Agent"], route: { weight: 15, priority: 3 } },
-  { id: "llm-4", name: "Qwen-VL-Max", provider: "阿里通义", model: "qwen-vl-max", type: "vision", params: "72B", context: 32000, maxTokens: 4096, temperature: 0.7, status: "enabled", price: { input: 0.002, output: 0.002 }, features: ["图像理解", "OCR", "视频分析"], stats: { today_calls: 156, today_tokens: 312000, today_cost: 1.25, avg_latency: 2100, success_rate: 99.0 }, linked_agents: ["视觉回归Agent", "UI截图分析Agent"], route: { weight: 10, priority: 4 } },
-  { id: "llm-5", name: "text-embedding-3-small", provider: "OpenAI", model: "text-embedding-3-small", type: "embedding", params: "1536d", context: 8191, maxTokens: 8191, temperature: 0, status: "enabled", price: { input: 0.00013, output: 0 }, features: ["向量嵌入", "语义搜索"], stats: { today_calls: 4500, today_tokens: 9000000, today_cost: 1.17, avg_latency: 120, success_rate: 99.9 }, linked_agents: ["知识库检索Agent", "语义匹配Agent"], route: { weight: 5, priority: 5 } },
-  { id: "llm-6", name: "DeepSeek-R1", provider: "深度求索", model: "deepseek-reasoner", type: "chat", params: "671B MoE", context: 64000, maxTokens: 8192, temperature: 0.1, status: "disabled", price: { input: 0.004, output: 0.008 }, features: ["深度推理", "链式思考"], stats: { today_calls: 0, today_tokens: 0, today_cost: 0, avg_latency: 0, success_rate: 0 }, linked_agents: [], route: { weight: 0, priority: 6 } },
-]
+/** 查找模型预设信息（用于补全 UI 展示字段） */
+function getPreset(modelName: string) {
+  return PRESET_MODELS.find(
+    (p) => p.model === modelName || p.name === modelName
+  )
+}
+
+/** 后端 API 响应 → UI 展示格式 */
+function apiToProvider(item: any) {
+  const typeKey = TYPE_LABEL_TO_KEY[item.type] || "chat"
+  const preset = getPreset(item.model) || getPreset(item.name)
+  return {
+    id: item.id,
+    name: item.name,
+    provider: preset?.provider || "",
+    model: item.model,
+    type: typeKey,
+    params: preset?.params || "-",
+    context: preset?.context || 128000,
+    maxTokens: item.max_tokens,
+    temperature: item.temperature,
+    status: item.status === "已启用" ? "enabled" : "disabled",
+    price: preset?.price || { input: 0, output: 0 },
+    features: preset?.features || [],
+    apiKey: item.api_key,
+    baseUrl: item.base_url || "",
+    stats: {
+      today_calls: item.calls_today || 0,
+      today_tokens: 0, // 后端不存储
+      today_cost: parseFloat(item.cost_today?.replace("¥", "") || "0"),
+      avg_latency: item.avg_latency === "-" ? 0 : parseFloat(item.avg_latency) * 1000 || 0,
+      success_rate: 0, // 后端不存储
+    },
+    linked_agents: [] as string[],
+    route: { weight: 0, priority: 0 },
+  }
+}
+
+/** 表单数据 → 后端创建/更新 payload */
+function formToPayload(form: any) {
+  return {
+    name: form.name,
+    model: form.model,
+    api_key: form.apiKey,
+    base_url: form.baseUrl || undefined,
+    type: TYPE_KEY_TO_LABEL[form.type] || "Chat模型",
+    max_tokens: parseInt(form.maxTokens) || 128000,
+    temperature: parseFloat(form.temperature) || 0.7,
+  }
+}
 
 export default function LLMConfig() {
-  const [providers, setProviders] = useState<any[]>(mockProviders)
-  const [loading, setLoading] = useState(false)
+  const [providers, setProviders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetching, setFetching] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [editingProvider, setEditingProvider] = useState<any>(null)
   const [form, setForm] = useState({ name: "", provider: "", model: "", apiKey: "", baseUrl: "", type: "chat", maxTokens: "8192", temperature: "0.7" })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [testingId, setTestingId] = useState<string | null>(null)
+  const [testingId, setTestingId] = useState<number | null>(null)
   const [search, setSearch] = useState("")
   const [filterType, setFilterType] = useState<string>("all")
   const [deleteTarget, setDeleteTarget] = useState<any>(null)
   const [showTestResult, setShowTestResult] = useState<any>(null)
   const [viewMode, setViewMode] = useState<"list" | "router">("list")
+
+  /** 从后端加载模型列表 */
+  const fetchProviders = async () => {
+    setFetching(true)
+    try {
+      const res: any = await configApi.listLLMProviders(1, 100)
+      const items = res?.data?.items || []
+      setProviders(items.map(apiToProvider))
+    } catch (e: any) {
+      toast.error("加载模型列表失败: " + (e?.message || "未知错误"))
+    } finally {
+      setFetching(false)
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchProviders()
+  }, [])
 
   const enabledCount = providers.filter((p) => p.status === "enabled").length
   const totalCalls = providers.reduce((sum, p) => sum + (p.stats?.today_calls || 0), 0)
@@ -92,45 +162,64 @@ export default function LLMConfig() {
     return Object.keys(errors).length === 0
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return
-    if (dialogMode === "create") {
-      const newProvider = {
-        id: `llm-${Date.now()}`,
-        name: form.name, provider: form.provider, model: form.model,
-        type: form.type, context: 128000, maxTokens: parseInt(form.maxTokens),
-        temperature: parseFloat(form.temperature), status: "enabled",
-        price: { input: 0.001, output: 0.002 }, features: [], stats: { today_calls: 0, today_tokens: 0, today_cost: 0, avg_latency: 0, success_rate: 0 },
-        linked_agents: [], route: { weight: 0, priority: providers.length + 1 },
+    try {
+      if (dialogMode === "create") {
+        await configApi.createLLMProvider(formToPayload(form))
+        toast.success("模型添加成功")
+      } else {
+        await configApi.updateLLMProvider(editingProvider.id, formToPayload(form))
+        toast.success("模型更新成功")
       }
-      setProviders([newProvider, ...providers])
-      toast.success("模型添加成功")
-    } else {
-      setProviders(providers.map((p) => p.id === editingProvider.id ? { ...p, name: form.name, model: form.model, type: form.type, maxTokens: parseInt(form.maxTokens), temperature: parseFloat(form.temperature) } : p))
-      toast.success("模型更新成功")
+      setShowDialog(false)
+      await fetchProviders()
+    } catch (e: any) {
+      toast.error(dialogMode === "create" ? "添加模型失败: " + (e?.message || "未知错误") : "更新模型失败: " + (e?.message || "未知错误"))
     }
-    setShowDialog(false)
   }
 
   const handleDelete = (p: any) => setDeleteTarget(p)
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return
-    setProviders(providers.filter((p) => p.id !== deleteTarget.id))
-    toast.success("模型已删除")
-    setDeleteTarget(null)
+    try {
+      await configApi.deleteLLMProvider(deleteTarget.id)
+      toast.success("模型已删除")
+      setDeleteTarget(null)
+      await fetchProviders()
+    } catch (e: any) {
+      toast.error("删除模型失败: " + (e?.message || "未知错误"))
+    }
   }
 
-  const handleToggle = (p: any) => {
-    setProviders(providers.map((item) => item.id === p.id ? { ...item, status: item.status === "enabled" ? "disabled" : "enabled" } : item))
-    toast.success(`${p.name} 已${p.status === "enabled" ? "禁用" : "启用"}`)
+  const handleToggle = async (p: any) => {
+    try {
+      const res: any = await configApi.toggleLLMProvider(p.id)
+      const newStatus = res?.data?.status
+      toast.success(`${p.name} 已${newStatus === "已启用" ? "启用" : "禁用"}`)
+      await fetchProviders()
+    } catch (e: any) {
+      toast.error(`${p.name} 状态切换失败: ` + (e?.message || "未知错误"))
+    }
   }
 
   const handleTestConnection = async (p: any) => {
     setTestingId(p.id)
-    await new Promise((r) => setTimeout(r, 1500))
-    setShowTestResult({ name: p.name, status: "success", latency: "1.2s", model: p.model })
-    setTestingId(null)
-    toast.success(`${p.name} 连接测试成功`)
+    try {
+      const res: any = await configApi.testLLMConnection(p.id)
+      const result = res?.data
+      setShowTestResult({
+        name: p.name,
+        status: "success",
+        latency: result?.latency || "-",
+        model: p.model,
+      })
+      toast.success(`${p.name} 连接测试成功`)
+    } catch (e: any) {
+      toast.error(`${p.name} 连接测试失败: ` + (e?.message || "未知错误"))
+    } finally {
+      setTestingId(null)
+    }
   }
 
   const openCreate = () => {
@@ -140,11 +229,29 @@ export default function LLMConfig() {
   }
   const openEdit = (p: any) => {
     setDialogMode("edit"); setEditingProvider(p)
-    setForm({ name: p.name, provider: p.provider, model: p.model, apiKey: "••••••••", baseUrl: "", type: p.type, maxTokens: String(p.maxTokens), temperature: String(p.temperature) })
+    setForm({
+      name: p.name, provider: p.provider, model: p.model,
+      apiKey: p.apiKey || "••••••••", baseUrl: p.baseUrl || "",
+      type: p.type, maxTokens: String(p.maxTokens), temperature: String(p.temperature),
+    })
     setFormErrors({}); setShowDialog(true)
   }
 
   const getTypeInfo = (typeKey: string) => MODEL_TYPES.find((t) => t.key === typeKey) || MODEL_TYPES[0]
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-ink">大模型配置</h2>
+          <p className="text-xs text-muted mt-0.5">最新国产大模型管理 · 用量监控 · 成本追踪 · 路由规则 · Agent关联</p>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-sm text-muted gap-2">
+          <RefreshCw className="w-4 h-4 animate-spin" /> 加载中...
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -196,6 +303,9 @@ export default function LLMConfig() {
         <button onClick={openCreate} className="h-9 px-4 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md flex items-center gap-1.5">
           <Plus className="w-3.5 h-3.5" /> 添加模型
         </button>
+        <button onClick={fetchProviders} disabled={fetching} className="h-9 px-3 rounded-xl border border-border text-sm text-ink-light hover:bg-cream flex items-center gap-1.5 disabled:opacity-50">
+          <RefreshCw className={`w-3.5 h-3.5 ${fetching ? "animate-spin" : ""}`} /> 刷新
+        </button>
       </div>
 
       {/* 模型列表视图 */}
@@ -219,7 +329,7 @@ export default function LLMConfig() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold text-ink">{p.name}</h3>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cream text-muted">{p.provider}</span>
+                        {p.provider && <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-cream text-muted">{p.provider}</span>}
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${p.status === "enabled" ? "bg-pass/10 text-pass" : "bg-muted/10 text-muted"}`}>{p.status === "enabled" ? "启用" : "禁用"}</span>
                       </div>
                       <p className="text-[11px] text-muted mt-0.5">模型: <span className="font-mono">{p.model}</span> · {p.params} · 上下文: {p.context?.toLocaleString()} tokens</p>
@@ -270,7 +380,7 @@ export default function LLMConfig() {
                     <p className="text-[10px] text-muted">今日费用</p>
                   </div>
                   <div className="text-center p-2 rounded-lg bg-cream/30">
-                    <p className="text-sm font-bold text-ink">{p.stats?.avg_latency ? `${p.stats.avg_latency}ms` : "-"}</p>
+                    <p className="text-sm font-bold text-ink">{p.stats?.avg_latency ? `${Math.round(p.stats.avg_latency)}ms` : "-"}</p>
                     <p className="text-[10px] text-muted">平均延迟</p>
                   </div>
                 </div>

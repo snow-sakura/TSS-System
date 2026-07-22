@@ -35,7 +35,9 @@ export default function UserStatus() {
           browser: u.browser || "-",
         })))
       }
-    } catch {
+    } catch (err) {
+      console.error("获取用户状态失败:", err)
+      toast.error("获取用户状态失败，已使用本地数据")
       // 保持空数据
     } finally {
       setLoading(false)

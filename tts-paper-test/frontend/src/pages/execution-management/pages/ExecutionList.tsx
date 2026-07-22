@@ -77,7 +77,9 @@ export default function ExecutionList() {
         }))
         setExecutions(mapped)
       }
-    } catch {
+    } catch (err) {
+      console.error("获取执行列表失败:", err)
+      toast.error("获取执行列表失败，已使用本地数据")
       // 保持mock数据作为后备
     } finally {
       setLoading(false)
@@ -182,7 +184,9 @@ export default function ExecutionList() {
               } : e
             ))
           }
-        } catch {}
+        } catch (err) {
+          console.error("获取执行进度失败:", err)
+        }
       }, 2000)
       progressTimers.current.set(exec.id, timer)
       // 5秒后停止轮询

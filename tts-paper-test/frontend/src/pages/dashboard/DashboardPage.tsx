@@ -228,9 +228,10 @@ export default function DashboardPage() {
           {displayModules.map((mod) => {
             const iconSvg = cardIcons[mod.key] || cardIcons["test-lifecycle"]
             const routeMap: Record<string, string> = {
-              environments: "/environments", llm: "/llm", prompts: "/prompts",
-              "de-ai": "/de-ai", mcp: "/mcp", skills: "/skills", hermes: "/hermes",
-              "operation-logs": "/operation-logs", "web-automation": "/ai-web-automation", "knowledge": "/knowledge-base",
+              environments: "/system?menu=sys-env", llm: "/system?menu=sys-llm", prompts: "/system?menu=sys-prompts",
+              "de-ai": "/system?menu=sys-deai", mcp: "/system?menu=sys-mcp", skills: "/system?menu=sys-skills",
+              hermes: "/system?menu=sys-hermes",
+              "operation-logs": "/system?menu=sys-logs", "web-automation": "/ai-web-automation", "knowledge": "/knowledge-base",
               "workflow-orchestration": "/workflow-orchestration",
             }
             const targetPath = mod.key === "requirement-testing" ? "/requirement-testing"

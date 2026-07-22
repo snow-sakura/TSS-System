@@ -3,6 +3,7 @@
  */
 import { useState, useEffect, useCallback } from "react"
 import { TrendingUp, TrendingDown, BarChart3, RefreshCw } from "lucide-react"
+import { toast } from "sonner"
 import { lifecycleApi } from "@/lib/api"
 
 function MiniChart({ data, color, maxVal = 100 }: { data: number[]; color: string; maxVal?: number }) {
@@ -79,7 +80,9 @@ export default function TrendCharts() {
         })
         setDataSource("api")
       }
-    } catch {
+    } catch (err) {
+      console.error("获取趋势图表数据失败:", err)
+      toast.error("获取趋势数据失败，已使用本地数据")
       // 保持mock数据
     } finally {
       setLoading(false)

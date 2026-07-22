@@ -1,80 +1,46 @@
 /**
  * MCP服务配置 — 外部工具协议注册 + 工具发现 + 连通检测 + 安全配置
+ * 已对接 configApi 真实 API
  */
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Plus, Edit, Trash2, X, Webhook, Activity, RefreshCw, Wifi, WifiOff, AlertTriangle, Server, Search, ChevronDown, ChevronRight, Shield, Wrench, Globe, Lock, Key, Zap, Cpu, Database, Code, Bell } from "lucide-react"
 import { toast } from "sonner"
+import { configApi } from "@/lib/api"
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal"
 
-const MOCK_SERVICES = [
-  {
-    id: 1, name: "Playwright Server", url: "http://localhost:3000", description: "浏览器自动化控制，用于UI测试和截图采集",
-    service_type: "工具", status: "在线", last_check_at: "2025-01-15T10:30:00",
-    tools: [
-      { name: "browser_navigate", description: "导航到指定URL", inputSchema: '{ "url": "string" }' },
-      { name: "browser_click", description: "点击页面元素", inputSchema: '{ "selector": "string" }' },
-      { name: "browser_snapshot", description: "获取页面快照", inputSchema: '{ "depth": "number" }' },
-      { name: "browser_screenshot", description: "截取页面截图", inputSchema: '{ "fullPage": "boolean" }' },
-    ],
-    config: { auth: "Bearer Token", token: "pk_live_abc123def456", timeout: 30000 },
-    linked_agents: ["ui-test-runner", "visual-regression"],
-  },
-  {
-    id: 2, name: "File Operations", url: "mcp://file-server:9000", description: "文件读写操作，支持测试报告生成和日志收集",
-    service_type: "存储", status: "在线", last_check_at: "2025-01-15T09:15:00",
-    tools: [
-      { name: "file_read", description: "读取文件内容", inputSchema: '{ "path": "string" }' },
-      { name: "file_write", description: "写入文件", inputSchema: '{ "path": "string", "content": "string" }' },
-      { name: "file_list", description: "列出目录内容", inputSchema: '{ "dir": "string", "pattern": "string" }' },
-    ],
-    config: { apiKey: "fs_key_xyz789", timeout: 10000 },
-    linked_agents: ["report-generator", "log-collector"],
-  },
-  {
-    id: 3, name: "Database Proxy", url: "https://db-proxy.tss.local:5433", description: "数据库查询代理，用于测试数据验证和断言",
-    service_type: "代理", status: "在线", last_check_at: "2025-01-15T08:45:00",
-    tools: [
-      { name: "db_query", description: "执行SQL查询", inputSchema: '{ "sql": "string", "params": "array" }' },
-      { name: "db_validate", description: "验证数据完整性", inputSchema: '{ "table": "string", "conditions": "object" }' },
-    ],
-    config: { auth: "mTLS", token: "db_cert_abc", headers: { "X-DB-Cluster": "primary" } },
-    linked_agents: ["data-validator", "integration-tester"],
-  },
-  {
-    id: 4, name: "API Gateway", url: "https://api-gw.tss.local/v1", description: "外部API调用网关，支持Mock和真实API切换",
-    service_type: "工具", status: "错误", last_check_at: "2025-01-15T07:00:00",
-    tools: [
-      { name: "api_call", description: "发起API请求", inputSchema: '{ "method": "string", "url": "string", "body": "object" }' },
-      { name: "api_mock", description: "Mock API响应", inputSchema: '{ "endpoint": "string", "response": "object" }' },
-    ],
-    config: { apiKey: "gw_key_123", timeout: 15000 },
-    linked_agents: ["api-tester", "contract-tester"],
-  },
-  {
-    id: 5, name: "Code Analyzer", url: "ws://analyzer.tss.local:8080", description: "代码静态分析服务，检测安全漏洞和代码质量问题",
-    service_type: "工具", status: "在线", last_check_at: "2025-01-15T10:00:00",
-    tools: [
-      { name: "code_scan", description: "扫描代码仓库", inputSchema: '{ "repo": "string", "branch": "string" }' },
-      { name: "code_review", description: "代码审查", inputSchema: '{ "file": "string", "rules": "array" }' },
-      { name: "vuln_check", description: "漏洞检测", inputSchema: '{ "package": "string", "version": "string" }' },
-    ],
-    config: { auth: "API Key", apiKey: "scan_key_456" },
-    linked_agents: ["security-scanner", "quality-checker"],
-  },
-  {
-    id: 6, name: "Notification Service", url: "https://notify.tss.local/webhook", description: "测试结果通知推送，支持多渠道消息分发",
-    service_type: "其他", status: "离线", last_check_at: "2025-01-14T22:00:00",
-    tools: [
-      { name: "notify_send", description: "发送通知消息", inputSchema: '{ "channel": "string", "message": "object" }' },
-      { name: "notify_batch", description: "批量发送通知", inputSchema: '{ "recipients": "array", "message": "object" }' },
-    ],
-    config: { timeout: 5000 },
-    linked_agents: ["alert-manager"],
-  },
-]
+/** 后端 API 服务 → UI 展示格式 */
+function apiToService(item: any) {
+  return {
+    id: item.id,
+    name: item.name || "",
+    url: item.url || "",
+    description: item.description || "",
+    service_type: item.service_type || "工具",
+    status: item.status || "在线",
+    last_check_at: item.last_check_at || null,
+    tools: item.tools || [],
+    config: item.config || {},
+    linked_agents: item.linked_agents || [],
+  }
+}
+
+/** UI 格式 → 后端 API payload */
+function formToPayload(form: any) {
+  const payload: Record<string, any> = {
+    name: form.name || "",
+    url: form.url || "",
+    description: form.description || "",
+    service_type: form.service_type || "工具",
+  }
+  if (form.config.trim()) {
+    try { payload.config = JSON.parse(form.config) } catch {}
+  }
+  return payload
+}
 
 export default function MCPConfig() {
-  const [services, setServices] = useState<any[]>(MOCK_SERVICES)
+  const [services, setServices] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [editingService, setEditingService] = useState<any>(null)
@@ -87,6 +53,21 @@ export default function MCPConfig() {
   const [expandedSecurity, setExpandedSecurity] = useState<Record<number, boolean>>({})
   const [batchTesting, setBatchTesting] = useState(false)
 
+  const fetchServices = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res: any = await configApi.listMCPServices(1, 100)
+      const items = res?.data?.items || res?.data || []
+      setServices(items.map(apiToService))
+    } catch (e: any) {
+      toast.error("加载MCP服务列表失败: " + (e?.message || "未知错误"))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchServices() }, [fetchServices])
+
   const validate = () => {
     const errors: Record<string, string> = {}
     if (!form.name.trim()) errors.name = "服务名称不能为空"
@@ -96,39 +77,60 @@ export default function MCPConfig() {
     return Object.keys(errors).length === 0
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return
-    const newService = {
-      id: dialogMode === "create" ? Date.now() : editingService.id,
-      name: form.name, url: form.url, description: form.description,
-      service_type: form.service_type, status: "在线", last_check_at: new Date().toISOString(),
-      tools: [], config: form.config ? JSON.parse(form.config) : {}, linked_agents: [],
+    try {
+      const payload = formToPayload(form)
+      if (dialogMode === "create") {
+        await configApi.createMCPService(payload)
+        toast.success("服务创建成功")
+      } else if (editingService) {
+        await configApi.updateMCPService(editingService.id, payload)
+        toast.success("服务更新成功")
+      }
+      setShowDialog(false)
+      fetchServices()
+    } catch (e: any) {
+      toast.error("保存失败: " + (e?.message || "未知错误"))
     }
-    setServices(dialogMode === "create" ? [...services, newService] : services.map((s) => s.id === newService.id ? { ...s, ...newService } : s))
-    toast.success(dialogMode === "create" ? "服务创建成功" : "服务更新成功")
-    setShowDialog(false)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return
-    setServices(services.filter((s) => s.id !== deleteTarget.id))
-    toast.success("服务已删除"); setDeleteTarget(null)
+    try {
+      await configApi.deleteMCPService(deleteTarget.id)
+      toast.success("服务已删除")
+      setDeleteTarget(null)
+      fetchServices()
+    } catch (e: any) {
+      toast.error("删除失败: " + (e?.message || "未知错误"))
+    }
   }
 
-  const handleTestConnection = (s: any) => {
+  const handleTestConnection = async (s: any) => {
     setTestingId(s.id)
-    setTimeout(() => {
-      setServices(services.map((sv) => sv.id === s.id ? { ...sv, status: "在线", last_check_at: new Date().toISOString() } : sv))
-      toast.success(`「${s.name}」连通测试成功`); setTestingId(null)
-    }, 1000)
+    try {
+      await configApi.testMCPConnection(s.id)
+      toast.success(`「${s.name}」连通测试成功`)
+      fetchServices()
+    } catch (e: any) {
+      toast.error(`「${s.name}」测试失败: ` + (e?.message || "未知错误"))
+    } finally {
+      setTestingId(null)
+    }
   }
 
-  const handleBatchTest = () => {
+  const handleBatchTest = async () => {
     setBatchTesting(true)
-    setTimeout(() => {
-      toast.success(`批量测试完成: ${services.filter((s) => s.status === "在线").length}/${services.length} 在线`)
+    try {
+      await configApi.batchTestMCP()
+      toast.success("批量检测完成")
+      fetchServices()
+    } catch (e: any) {
+      toast.error("批量检测失败: " + (e?.message || "未知错误"))
+    } finally {
       setBatchTesting(false)
-    }, 1500)
+    }
   }
 
   const openCreate = () => { setDialogMode("create"); setEditingService(null); setForm({ name: "", url: "", description: "", service_type: "工具", config: "" }); setFormErrors({}); setShowDialog(true) }
@@ -164,8 +166,13 @@ export default function MCPConfig() {
         <button onClick={openCreate} className="h-9 px-4 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> 添加服务</button>
       </div>
 
+      {loading ? (
+        <div className="flex items-center justify-center py-16"><RefreshCw className="w-6 h-6 text-amber animate-spin" /></div>
+      ) : (
       <div className="space-y-3 flex-1 overflow-y-auto">
-        {services.filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.url.toLowerCase().includes(search.toLowerCase())).map((s) => {
+        {services.filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.url.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
+          <div className="text-center py-16 text-muted"><Server className="w-8 h-8 mx-auto mb-2 text-muted-light" /><p className="text-sm">暂无MCP服务</p></div>
+        ) : services.filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.url.toLowerCase().includes(search.toLowerCase())).map((s) => {
           const isExpanded = expandedTools[s.id]
           const isSecurityExpanded = expandedSecurity[s.id]
           const configObj = typeof s.config === "object" ? s.config : null
@@ -249,6 +256,7 @@ export default function MCPConfig() {
           </div>
         )})}
       </div>
+      )}
 
       <ConfirmDeleteModal open={!!deleteTarget} message="确定删除以下MCP服务？" itemName={deleteTarget?.name || ""} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
 

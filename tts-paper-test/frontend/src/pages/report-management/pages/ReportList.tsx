@@ -1,9 +1,11 @@
 /**
  * 报告列表 - 测试报告CRUD + 状态 + 预览 + 导出
+ * 已对接真实 API，含 apiToReport 转换层
  */
-import { useState, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Search, Plus, Edit, Trash2, Eye, BarChart3, X, Download, FileText, CheckCircle, Clock, Loader2, Filter } from "lucide-react"
 import { toast } from "sonner"
+import { lifecycleApi } from "@/lib/api"
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal"
 
 const REPORT_TYPES = [
@@ -21,21 +23,55 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   archived: { label: "已归档", color: "bg-cream text-muted" },
 }
 
-const mockReports = [
-  { id: 1, title: "v2.1.0版本测试报告", type: "version", status: "published", author: "admin", summary: "v2.1.0版本共执行128个测试用例，通过122个，失败6个，通过率95.3%。主要问题集中在支付模块和搜索分页。", totalCases: 128, passedCases: 122, failedCases: 6, coverage: 92, defects: 8, ai_generated: true, createdAt: "2025-07-19 16:00", publishedAt: "2025-07-19 17:30" },
-  { id: 2, title: "回归测试周报-第30周", type: "weekly", status: "published", author: "zhangsan", summary: "本周完成3轮回归测试，累计执行89个用例，通过率从91%提升到96%。购物车模块缺陷已全部修复。", totalCases: 89, passedCases: 85, failedCases: 4, coverage: 88, defects: 5, ai_generated: false, createdAt: "2025-07-18 10:00", publishedAt: "2025-07-18 14:00" },
-  { id: 3, title: "支付模块专项测试报告", type: "special", status: "published", author: "wangwu", summary: "支付模块专项测试发现3个致命缺陷，均已修复验证。支付超时处理逻辑需重构。", totalCases: 15, passedCases: 12, failedCases: 3, coverage: 95, defects: 3, ai_generated: true, createdAt: "2025-07-20 09:00", publishedAt: "" },
-  { id: 4, title: "冒烟测试日报-0720", type: "smoke", status: "draft", author: "admin", summary: "今日冒烟测试执行8个用例，通过5个，失败3个。支付模块问题持续存在。", totalCases: 8, passedCases: 5, failedCases: 3, coverage: 100, defects: 3, ai_generated: false, createdAt: "2025-07-20 11:00", publishedAt: "" },
-  { id: 5, title: "回归测试周报-第31周", type: "weekly", status: "draft", author: "zhangsan", summary: "", totalCases: 45, passedCases: 40, failedCases: 5, coverage: 85, defects: 2, ai_generated: false, createdAt: "2025-07-20 14:00", publishedAt: "" },
-  { id: 6, title: "安全测试专项报告-Q3", type: "special", status: "archived", author: "security-team", summary: "Q3季度安全扫描完成，发现12个安全漏洞，其中高危3个，中危5个，低危4个。", totalCases: 50, passedCases: 45, failedCases: 5, coverage: 90, defects: 12, ai_generated: true, createdAt: "2025-07-15 09:00", publishedAt: "2025-07-15 16:00" },
-]
+/** 后端 API 报告 → UI 展示格式 */
+function apiToReport(item: any) {
+  const summaryJson = item.summary || {}
+  const totalCases = summaryJson.total_cases || summaryJson.totalCases || 0
+  const passedCases = summaryJson.passed || summaryJson.passedCases || 0
+  const failedCases = summaryJson.failed || summaryJson.failedCases || 0
+  const defects = summaryJson.total_defects || summaryJson.defects || (Array.isArray(item.defect_ids) ? item.defect_ids.length : 0)
+  const coverage = summaryJson.coverage || summaryJson.pass_rate || 0
+  // 由 summary JSON 生成可读的摘要文本
+  const summaryText = item.description || (
+    totalCases
+      ? `共执行 ${totalCases} 个测试用例，通过 ${passedCases} 个，失败 ${failedCases} 个，缺陷 ${defects} 个`
+      : "暂无摘要数据"
+  )
+  return {
+    id: item.id,
+    title: item.name || item.title || "",
+    type: item.report_type || "version",
+    status: item.status || "draft",
+    author: item.created_by_username || "系统",
+    summary: summaryText,
+    totalCases,
+    passedCases,
+    failedCases,
+    coverage: typeof coverage === "number" ? Math.round(coverage) : 0,
+    defects,
+    ai_generated: !!item.ai_generated,
+    createdAt: item.created_at ? new Date(item.created_at).toLocaleString("zh-CN") : "",
+    publishedAt: item.published_at ? new Date(item.published_at).toLocaleString("zh-CN") : "",
+  }
+}
+
+/** UI 格式 → 后端 API payload */
+function formToPayload(form: any) {
+  return {
+    name: form.title || "",
+    report_type: form.type || "version",
+    description: form.summary || "",
+  }
+}
 
 export default function ReportList() {
-  const [reports, setReports] = useState<any[]>(mockReports)
+  const [reports, setReports] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [filterType, setFilterType] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
   const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [previewReport, setPreviewReport] = useState<any>(null)
   const [showDialog, setShowDialog] = useState(false)
@@ -46,49 +82,78 @@ export default function ReportList() {
 
   const PAGE_SIZE = 10
 
+  const fetchReports = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: Record<string, any> = { page, page_size: PAGE_SIZE }
+      if (filterStatus) params.status = filterStatus
+      const res: any = await lifecycleApi.listReports(params)
+      const data = res?.data || res
+      const items = data?.items || data?.data || []
+      setReports(items.map(apiToReport))
+      setTotal(data?.total || items.length)
+    } catch (e: any) {
+      toast.error("加载报告列表失败: " + (e?.message || "未知错误"))
+    } finally {
+      setLoading(false)
+    }
+  }, [page, filterStatus])
+
+  useEffect(() => { fetchReports() }, [fetchReports])
+
   const filtered = reports.filter((r) => {
     const matchSearch = !search || r.title.toLowerCase().includes(search.toLowerCase())
     const matchType = !filterType || r.type === filterType
-    const matchStatus = !filterStatus || r.status === filterStatus
-    return matchSearch && matchType && matchStatus
+    return matchSearch && matchType
   })
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const stats = {
-    total: reports.length,
+    total,
     published: reports.filter((r) => r.status === "published").length,
     draft: reports.filter((r) => r.status === "draft").length,
     totalCases: reports.reduce((s, r) => s + r.totalCases, 0),
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title.trim()) { toast.error("标题不能为空"); return }
-    if (dialogMode === "create") {
-      setReports([{ id: Date.now(), ...form, status: "draft", author: "admin", totalCases: 0, passedCases: 0, failedCases: 0, coverage: 0, defects: 0, ai_generated: false, createdAt: new Date().toLocaleString("zh-CN"), publishedAt: "" }, ...reports])
-      toast.success("报告创建成功")
-    } else {
-      setReports(reports.map((r) => r.id === editingReport.id ? { ...r, title: form.title, type: form.type, summary: form.summary } : r))
-      toast.success("报告更新成功")
+    try {
+      const payload = formToPayload(form)
+      if (dialogMode === "create") {
+        await lifecycleApi.createReport(payload)
+        toast.success("报告创建成功")
+      } else if (editingReport) {
+        await lifecycleApi.updateReport(editingReport.id, payload)
+        toast.success("报告更新成功")
+      }
+      setShowDialog(false)
+      fetchReports()
+    } catch (e: any) {
+      toast.error("保存失败: " + (e?.message || "未知错误"))
     }
-    setShowDialog(false)
   }
 
-  const confirmDelete = () => {
-    setReports(reports.filter((r) => r.id !== deleteTarget.id))
-    toast.success("报告已删除")
-    setDeleteTarget(null)
+  const confirmDelete = async () => {
+    try {
+      await lifecycleApi.deleteReport(deleteTarget.id)
+      toast.success("报告已删除")
+      setDeleteTarget(null)
+      fetchReports()
+    } catch (e: any) {
+      toast.error("删除失败: " + (e?.message || "未知错误"))
+    }
   }
 
   const handleExport = () => {
+    if (filtered.length === 0) { toast.error("没有可导出的数据"); return }
     const data = filtered.map((r) => ({
       ID: r.id, 标题: r.title, 类型: REPORT_TYPES.find((t) => t.key === r.type)?.label || r.type,
       状态: STATUS_MAP[r.status]?.label || r.status, 用例总数: r.totalCases, 通过: r.passedCases,
       失败: r.failedCases, 覆盖率: `${r.coverage}%`, 缺陷数: r.defects, 创建时间: r.createdAt,
     }))
-    const csv = [Object.keys(data[0] || {}).join(","), ...data.map((d) => Object.values(d).join(","))].join("\n")
-    const blob = new Blob([csv], { type: "text/csv" })
+    const csv = [Object.keys(data[0]).join(","), ...data.map((d) => Object.values(d).join(","))].join("\n")
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a"); a.href = url; a.download = `测试报告_${new Date().toISOString().slice(0, 10)}.csv`; a.click()
     URL.revokeObjectURL(url)
@@ -134,58 +199,62 @@ export default function ReportList() {
 
       {/* 表格 */}
       <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden flex-1">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-cream/30 border-b border-border">
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-10">ID</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">报告标题</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">类型</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">状态</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">用例数</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">通过率</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">缺陷数</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">作者</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-24">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.length === 0 ? (
-              <tr><td colSpan={9} className="text-center py-12 text-muted"><BarChart3 className="w-8 h-8 mx-auto mb-2 text-muted-light" /><p className="text-sm">暂无报告</p></td></tr>
-            ) : paged.map((r) => {
-              const passRate = getPassRate(r)
-              const typeInfo = REPORT_TYPES.find((t) => t.key === r.type)
-              const statusInfo = STATUS_MAP[r.status]
-              return (
-                <tr key={r.id} className="border-b border-border/50 hover:bg-cream/20 transition-colors">
-                  <td className="px-4 py-2.5 text-[11px] text-muted font-mono">#{r.id}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-3.5 h-3.5 text-teal-500 flex-shrink-0" />
-                      <span className="text-sm font-medium text-ink truncate max-w-[200px]">{r.title}</span>
-                      {r.ai_generated && <span className="px-1 py-0.5 rounded bg-amber/10 text-amber text-[9px] font-medium">AI</span>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${typeInfo?.color || "bg-cream text-muted"}`}>{typeInfo?.label || r.type}</span></td>
-                  <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${statusInfo?.color || "bg-cream text-muted"}`}>{statusInfo?.label || r.status}</span></td>
-                  <td className="px-4 py-2.5 text-[11px] text-ink">{r.totalCases}</td>
-                  <td className="px-4 py-2.5"><span className={`text-[11px] font-medium ${passRate >= 90 ? "text-pass" : passRate >= 70 ? "text-warn" : "text-fail"}`}>{r.totalCases ? `${passRate}%` : "-"}</span></td>
-                  <td className="px-4 py-2.5 text-[11px] text-ink">{r.defects}</td>
-                  <td className="px-4 py-2.5 text-[11px] text-muted">{r.author}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-0.5">
-                      <button onClick={() => setPreviewReport(r)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors"><Eye className="w-4 h-4" /></button>
-                      <button onClick={() => { setDialogMode("edit"); setEditingReport(r); setForm({ title: r.title, type: r.type, summary: r.summary }); setShowDialog(true) }} className="p-1.5 rounded-lg hover:bg-amber-light text-ink-light hover:text-amber-hover transition-colors"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteTarget(r)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        {loading ? (
+          <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 text-amber animate-spin" /></div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-cream/30 border-b border-border">
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-10">ID</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">报告标题</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">类型</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">状态</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">用例数</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">通过率</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">缺陷数</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">作者</th>
+                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-24">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={9} className="text-center py-12 text-muted"><BarChart3 className="w-8 h-8 mx-auto mb-2 text-muted-light" /><p className="text-sm">暂无报告</p></td></tr>
+              ) : filtered.map((r) => {
+                const passRate = getPassRate(r)
+                const typeInfo = REPORT_TYPES.find((t) => t.key === r.type)
+                const statusInfo = STATUS_MAP[r.status]
+                return (
+                  <tr key={r.id} className="border-b border-border/50 hover:bg-cream/20 transition-colors">
+                    <td className="px-4 py-2.5 text-[11px] text-muted font-mono">#{r.id}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-teal-500 flex-shrink-0" />
+                        <span className="text-sm font-medium text-ink truncate max-w-[200px]">{r.title}</span>
+                        {r.ai_generated && <span className="px-1 py-0.5 rounded bg-amber/10 text-amber text-[9px] font-medium">AI</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${typeInfo?.color || "bg-cream text-muted"}`}>{typeInfo?.label || r.type}</span></td>
+                    <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${statusInfo?.color || "bg-cream text-muted"}`}>{statusInfo?.label || r.status}</span></td>
+                    <td className="px-4 py-2.5 text-[11px] text-ink">{r.totalCases}</td>
+                    <td className="px-4 py-2.5"><span className={`text-[11px] font-medium ${passRate >= 90 ? "text-pass" : passRate >= 70 ? "text-warn" : "text-fail"}`}>{r.totalCases ? `${passRate}%` : "-"}</span></td>
+                    <td className="px-4 py-2.5 text-[11px] text-ink">{r.defects}</td>
+                    <td className="px-4 py-2.5 text-[11px] text-muted">{r.author}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-0.5">
+                        <button onClick={() => setPreviewReport(r)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => { setDialogMode("edit"); setEditingReport(r); setForm({ title: r.title, type: r.type, summary: r.summary }); setShowDialog(true) }} className="p-1.5 rounded-lg hover:bg-amber-light text-ink-light hover:text-amber-hover transition-colors"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => setDeleteTarget(r)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-cream/20">
-            <span className="text-xs text-muted">共 {filtered.length} 条，第 {page}/{totalPages} 页</span>
+            <span className="text-xs text-muted">共 {total} 条，第 {page}/{totalPages} 页</span>
             <div className="flex items-center gap-1">
               <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1} className="h-8 px-3 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40">上一页</button>
               <span className="h-8 px-3 text-xs rounded-lg gradient-amber text-white flex items-center">{page}</span>

@@ -7,7 +7,7 @@ from models.test_lifecycle import (
     Requirement, TestPlan, TestPoint,
     TestCase as LifecycleTestCase,
     TestExecution as LifecycleTestExecution,
-    Defect, TestReport,
+    Defect, TestReport, Review,
 )
 from core.logging_config import get_logger
 
@@ -391,3 +391,41 @@ async def update_report(db: AsyncSession, report_id: int, data: dict):
 
 async def delete_report(db: AsyncSession, report_id: int):
     await _delete_by_id(db, TestReport, report_id)
+
+
+# ============ 评审 CRUD ============
+
+async def list_reviews(db: AsyncSession, page: int = 1, page_size: int = 20,
+                        status: str = None, review_type: str = None):
+    query = select(Review).order_by(Review.created_at.desc())
+    if status:
+        query = query.where(Review.status == status)
+    if review_type:
+        query = query.where(Review.review_type == review_type)
+    return await _paginate(db, query, page, page_size)
+
+
+async def get_review(db: AsyncSession, review_id: int):
+    return await _get_by_id(db, Review, review_id)
+
+
+async def create_review(db: AsyncSession, data: dict, user_id: int = None):
+    review = Review(**data, created_by=user_id)
+    db.add(review)
+    await db.commit()
+    await db.refresh(review)
+    return review
+
+
+async def update_review(db: AsyncSession, review_id: int, data: dict):
+    review = await get_review(db, review_id)
+    for k, v in data.items():
+        if v is not None:
+            setattr(review, k, v)
+    await db.commit()
+    await db.refresh(review)
+    return review
+
+
+async def delete_review(db: AsyncSession, review_id: int):
+    await _delete_by_id(db, Review, review_id)

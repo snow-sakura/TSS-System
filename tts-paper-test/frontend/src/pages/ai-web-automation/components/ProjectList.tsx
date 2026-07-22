@@ -50,8 +50,9 @@ export default function ProjectList() {
           created_at: p.created_at, updated_at: p.updated_at,
         })))
       }
-    } catch {
-      // 保持mock数据
+    } catch (err) {
+      console.error("获取项目列表失败，显示预览数据:", err)
+      toast.error("无法连接服务器，显示本地预览数据")
     } finally { setLoading(false) }
   }, [currentPage])
 
@@ -106,7 +107,9 @@ export default function ProjectList() {
   const handleBatchDelete = async () => {
     if (!confirm(`确定删除选中的 ${selectedIds.size} 个项目？`)) return
     for (const id of selectedIds) {
-      try { await webApi.deleteProject(Number(id)) } catch {}
+      try { await webApi.deleteProject(Number(id)) } catch (err) {
+        console.error(`删除项目 ${id} 失败:`, err)
+      }
     }
     toast.success("批量删除成功")
     setSelectedIds(new Set())

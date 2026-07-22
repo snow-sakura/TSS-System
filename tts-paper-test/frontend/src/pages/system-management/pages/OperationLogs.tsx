@@ -2,9 +2,10 @@
  * 操作日志 — 全量操作审计日志
  * 功能：多维度筛选 / 时间倒序 / 详细记录 / 导出 / AI操作追踪
  */
-import { useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Search, Filter, Download, Eye, X, ScrollText, User, Bot, Clock, CheckCircle, AlertTriangle, Info, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
+import { configApi } from "@/lib/api"
 
 // 日志级别
 const LOG_LEVELS = [
@@ -14,44 +15,70 @@ const LOG_LEVELS = [
   { key: "DEBUG", label: "DEBUG", color: "bg-muted/10 text-muted", icon: Info },
 ]
 
-// 操作类型
-const ACTION_TYPES = ["登录", "配置修改", "手动触发", "AI推理", "AI工具调用", "用例执行", "缺陷提交", "报告生成", "环境检测", "消息发送"]
-
-// Mock操作日志数据
-const mockLogs = [
-  { id: 1001, time: "2025-07-21T10:35:12.345Z", operator: "admin", operator_type: "user", action: "配置修改", module: "大模型配置", detail: "启用 DeepSeek-V3 模型，设置路由权重为40", input: '{"model":"deepseek-chat","weight":40}', output: '{"status":"success"}', status: "success", ip: "192.168.1.100", device: "Chrome 125.0 / macOS" },
-  { id: 1002, time: "2025-07-21T10:33:45.123Z", operator: "测试用例生成Agent", operator_type: "ai", action: "AI推理", module: "提示词配置", detail: "使用「测试用例生成器」模板生成测试用例，输入需求：用户登录功能", input: '{"prompt":"测试用例生成器","requirement":"用户登录功能"}', output: '{"cases":12,"tokens":1800}', status: "success", ip: "-", device: "AI Agent" },
-  { id: 1003, time: "2025-07-21T10:32:18.789Z", operator: "Web自动化Agent", operator_type: "ai", action: "AI工具调用", module: "MCP服务", detail: "调用 Playwright browser_navigate 工具访问 https://test-web.tss.local", input: '{"tool":"browser_navigate","url":"https://test-web.tss.local"}', output: '{"status":"loaded","title":"TSS测试平台"}', status: "success", ip: "-", device: "AI Agent" },
-  { id: 1004, time: "2025-07-21T10:30:55.456Z", operator: "admin", operator_type: "user", action: "环境检测", module: "环境配置", detail: "批量健康检测：5个环境，4个在线，1个维护中", input: '{"action":"batch_health_check"}', output: '{"online":4,"offline":1}', status: "success", ip: "192.168.1.100", device: "Chrome 125.0 / macOS" },
-  { id: 1005, time: "2025-07-21T10:28:33.234Z", operator: "缺陷分析Agent", operator_type: "ai", action: "AI推理", module: "提示词配置", detail: "使用「缺陷根因分析器」分析缺陷 #DEF-2025-042", input: '{"prompt":"缺陷根因分析器","defect_id":"DEF-2025-042"}', output: '{"root_cause":"空指针异常","confidence":0.92}', status: "success", ip: "-", device: "AI Agent" },
-  { id: 1006, time: "2025-07-21T10:25:12.567Z", operator: "admin", operator_type: "user", action: "登录", module: "用户管理", detail: "用户 admin 登录系统", input: '{"username":"admin"}', output: '{"token":"eyJhbG..."}', status: "success", ip: "192.168.1.100", device: "Chrome 125.0 / macOS" },
-  { id: 1007, time: "2025-07-21T10:22:45.890Z", operator: "报告生成Agent", operator_type: "ai", action: "AI推理", module: "提示词配置", detail: "使用「测试报告生成器」生成冒烟测试日报", input: '{"prompt":"测试报告生成器","period":"2025-07-21"}', output: '{"report_id":"RPT-2025-0721","pages":5}', status: "success", ip: "-", device: "AI Agent" },
-  { id: 1008, time: "2025-07-21T10:20:11.345Z", operator: "Web自动化Agent", operator_type: "ai", action: "用例执行", module: "执行测试", detail: "执行回归测试用例 TC-001 ~ TC-015，通过14，失败1", input: '{"cases":["TC-001","TC-002",...],"env":"web-automation"}', output: '{"passed":14,"failed":1,"duration":"2m30s"}', status: "warning", ip: "-", device: "AI Agent" },
-  { id: 1009, time: "2025-07-21T10:18:33.678Z", operator: "admin", operator_type: "user", action: "配置修改", module: "Skills技能", detail: "启用「智能用例生成」技能，版本 2.0.0", input: '{"skill_id":"skill-1","status":"enabled"}', output: '{"status":"success"}', status: "success", ip: "192.168.1.100", device: "Chrome 125.0 / macOS" },
-  { id: 1010, time: "2025-07-21T10:15:22.901Z", operator: "测试团队钉钉群", operator_type: "system", action: "消息发送", module: "Hermes配置", detail: "发送测试执行完成通知到钉钉群", input: '{"channel":"hermes-1","template":"执行完成通知"}', output: '{"message_id":"msg-001","latency":"0.8s"}', status: "success", ip: "-", device: "System" },
-  { id: 1011, time: "2025-07-21T10:12:11.234Z", operator: "代码审查Agent", operator_type: "ai", action: "AI工具调用", module: "MCP服务", detail: "调用 file_read 读取 src/auth/login.ts 进行代码审查", input: '{"tool":"file_read","path":"src/auth/login.ts"}', output: '{"lines":156,"issues":3}', status: "success", ip: "-", device: "AI Agent" },
-  { id: 1012, time: "2025-07-21T10:08:55.567Z", operator: "admin", operator_type: "user", action: "配置修改", module: "环境配置", detail: "更新「Web自动化测试环境」浏览器配置为 Chrome 125.0", input: '{"env_id":"env-1","browser":"Chrome 125.0"}', output: '{"status":"success"}', status: "success", ip: "192.168.1.100", device: "Chrome 125.0 / macOS" },
-  { id: 1013, time: "2025-07-21T10:05:33.890Z", operator: "需求分析Agent", operator_type: "ai", action: "AI推理", module: "提示词配置", detail: "使用「需求分析与功能点提取」分析需求文档 REQ-2025-018", input: '{"prompt":"需求分析","doc_id":"REQ-2025-018"}', output: '{"features":8,"risks":2}', status: "success", ip: "-", device: "AI Agent" },
-  { id: 1014, time: "2025-07-21T10:02:11.123Z", operator: "接口测试Agent", operator_type: "ai", action: "用例执行", module: "执行测试", detail: "执行API接口测试 /api/v1/users，响应时间超标", input: '{"endpoint":"/api/v1/users","method":"GET"}', output: '{"status":200,"latency":"3.2s","threshold":"2s"}', status: "warning", ip: "-", device: "AI Agent" },
-  { id: 1015, time: "2025-07-21T09:58:44.456Z", operator: "admin", operator_type: "user", action: "手动触发", module: "去AI味配置", detail: "测试「测试报告降重策略」效果", input: '{"style_id":"deai-1","text":"值得注意的是..."}', output: '{"output":"本次测试分析显示...","score":92}', status: "success", ip: "192.168.1.100", device: "Chrome 125.0 / macOS" },
-]
+/** 后端操作日志 → UI 展示格式 */
+function apiToLog(item: any) {
+  // 后端字段：username, module; 前端使用：operator, operator_type
+  const action = item.action || ""
+  const operator = item.username || item.operator || "system"
+  // 推断操作者类型
+  const operator_type = operator.toLowerCase().includes("agent") || operator.toLowerCase().includes("bot")
+    ? "ai" : (item.operator_type || (action === "消息发送" ? "system" : "user"))
+  return {
+    id: item.id,
+    time: item.created_at || item.time,
+    operator,
+    operator_type,
+    action,
+    module: item.module || "-",
+    detail: item.detail || item.message || "",
+    input: item.input || item.request_data || "",
+    output: item.output || item.response_data || "",
+    status: item.status === "成功" ? "success" : item.status === "失败" ? "error" : item.level === "WARN" ? "warning" : "success",
+    ip: item.ip || item.ip_address || "-",
+    device: item.device || item.user_agent || "-",
+  }
+}
 
 const PAGE_SIZE = 10
 
 export default function OperationLogs() {
-  const [logs] = useState<any[]>(mockLogs)
+  const [logs, setLogs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetching, setFetching] = useState(false)
   const [search, setSearch] = useState("")
   const [filterLevel, setFilterLevel] = useState<string>("all")
   const [filterModule, setFilterModule] = useState<string>("all")
   const [filterOperator, setFilterOperator] = useState<string>("all")
   const [page, setPage] = useState(1)
   const [selectedLog, setSelectedLog] = useState<any>(null)
+  const [total, setTotal] = useState(0)
 
-  // 获取所有模块
+  const fetchLogs = async () => {
+    setFetching(true)
+    try {
+      const params: Record<string, any> = { page, page_size: PAGE_SIZE }
+      if (search) params.search = search
+      const res: any = await configApi.listOperationLogs(params)
+      const items = res?.data?.items || []
+      setLogs(items.map(apiToLog))
+      setTotal(res?.data?.total || 0)
+    } catch (e: any) {
+      toast.error("加载日志失败: " + (e?.message || "未知错误"))
+    } finally {
+      setFetching(false)
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchLogs()
+  }, [page])
+
+  // 获取所有模块（从当前页数据）
   const modules = useMemo(() => [...new Set(logs.map((l) => l.module))], [logs])
   const operators = useMemo(() => [...new Set(logs.map((l) => l.operator))], [logs])
 
-  // 筛选
+  // 客户端筛选（在已有数据上补充搜索）
   const filtered = logs.filter((l) => {
     const matchSearch = !search || l.detail.toLowerCase().includes(search.toLowerCase()) || l.operator.toLowerCase().includes(search.toLowerCase()) || l.action.toLowerCase().includes(search.toLowerCase())
     const matchLevel = filterLevel === "all" || l.status === filterLevel
@@ -60,11 +87,9 @@ export default function OperationLogs() {
     return matchSearch && matchLevel && matchModule && matchOperator
   })
 
-  // 分页
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.ceil(total / PAGE_SIZE) || 1
 
-  // 统计
+  // 统计（服务端分页下仅基于当前页统计）
   const infoCount = logs.filter((l) => l.status === "success").length
   const warnCount = logs.filter((l) => l.status === "warning").length
   const errorCount = logs.filter((l) => l.status === "error").length
@@ -86,6 +111,20 @@ export default function OperationLogs() {
     return LOG_LEVELS[3]
   }
 
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-ink">操作日志</h2>
+          <p className="text-xs text-muted mt-0.5">全量操作审计 · 用户+AI双轨追踪 · 多维度筛选 · 时间倒序</p>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-sm text-muted gap-2">
+          <RefreshCw className="w-4 h-4 animate-spin" /> 加载中...
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="mb-3">
@@ -95,7 +134,7 @@ export default function OperationLogs() {
 
       {/* 统计 */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-        <div className="bg-white rounded-xl border border-border shadow-card p-3 text-center"><p className="text-xl font-bold text-ink">{logs.length}</p><p className="text-[11px] text-muted">日志总数</p></div>
+        <div className="bg-white rounded-xl border border-border shadow-card p-3 text-center"><p className="text-xl font-bold text-ink">{total}</p><p className="text-[11px] text-muted">日志总数</p></div>
         <div className="bg-white rounded-xl border border-border shadow-card p-3 text-center"><p className="text-xl font-bold text-pass">{infoCount}</p><p className="text-[11px] text-muted">成功</p></div>
         <div className="bg-white rounded-xl border border-border shadow-card p-3 text-center"><p className="text-xl font-bold text-warn">{warnCount}</p><p className="text-[11px] text-muted">警告</p></div>
         <div className="bg-white rounded-xl border border-border shadow-card p-3 text-center"><p className="text-xl font-bold text-fail">{errorCount}</p><p className="text-[11px] text-muted">错误</p></div>
@@ -122,6 +161,9 @@ export default function OperationLogs() {
           <option value="all">全部操作者</option>
           {operators.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
+        <button onClick={fetchLogs} disabled={fetching} className="h-9 px-3 rounded-xl border border-border text-sm text-ink-light hover:bg-cream flex items-center gap-1.5 disabled:opacity-50">
+          <RefreshCw className={`w-3.5 h-3.5 ${fetching ? "animate-spin" : ""}`} /> 刷新
+        </button>
         <button onClick={handleExport} className="h-9 px-3 rounded-xl border border-border text-sm text-ink-light hover:bg-cream flex items-center gap-1.5"><Download className="w-3.5 h-3.5" /> 导出</button>
       </div>
 
@@ -142,9 +184,9 @@ export default function OperationLogs() {
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {filtered.length === 0 ? (
                 <tr><td colSpan={8} className="text-center py-12 text-muted"><ScrollText className="w-8 h-8 mx-auto mb-2 text-muted-light" /><p className="text-sm">暂无日志</p></td></tr>
-              ) : paginated.map((l) => {
+              ) : filtered.map((l) => {
                 const levelInfo = getLevelInfo(l.status)
                 const LevelIcon = levelInfo.icon
                 return (
@@ -179,7 +221,7 @@ export default function OperationLogs() {
       {/* 分页 */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-3">
-          <p className="text-xs text-muted">共 {filtered.length} 条记录，第 {page}/{totalPages} 页</p>
+          <p className="text-xs text-muted">共 {total} 条记录，第 {page}/{totalPages} 页</p>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="h-8 px-2 rounded-lg border border-border text-xs text-ink-light hover:bg-cream disabled:opacity-50"><ChevronLeft className="w-3.5 h-3.5" /></button>
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (

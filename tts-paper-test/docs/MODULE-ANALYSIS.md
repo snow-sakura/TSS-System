@@ -45,9 +45,9 @@
 - API: webApi 完整CRUD + WebSocket
 - 完整度: 85%
 
-### 7. 基础配置（7个子模块）✅
+### 7. 系统管理（7个子模块）✅
 - EnvironmentConfig / LLMConfig / PromptConfig / DeAIConfig
-- MCPConfig / SkillsConfig / HermesConfig
+- MCPConfig / SkillsConfig / OperationLogs
 - API: configApi 完整CRUD + 测试/批量测试
 - 完整度: 90%
 

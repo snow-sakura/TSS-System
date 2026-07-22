@@ -47,85 +47,8 @@ class UpdateRequest(BaseModel):
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-SUPPORTED_EXTENSIONS = {
-    ".txt": "text/plain",
-    ".md": "text/markdown",
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".pdf": "application/pdf",
-}
-
-
-def _parse_docx(path: str) -> str:
-    """解析 .docx 文件"""
-    from docx import Document
-    doc = Document(path)
-    paragraphs = [p.text for p in doc.paragraphs]
-    # 也提取表格内容
-    tables = []
-    for table in doc.tables:
-        for row in table.rows:
-            cells = [cell.text for cell in row.cells]
-            tables.append(" | ".join(cells))
-    text = "\n".join(paragraphs)
-    if tables:
-        text += "\n\n--- 表格内容 ---\n" + "\n".join(tables)
-    return text.strip()
-
-
-def _parse_pdf(path: str) -> str:
-    """解析 .pdf 文件"""
-    import pdfplumber
-    pages = []
-    with pdfplumber.open(path) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                pages.append(text)
-    return "\n\n".join(pages).strip()
-
-
-@router.post("/upload", summary="上传并解析文档")
-async def upload_document(file: UploadFile = File(...)):
-    """上传 .txt / .md / .docx / .pdf 文件，解析后返回文本内容"""
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in SUPPORTED_EXTENSIONS:
-        raise HTTPException(400, f"不支持的文件格式: {ext}，支持: {', '.join(SUPPORTED_EXTENSIONS.keys())}")
-
-    # 保存文件
-    file_path = UPLOAD_DIR / f"upload_{os.urandom(4).hex()}{ext}"
-    content_bytes = await file.read()
-    file_path.write_bytes(content_bytes)
-
-    # 解析
-    try:
-        if ext in (".txt", ".md"):
-            text = content_bytes.decode("utf-8", errors="replace").strip()
-        elif ext == ".docx":
-            text = _parse_docx(str(file_path))
-        elif ext == ".pdf":
-            text = _parse_pdf(str(file_path))
-        else:
-            text = ""
-    except Exception as e:
-        # 清理失败文件
-        if file_path.exists():
-            file_path.unlink()
-        raise HTTPException(500, f"文件解析失败: {str(e)}")
-
-    if not text:
-        raise HTTPException(400, "文件内容为空或无法提取文本")
-
-    return {
-        "filename": file.filename,
-        "content": text,
-        "size": len(content_bytes),
-        "chars": len(text),
-    }
-
-
-@router.get("/upload/supported", summary="获取支持的文件格式")
-async def supported_formats():
-    return {"formats": list(SUPPORTED_EXTENSIONS.keys())}
+# 文档上传解析 — 统一由 test_lifecycle.py /test-lifecycle/requirements/upload 处理
+# 使用 services/document_parser.py 完整解析器（支持 11 种格式）
 
 
 # ====== 用例确认（待确认→已确认） ======

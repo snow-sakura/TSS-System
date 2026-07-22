@@ -60,7 +60,10 @@ export default function DefectKanban() {
         }))
         setDefects(mapped)
       }
-    } catch {}
+    } catch (err) {
+      console.error("获取看板数据失败:", err)
+      toast.error("获取看板数据失败，已使用本地数据")
+    }
     finally { setLoading(false) }
   }, [])
 

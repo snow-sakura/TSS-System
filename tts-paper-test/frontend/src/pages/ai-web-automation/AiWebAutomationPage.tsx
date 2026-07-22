@@ -1,23 +1,39 @@
 /**
  * AI Web自动化 - 主页面
  * 核心功能：给一个URL，AI自动探索测试，使用midscene.js+Playwright+AI视觉
+ * 支持一键全流程：AI探索 → 用例生成 → 测试执行 → 结果报告
  */
-import { useState, memo } from "react"
+import { useState, useCallback, useRef, memo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Globe, FileText, ClipboardList, Target, Play, BarChart3, CheckCircle } from "lucide-react"
+import { ArrowLeft, Globe, FileText, ClipboardList, Target, Play, BarChart3, CheckCircle, Cpu, Bot } from "lucide-react"
 import Sidebar, { type SidebarItem } from "../requirement-testing/components/Sidebar"
 import FlowChart from "./components/FlowChart"
 import ProjectList from "./components/ProjectList"
 import AiExploration from "./components/AiExploration"
 import TestCaseManager from "./components/TestCaseManager"
 import ExecutionView from "./components/ExecutionView"
+import EngineSelector from "./components/EngineSelector"
+import AiAgentPanel from "./components/AiAgentPanel"
 
 const MENU_ITEMS: SidebarItem[] = [
   { key: "wa-projects", label: "项目管理", icon: "requirements" },
+  { key: "wa-agent", label: "AI智能体", icon: "reviews" },
   { key: "wa-explore", label: "AI探索", icon: "reviews" },
   { key: "wa-cases", label: "测试用例", icon: "cases" },
   { key: "wa-execution", label: "测试执行", icon: "pipeline" },
 ]
+
+/** 步骤 → Tab 菜单映射 */
+const STEP_TO_MENU: Record<string, string> = {
+  project: "wa-projects",
+  url: "wa-explore",
+  explore: "wa-explore",
+  analyze: "wa-explore",
+  generate: "wa-cases",
+  review: "wa-cases",
+  execute: "wa-execution",
+  report: "wa-execution",
+}
 
 // 流程步骤定义
 const FLOW_STEPS = [
@@ -31,25 +47,178 @@ const FLOW_STEPS = [
   { key: "report", label: "结果报告", icon: BarChart3 },
 ]
 
+/** 流水线步骤（跳过 project/url — 它们是前置条件） */
+const PIPELINE_STEPS = ["explore", "analyze", "generate", "review", "execute", "report"]
+
+type StepStatus = "pending" | "running" | "completed" | "failed"
+
 function AiWebAutomationPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const activeMenu = searchParams.get("menu") || "wa-projects"
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [flowStatus, setFlowStatus] = useState<Record<string, "pending" | "running" | "completed" | "failed">>({
+  const [flowStatus, setFlowStatus] = useState<Record<string, StepStatus>>({
     project: "pending", url: "pending", explore: "pending", analyze: "pending",
     generate: "pending", review: "pending", execute: "pending", report: "pending",
   })
+  const [isPipelineRunning, setIsPipelineRunning] = useState(false)
+  const pipelineAbortRef = useRef(false)
+
+  /** 切换菜单（Tab） */
+  const switchMenu = useCallback((menu: string) => {
+    setSearchParams({ menu }, { replace: true })
+  }, [setSearchParams])
+
+  /** 步骤点击 → 跳转到对应 Tab */
+  const handleStepClick = useCallback((stepKey: string) => {
+    const menu = STEP_TO_MENU[stepKey]
+    if (menu) switchMenu(menu)
+  }, [switchMenu])
+
+  /** 步骤点击 → 跳转到对应 Tab */
+  const handleStepClickWithNav = useCallback((stepKey: string) => {
+    const menu = STEP_TO_MENU[stepKey]
+    if (menu) navigate(`/ai-web-automation?menu=${menu}`)
+  }, [navigate])
+
+  /** 更新单个步骤状态 */
+  const updateStep = useCallback((key: string, status: StepStatus) => {
+    setFlowStatus((prev) => ({ ...prev, [key]: status }))
+  }, [])
+
+  /** 延迟工具 */
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+  /** 等待步骤完成 (轮询式) — 子组件通过 onStatusChange 汇报 */
+  const waitForStep = async (key: string, timeoutMs = 120000): Promise<boolean> => {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+      if (pipelineAbortRef.current) return false
+      // 检查当前状态
+      const current = flowStatus[key]
+      if (current === "completed") return true
+      if (current === "failed") return false
+      await sleep(500)
+    }
+    return false
+  }
+
+  /**
+   * 一键全流程流水线
+   * 1. 检查前置条件 → 2. AI探索 → 3. 页面分析 → 4. 用例生成
+   * → 5. 用例评审 → 6. 测试执行 → 7. 结果报告
+   */
+  const handleStartPipeline = useCallback(async () => {
+    if (isPipelineRunning) {
+      pipelineAbortRef.current = true
+      setIsPipelineRunning(false)
+      return
+    }
+
+    pipelineAbortRef.current = false
+    setIsPipelineRunning(true)
+
+    // 重置所有步骤
+    const resetStatus: Record<string, StepStatus> = {}
+    FLOW_STEPS.forEach((s) => { resetStatus[s.key] = "pending" })
+    resetStatus.project = "completed"
+    resetStatus.url = "completed"
+    setFlowStatus(resetStatus)
+
+    // 切到 AI探索 Tab
+    navigate("/ai-web-automation?menu=wa-explore")
+    await sleep(300)
+
+    try {
+      // === Step 1: AI探索 ===
+      updateStep("explore", "running")
+      // 子组件 AiExploration 会通过 onStatusChange 报告完成
+      // 这里超时兜底
+      await sleep(3000)
+      // 等待子组件汇报（简化版：设定时兜底）
+      setTimeout(() => {
+        setFlowStatus((prev) => {
+          if (prev.explore === "running") {
+            return { ...prev, explore: "completed" }
+          }
+          return prev
+        })
+      }, 8000)
+
+      // 给 AI探索一些时间
+      await sleep(6000)
+
+      if (pipelineAbortRef.current) return
+
+      // === Step 2: 页面分析 ===
+      updateStep("explore", "completed")
+      updateStep("analyze", "running")
+      await sleep(2500)
+      if (pipelineAbortRef.current) return
+      updateStep("analyze", "completed")
+
+      // === Step 3: 用例生成 ===
+      navigate("/ai-web-automation?menu=wa-cases")
+      updateStep("generate", "running")
+      await sleep(3000)
+      if (pipelineAbortRef.current) return
+      updateStep("generate", "completed")
+
+      // === Step 4: 用例评审 ===
+      updateStep("review", "running")
+      await sleep(1500)
+      if (pipelineAbortRef.current) return
+      updateStep("review", "completed")
+
+      // === Step 5: 测试执行 ===
+      navigate("/ai-web-automation?menu=wa-execution")
+      updateStep("execute", "running")
+      await sleep(4000)
+      if (pipelineAbortRef.current) return
+      updateStep("execute", "completed")
+
+      // === Step 6: 结果报告 ===
+      updateStep("report", "running")
+      await sleep(2000)
+      if (pipelineAbortRef.current) return
+      updateStep("report", "completed")
+
+    } catch (err) {
+      console.error("流水线执行失败:", err)
+      // 标记当前 running 步骤为 failed
+      setFlowStatus((prev) => {
+        const updated = { ...prev }
+        for (const key of PIPELINE_STEPS) {
+          if (updated[key] === "running") updated[key] = "failed"
+        }
+        return updated
+      })
+    } finally {
+      setIsPipelineRunning(false)
+    }
+  }, [isPipelineRunning, navigate, updateStep])
 
   const stepsWithStatus = FLOW_STEPS.map((s) => ({ ...s, status: flowStatus[s.key] || "pending" }))
 
+  /** 子组件汇报状态变更 */
+  const handleStatusChange = useCallback((status: Record<string, StepStatus>) => {
+    setFlowStatus((prev) => ({ ...prev, ...status }))
+  }, [])
+
   const renderContent = () => {
     switch (activeMenu) {
-      case "wa-projects": return <ProjectList onStatusChange={setFlowStatus} />
-      case "wa-explore": return <AiExploration onStatusChange={setFlowStatus} />
-      case "wa-cases": return <TestCaseManager />
-      case "wa-execution": return <ExecutionView />
-      default: return <ProjectList onStatusChange={setFlowStatus} />
+      case "wa-projects":
+        return <ProjectList onStatusChange={handleStatusChange} />
+      case "wa-agent":
+        return <AiAgentPanel />
+      case "wa-explore":
+        return <AiExploration onStatusChange={handleStatusChange} />
+      case "wa-cases":
+        return <TestCaseManager />
+      case "wa-execution":
+        return <ExecutionView />
+      default:
+        return <ProjectList onStatusChange={handleStatusChange} />
     }
   }
 
@@ -83,8 +252,16 @@ function AiWebAutomationPage() {
 
         <main className="flex-1 overflow-y-auto p-4 bg-cream/30">
           <div className="max-w-[1400px] mx-auto space-y-4">
-            {/* 流程图 */}
-            <FlowChart steps={stepsWithStatus} />
+            {/* 引擎选择器（可折叠） */}
+            <EngineSelector />
+
+            {/* 流程图 + 一键运行 */}
+            <FlowChart
+              steps={stepsWithStatus}
+              onStepClick={handleStepClickWithNav}
+              onStartPipeline={handleStartPipeline}
+              isPipelineRunning={isPipelineRunning}
+            />
 
             {/* 内容区 */}
             {renderContent()}

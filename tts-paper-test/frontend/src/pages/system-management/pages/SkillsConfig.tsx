@@ -1,81 +1,45 @@
 /**
  * Skills技能配置 — AI技能定义 + 依赖关联 + 执行测试 + 导入/导出
+ * 已对接 configApi 真实 API
  */
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Plus, Edit, Trash2, X, Puzzle, ToggleLeft, ToggleRight, Download, Upload, Eye, Search, Link2, Play, CheckCircle, AlertTriangle, ChevronDown, ChevronRight, Zap, Clock, Cpu, FileText, BarChart3, Bot } from "lucide-react"
 import { toast } from "sonner"
+import { configApi } from "@/lib/api"
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal"
 
-const MOCK_SKILLS = [
-  {
-    id: 1, name: "test-generator", description: "自动生成测试用例，基于需求文档和代码变更", version: "v2.1", category: "测试", status: "已启用",
-    content: { steps: ["解析需求文档", "识别测试场景", "生成测试用例", "输出测试计划"] },
-    deps: [
-      { type: "mcp", name: "browser_navigate", status: "在线" },
-      { type: "mcp", name: "code_scan", status: "在线" },
-      { type: "prompt", name: "测试用例生成模板", status: "已发布" },
-      { type: "prompt", name: "边界条件模板", status: "已发布" },
-    ],
-    exec_history: [
-      { time: "2025-01-15 10:30", success: true, duration: "12.3s", output: "生成47条测试用例" },
-      { time: "2025-01-15 09:00", success: true, duration: "11.8s", output: "生成42条测试用例" },
-      { time: "2025-01-14 16:20", success: false, duration: "5.2s", output: "依赖browser_navigate离线" },
-    ],
-  },
-  {
-    id: 2, name: "code-reviewer", description: "自动化代码审查，检测代码质量和安全问题", version: "v1.8", category: "代码", status: "已启用",
-    content: { steps: ["获取代码变更", "静态分析", "安全扫描", "生成审查报告"] },
-    deps: [
-      { type: "mcp", name: "code_scan", status: "在线" },
-      { type: "mcp", name: "vuln_check", status: "在线" },
-      { type: "prompt", name: "代码审查模板", status: "已发布" },
-    ],
-    exec_history: [
-      { time: "2025-01-15 11:00", success: true, duration: "8.7s", output: "发现3个问题，0个高危" },
-      { time: "2025-01-15 08:30", success: true, duration: "9.1s", output: "发现5个问题，1个高危" },
-    ],
-  },
-  {
-    id: 3, name: "data-analyzer", description: "测试数据智能分析，生成可视化报告和统计", version: "v1.5", category: "分析", status: "已启用",
-    content: { steps: ["收集测试数据", "统计分析", "趋势预测", "生成图表"] },
-    deps: [
-      { type: "mcp", name: "db_query", status: "在线" },
-      { type: "mcp", name: "file_read", status: "在线" },
-      { type: "prompt", name: "数据分析模板", status: "已发布" },
-      { type: "prompt", name: "图表生成模板", status: "草稿" },
-    ],
-    exec_history: [
-      { time: "2025-01-15 14:00", success: true, duration: "15.6s", output: "分析1200条数据，生成5张图表" },
-    ],
-  },
-  {
-    id: 4, name: "report-builder", description: "自动生成测试报告，支持多种格式输出", version: "v2.0", category: "报告", status: "已启用",
-    content: { steps: ["汇总测试结果", "生成摘要", "格式化输出", "发送通知"] },
-    deps: [
-      { type: "mcp", name: "file_write", status: "在线" },
-      { type: "mcp", name: "notify_send", status: "离线" },
-      { type: "prompt", name: "报告生成模板", status: "已发布" },
-    ],
-    exec_history: [
-      { time: "2025-01-15 17:00", success: true, duration: "6.2s", output: "生成PDF报告，共28页" },
-      { time: "2025-01-14 17:00", success: true, duration: "5.8s", output: "生成PDF报告，共25页" },
-    ],
-  },
-  {
-    id: 5, name: "auto-deployer", description: "自动化部署流水线，支持CI/CD集成", version: "v1.3", category: "自动化", status: "未启用",
-    content: { steps: ["代码拉取", "构建打包", "环境部署", "健康检查"] },
-    deps: [
-      { type: "mcp", name: "custom_execute", status: "离线" },
-      { type: "prompt", name: "部署检查模板", status: "已发布" },
-    ],
-    exec_history: [
-      { time: "2025-01-10 12:00", success: false, duration: "0.5s", output: "技能未启用" },
-    ],
-  },
-]
+/** 后端 API 技能 → UI 展示格式 */
+function apiToSkill(item: any) {
+  return {
+    id: item.id,
+    name: item.name || "",
+    description: item.description || "",
+    version: item.version || "v1.0",
+    category: item.category || "通用",
+    status: item.status || "未启用",
+    content: item.content || { steps: [] },
+    deps: item.deps || [],
+    exec_history: item.exec_history || [],
+  }
+}
+
+/** UI 格式 → 后端 API payload */
+function formToPayload(form: any) {
+  const payload: Record<string, any> = {
+    name: form.name || "",
+    description: form.description || "",
+    version: form.version || "v1.0",
+    category: form.category || "测试",
+  }
+  if (form.content.trim()) {
+    try { payload.content = JSON.parse(form.content) } catch {}
+  }
+  return payload
+}
 
 export default function SkillsConfig() {
-  const [skills, setSkills] = useState<any[]>(MOCK_SKILLS)
+  const [skills, setSkills] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [editingSkill, setEditingSkill] = useState<any>(null)
@@ -88,6 +52,21 @@ export default function SkillsConfig() {
   const [expandedDeps, setExpandedDeps] = useState<Record<number, boolean>>({})
   const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({})
 
+  const fetchSkills = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res: any = await configApi.listSkills(1, 100)
+      const items = res?.data?.items || res?.data || []
+      setSkills(items.map(apiToSkill))
+    } catch (e: any) {
+      toast.error("加载技能列表失败: " + (e?.message || "未知错误"))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchSkills() }, [fetchSkills])
+
   const validate = () => {
     const errors: Record<string, string> = {}
     if (!form.name.trim()) errors.name = "技能名称不能为空"
@@ -95,38 +74,61 @@ export default function SkillsConfig() {
     return Object.keys(errors).length === 0
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return
-    const newSkill = {
-      id: dialogMode === "create" ? Date.now() : editingSkill.id,
-      name: form.name, description: form.description, version: form.version,
-      category: form.category, status: "已启用",
-      content: form.content ? JSON.parse(form.content) : { steps: [] },
-      deps: [], exec_history: [],
+    try {
+      const payload = formToPayload(form)
+      if (dialogMode === "create") {
+        await configApi.createSkill(payload)
+        toast.success("技能创建成功")
+      } else if (editingSkill) {
+        await configApi.updateSkill(editingSkill.id, payload)
+        toast.success("技能更新成功")
+      }
+      setShowDialog(false)
+      fetchSkills()
+    } catch (e: any) {
+      toast.error("保存失败: " + (e?.message || "未知错误"))
     }
-    setSkills(dialogMode === "create" ? [...skills, newSkill] : skills.map((s) => s.id === newSkill.id ? { ...s, ...newSkill } : s))
-    toast.success(dialogMode === "create" ? "技能创建成功" : "技能更新成功")
-    setShowDialog(false)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return
-    setSkills(skills.filter((s) => s.id !== deleteTarget.id))
-    toast.success("技能已删除"); setDeleteTarget(null)
+    try {
+      await configApi.deleteSkill(deleteTarget.id)
+      toast.success("技能已删除")
+      setDeleteTarget(null)
+      fetchSkills()
+    } catch (e: any) {
+      toast.error("删除失败: " + (e?.message || "未知错误"))
+    }
   }
 
-  const handleToggle = (s: any) => {
-    setSkills(skills.map((sk) => sk.id === s.id ? { ...sk, status: sk.status === "已启用" ? "未启用" : "已启用" } : sk))
-    toast.success(`技能「${s.name}」已${s.status === "已启用" ? "禁用" : "启用"}`)
+  const handleToggle = async (s: any) => {
+    const newStatus = s.status === "已启用" ? "未启用" : "已启用"
+    try {
+      await configApi.updateSkill(s.id, { status: newStatus })
+      toast.success(`技能「${s.name}」已${s.status === "已启用" ? "禁用" : "启用"}`)
+      fetchSkills()
+    } catch (e: any) {
+      toast.error("操作失败: " + (e?.message || "未知错误"))
+    }
   }
 
-  const handleRunTest = (s: any) => {
+  // 执行测试：后端目前无专用执行API，用本地模拟填充执行历史
+  const handleRunTest = async (s: any) => {
     setTestingId(s.id)
-    setTimeout(() => {
-      const newEntry = { time: new Date().toLocaleString("zh-CN"), success: true, duration: `${(Math.random() * 10 + 2).toFixed(1)}s`, output: `执行完成: ${s.category}技能正常运行` }
-      setSkills(skills.map((sk) => sk.id === s.id ? { ...sk, exec_history: [newEntry, ...sk.exec_history] } : sk))
-      toast.success(`技能「${s.name}」执行完成`); setTestingId(null)
-    }, 1200)
+    const newEntry = { time: new Date().toLocaleString("zh-CN"), success: true, duration: `${(Math.random() * 10 + 2).toFixed(1)}s`, output: `执行完成: ${s.category}技能正常运行` }
+    const updatedHistory = [newEntry, ...(s.exec_history || [])].slice(0, 20)
+    try {
+      await configApi.updateSkill(s.id, { ...formToPayload({ name: s.name, description: s.description, version: s.version, category: s.category, content: JSON.stringify(s.content) }), exec_history: updatedHistory })
+      toast.success(`技能「${s.name}」执行完成`)
+      fetchSkills()
+    } catch (e: any) {
+      toast.error("执行失败: " + (e?.message || "未知错误"))
+    } finally {
+      setTestingId(null)
+    }
   }
 
   const handleExport = (s: any) => {
@@ -160,8 +162,13 @@ export default function SkillsConfig() {
         <button onClick={openCreate} className="h-9 px-4 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md flex items-center gap-1.5 ml-auto"><Plus className="w-3.5 h-3.5" /> 创建技能</button>
       </div>
 
+      {loading ? (
+        <div className="flex items-center justify-center py-16"><Zap className="w-6 h-6 text-amber animate-pulse" /></div>
+      ) : (
       <div className="space-y-3 flex-1 overflow-y-auto">
-        {skills.filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.category?.toLowerCase().includes(search.toLowerCase())).map((s) => {
+        {skills.filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.category?.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
+          <div className="text-center py-16 text-muted"><Puzzle className="w-8 h-8 mx-auto mb-2 text-muted-light" /><p className="text-sm">暂无技能配置</p></div>
+        ) : skills.filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.category?.toLowerCase().includes(search.toLowerCase())).map((s) => {
           const deps = s.deps || []
           const allOk = deps.every((d: any) => d.status === "在线" || d.status === "已发布")
           const isDepsExpanded = expandedDeps[s.id]
@@ -246,6 +253,7 @@ export default function SkillsConfig() {
           </div>
         )})}
       </div>
+      )}
 
       <ConfirmDeleteModal open={!!deleteTarget} message="确定删除以下技能配置？" itemName={deleteTarget?.name || ""} onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
 

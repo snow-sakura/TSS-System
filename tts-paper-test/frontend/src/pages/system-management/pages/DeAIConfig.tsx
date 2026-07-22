@@ -1,48 +1,11 @@
 /**
  * 去AI味配置 — 内容风格优化策略 + 规则生成器 + 前后对比测试
  */
-import { useState } from "react"
-import { Plus, Edit, Trash2, X, Wand2, ToggleLeft, ToggleRight, TestTube, Search, FileCode, ArrowRight, CheckCircle, Eye, Sparkles, GitBranch, BookOpen, Zap } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Edit, Trash2, X, Wand2, ToggleLeft, ToggleRight, TestTube, Search, FileCode, ArrowRight, CheckCircle, Eye, Sparkles, GitBranch, BookOpen, Zap, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
+import { configApi } from "@/lib/api"
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal"
-
-const MOCK_STYLES = [
-  {
-    id: 1, name: "通用降重", status: "启用", description: "通用AI痕迹消除，适用于所有测试报告内容",
-    rules: { remove_words: ["值得注意的是", "总的来说", "综上所述", "不可否认"], style: "学术正式", temperature: 0.6 },
-    sample_input: "值得注意的是，本次自动化测试覆盖了所有核心功能模块。总的来说，系统表现良好，未发现严重缺陷。",
-    sample_output: "本次自动化测试覆盖了全部核心功能模块，系统整体表现稳定，未发现严重级别缺陷。",
-    linked_agents: ["test-report-generator", "ai-content-detector"], test_count: 47, last_test: "2025-01-15"
-  },
-  {
-    id: 2, name: "风格调整", status: "启用", description: "将AI生成的测试文档调整为指定目标风格",
-    rules: { style: "简洁技术风", replace_rules: { "然而": "但", "因此": "所以", "此外": "另外" }, max_length: 800 },
-    sample_input: "然而，由于测试环境配置不当，导致部分用例执行失败。因此，我们需要重新检查环境配置。",
-    sample_output: "但因测试环境配置不当，部分用例执行失败，需重新检查环境配置。",
-    linked_agents: ["style-adjuster", "doc-polisher"], test_count: 32, last_test: "2025-01-14"
-  },
-  {
-    id: 3, name: "句式变换", status: "启用", description: "通过句式结构变换降低AI检测率",
-    rules: { strategy: "passive_to_active", max_clause: 3, temperature: 0.8 },
-    sample_input: "测试用例被执行了，并且发现了3个高优先级的缺陷。这些缺陷被开发团队确认了，并且已经开始修复。",
-    sample_output: "执行测试用例后，开发团队确认了3个高优先级缺陷并启动修复。",
-    linked_agents: ["sentence-rewriter", "grammar-checker"], test_count: 28, last_test: "2025-01-13"
-  },
-  {
-    id: 4, name: "细节增强", status: "禁用", description: "增加具体数据和细节描述，提升报告可信度",
-    rules: { add_metrics: true, specificity: "high", include_timestamps: true },
-    sample_input: "性能测试结果显示系统响应时间在可接受范围内。",
-    sample_output: "性能测试（2025-01-10 14:30执行，100并发用户）显示P95响应时间为238ms，在300ms阈值内。",
-    linked_agents: ["metrics-injector", "data-enricher"], test_count: 15, last_test: "2025-01-12"
-  },
-  {
-    id: 5, name: "情感调节", status: "启用", description: "调节测试报告中的情感倾向，避免过于积极或消极",
-    rules: { sentiment_target: "neutral", avoid_superlatives: true, tone: "objective" },
-    sample_input: "这次测试非常成功！所有功能都完美运行，没有任何问题，团队表现极其出色。",
-    sample_output: "本次测试顺利通过所有计划用例，功能模块运行正常，未发现阻塞性问题。",
-    linked_agents: ["sentiment-analyzer", "report-editor"], test_count: 21, last_test: "2025-01-11"
-  },
-]
 
 const ruleKeyOptions = [
   { label: "移除词汇", key: "remove_words", placeholder: '["值得注意的是", "总的来说"]' },
@@ -52,10 +15,39 @@ const ruleKeyOptions = [
   { label: "替换规则", key: "replace_rules", placeholder: '{"但是": "不过"}' },
 ]
 
+/** 后端 API 响应 → UI 展示格式 */
+function apiToStyle(item: any) {
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description || "",
+    rules: item.rules || {},
+    sample_input: item.sample_input || "",
+    sample_output: item.sample_output || "",
+    status: item.status === "启用" ? "启用" : "禁用",
+    linked_agents: [] as string[],
+    test_count: 0,
+    last_test: "",
+  }
+}
+
+/** 表单数据 → 后端创建/更新 payload */
+function formToPayload(form: any, rules: any) {
+  return {
+    name: form.name,
+    description: form.description || undefined,
+    rules,
+    sample_input: form.sample_input || undefined,
+    sample_output: form.sample_output || undefined,
+  }
+}
+
 interface RuleEntry { key: string; value: string }
 
 export default function DeAIConfig() {
-  const [styles, setStyles] = useState<any[]>(MOCK_STYLES)
+  const [styles, setStyles] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetching, setFetching] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
   const [editingStyle, setEditingStyle] = useState<any>(null)
@@ -69,6 +61,25 @@ export default function DeAIConfig() {
   const [search, setSearch] = useState("")
   const [deleteTarget, setDeleteTarget] = useState<any>(null)
   const [showRawJson, setShowRawJson] = useState(false)
+
+  /** 从后端加载策略列表 */
+  const fetchStyles = async () => {
+    setFetching(true)
+    try {
+      const res: any = await configApi.listDeAIStyles(1, 100)
+      const items = res?.data?.items || []
+      setStyles(items.map(apiToStyle))
+    } catch (e: any) {
+      toast.error("加载策略列表失败: " + (e?.message || "未知错误"))
+    } finally {
+      setFetching(false)
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchStyles()
+  }, [])
 
   const parseRulesToEntries = (rules: any): RuleEntry[] => {
     if (!rules) return [{ key: "style", value: "" }]
@@ -93,30 +104,47 @@ export default function DeAIConfig() {
     return Object.keys(errors).length === 0
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return
     const rulesStr = entriesToRulesString(rulesEntries)
-    const newStyle = {
-      id: dialogMode === "create" ? Date.now() : editingStyle.id,
-      name: form.name, description: form.description,
-      rules: JSON.parse(rulesStr), sample_input: form.sample_input, sample_output: form.sample_output,
-      status: "启用", linked_agents: [], test_count: 0, last_test: new Date().toISOString().split("T")[0],
+    let rulesObj: any
+    try { rulesObj = JSON.parse(rulesStr) } catch { rulesObj = {} }
+    try {
+      if (dialogMode === "create") {
+        await configApi.createDeAIStyle(formToPayload(form, rulesObj))
+        toast.success("策略创建成功")
+      } else {
+        await configApi.updateDeAIStyle(editingStyle.id, formToPayload(form, rulesObj))
+        toast.success("策略更新成功")
+      }
+      setShowDialog(false)
+      await fetchStyles()
+    } catch (e: any) {
+      toast.error(dialogMode === "create" ? "创建策略失败: " + (e?.message || "未知错误") : "更新策略失败: " + (e?.message || "未知错误"))
     }
-    setStyles(dialogMode === "create" ? [...styles, newStyle] : styles.map((s) => s.id === newStyle.id ? { ...s, ...newStyle } : s))
-    toast.success(dialogMode === "create" ? "策略创建成功" : "策略更新成功")
-    setShowDialog(false)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return
-    setStyles(styles.filter((s) => s.id !== deleteTarget.id))
-    toast.success("策略已删除")
-    setDeleteTarget(null)
+    try {
+      await configApi.deleteDeAIStyle(deleteTarget.id)
+      toast.success("策略已删除")
+      setDeleteTarget(null)
+      await fetchStyles()
+    } catch (e: any) {
+      toast.error("删除策略失败: " + (e?.message || "未知错误"))
+    }
   }
 
-  const handleToggle = (s: any) => {
-    setStyles(styles.map((st) => st.id === s.id ? { ...st, status: st.status === "启用" ? "禁用" : "启用" } : st))
-    toast.success(`策略「${s.name}」已${s.status === "启用" ? "禁用" : "启用"}`)
+  const handleToggle = async (s: any) => {
+    const newStatus = s.status === "启用" ? "禁用" : "启用"
+    try {
+      await configApi.updateDeAIStyle(s.id, { status: newStatus })
+      toast.success(`策略「${s.name}」已${newStatus}`)
+      await fetchStyles()
+    } catch (e: any) {
+      toast.error(`策略「${s.name}」状态切换失败: ` + (e?.message || "未知错误"))
+    }
   }
 
   const runTest = () => {
@@ -154,6 +182,17 @@ export default function DeAIConfig() {
 
   const totalTests = styles.reduce((a, s) => a + (s.test_count || 0), 0)
 
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="mb-3"><h2 className="text-base font-semibold text-ink">去AI味配置</h2><p className="text-xs text-muted mt-0.5">AI内容风格优化 · 结构化规则生成器 · 前后对比测试 · 测试报告降重</p></div>
+        <div className="flex-1 flex items-center justify-center text-sm text-muted gap-2">
+          <RefreshCw className="w-4 h-4 animate-spin" /> 加载中...
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="mb-3"><h2 className="text-base font-semibold text-ink">去AI味配置</h2><p className="text-xs text-muted mt-0.5">AI内容风格优化 · 结构化规则生成器 · 前后对比测试 · 测试报告降重</p></div>
@@ -170,6 +209,9 @@ export default function DeAIConfig() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索策略名称..." className="w-full h-9 pl-9 pr-3 rounded-xl border border-border text-sm text-ink bg-white focus:border-amber outline-none" />
         </div>
+        <button onClick={fetchStyles} disabled={fetching} className="h-9 px-3 rounded-xl border border-border text-sm text-ink-light hover:bg-cream flex items-center gap-1.5 disabled:opacity-50">
+          <RefreshCw className={`w-3.5 h-3.5 ${fetching ? "animate-spin" : ""}`} /> 刷新
+        </button>
         <button onClick={openCreate} className="h-9 px-4 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md flex items-center gap-1.5 ml-auto"><Plus className="w-3.5 h-3.5" /> 新建策略</button>
       </div>
 
