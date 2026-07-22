@@ -15,7 +15,8 @@ const TestCasePage = lazy(() => import("@/pages/test-cases/TestCasePage"))
 const RequirementTestingPage = lazy(() => import("@/pages/requirement-testing/RequirementTestingPage"))
 const ModulePage = lazy(() => import("@/pages/module/ModulePage"))
 const DetailPage = lazy(() => import("@/pages/module/DetailPage"))
-const AiAutomationPage = lazy(() => import("@/pages/module/AiAutomationPage"))
+const AiAutomationHub = lazy(() => import("@/pages/ai-automation/AiAutomationHub"))
+const AiTestTypeDetail = lazy(() => import("@/pages/ai-automation/AiTestTypeDetail"))
 const UserManagementPage = lazy(() => import("@/pages/user-management/UserManagementPage"))
 const DefectManagementPage = lazy(() => import("@/pages/defect-management/DefectManagementPage"))
 const ExecutionManagementPage = lazy(() => import("@/pages/execution-management/ExecutionManagementPage"))
@@ -49,7 +50,8 @@ export default function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/" element={<DashboardPage />} />
             <Route path="/activities" element={<ActivitiesPage />} />
-            <Route path="/ai-automation" element={<AiAutomationPage />} />
+            <Route path="/ai-automation" element={<AiAutomationHub />} />
+            <Route path="/ai-automation/:typeId" element={<AiTestTypeDetail />} />
             <Route path="/requirement-testing" element={<RequirementTestingPage />} />
             <Route path="/test-cases" element={<TestCasePage />} />
             <Route path="/users" element={<UserManagementPage />} />
