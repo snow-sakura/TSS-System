@@ -1,42 +1,47 @@
 /**
  * 需求测试 - 主页面（优化版）
  * 
- * 清理冗余模块后的结构：
+ * 主流程节点（每个都是必需的）：
  * - 需求管理: 上传/管理需求文档
- * - 测试用例: 从需求生成的用例（合并原 CasesList + AICaseGeneration）
+ * - 方案管理: 测试方案/策略的CRUD管理
+ * - 测试用例: 测试用例的CRUD管理
+ * - 评审管理: 用例评审的CRUD管理
  * - AI自动化: 一键全流程 Pipeline（需求分析→方案→测试点→用例→评审）
  * - 流程记录: Pipeline执行历史
  * 
  * 已删除的冗余模块：
- * - 方案管理 (plans): Pipeline内部已处理，无需独立CRUD
- * - 评审管理 (reviews): Pipeline内部已处理，无需独立CRUD
- * - AI用例生成 (ai-cases): 与Pipeline的用例生成阶段完全重复
+ * - AI用例生成 (ai-cases): 与Pipeline的用例生成阶段功能重复
  */
 import { useState, useCallback, memo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Sparkles, FileText, FlaskConical, Play, Clock } from "lucide-react"
+import { ArrowLeft, Sparkles, FileText, ClipboardList, FlaskConical, CheckCircle, Play, Clock } from "lucide-react"
 import Sidebar, { type SidebarItem } from "./components/Sidebar"
 import RequirementsList from "./pages/RequirementsList"
+import PlansList from "./pages/PlansList"
 import CasesList from "./pages/CasesList"
+import ReviewsList from "./pages/ReviewsList"
 import AIPipeline from "./pages/AIPipeline"
 import ProcessRecords from "./pages/ProcessRecords"
 import { useAutomationStore } from "@/stores/automationStore"
 
-// 优化后的菜单：仅保留核心功能，消除冗余
+// 主流程菜单：每个节点都是必需的
 const MENU_ITEMS: SidebarItem[] = [
   { key: "requirements", label: "需求管理", icon: "requirements" },
-  { key: "cases", label: "测试用例", icon: "cases" },
+  { key: "plans", label: "方案管理", icon: "plans" },
+  { key: "cases", label: "用例管理", icon: "cases" },
+  { key: "reviews", label: "评审管理", icon: "records" },
   { key: "pipeline", label: "AI自动化", icon: "pipeline" },
   { key: "records", label: "流程记录", icon: "plans" },
 ]
 
-// 流程步骤：与Pipeline的5个阶段对齐
+// 流程步骤：完整主流程
 const STAGES = [
   { key: "requirements", label: "需求分析", icon: FileText },
-  { key: "plans", label: "规划方案", icon: FileText },
+  { key: "plans", label: "规划方案", icon: ClipboardList },
   { key: "cases", label: "用例生成", icon: FlaskConical },
-  { key: "reviews", label: "用例评审", icon: FlaskConical },
+  { key: "reviews", label: "用例评审", icon: CheckCircle },
   { key: "pipeline", label: "AI自动化", icon: Play },
+  { key: "records", label: "流程记录", icon: Clock },
 ]
 
 type StageStatus = "waiting" | "running" | "completed" | "failed"
@@ -60,7 +65,9 @@ function RequirementTestingPage() {
   const renderContent = () => {
     switch (activeMenu) {
       case "requirements": return <RequirementsList />
+      case "plans": return <PlansList />
       case "cases": return <CasesList />
+      case "reviews": return <ReviewsList />
       case "pipeline": return <AIPipeline key={currentRecord?.id || "empty"} onStageUpdate={handleStageUpdate} />
       case "records": return <ProcessRecords />
       default: return <AIPipeline key={currentRecord?.id || "empty"} onStageUpdate={handleStageUpdate} />
