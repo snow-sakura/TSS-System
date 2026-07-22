@@ -210,8 +210,56 @@ async function runTests() {
       log('系统管理页面加载', 'fail', '未找到系统管理相关文字');
     }
 
-    // ========== 9. API健康检查 ==========
-    console.log('\n--- 9. API健康检查 ---');
+    // ========== 9. 流程编排编辑器 ==========
+    console.log('\n--- 9. 流程编排编辑器 ---');
+    await page.goto(`${BASE_URL}/workflow-orchestration`, { waitUntil: 'networkidle', timeout: TIMEOUT });
+    await delay(2000);
+
+    const wfContent = await page.textContent('body').catch(() => '');
+    if (wfContent.includes('工作流') || wfContent.includes('Agent') || wfContent.includes('节点')) {
+      log('流程编排页面加载', 'pass');
+    } else {
+      log('流程编排页面加载', 'fail', '未找到工作流相关文字');
+    }
+
+    // ========== 10. 用户管理 ==========
+    console.log('\n--- 10. 用户管理 ---');
+    await page.goto(`${BASE_URL}/users`, { waitUntil: 'networkidle', timeout: TIMEOUT });
+    await delay(2000);
+
+    const usrContent = await page.textContent('body').catch(() => '');
+    if (usrContent.includes('用户') || usrContent.includes('User') || usrContent.includes('管理')) {
+      log('用户管理页面加载', 'pass');
+    } else {
+      log('用户管理页面加载', 'fail', '未找到用户管理相关文字');
+    }
+
+    // ========== 11. 分析报告 ==========
+    console.log('\n--- 11. 分析报告 ---');
+    await page.goto(`${BASE_URL}/reports`, { waitUntil: 'networkidle', timeout: TIMEOUT });
+    await delay(2000);
+
+    const reportContent = await page.textContent('body').catch(() => '');
+    if (reportContent.includes('报告') || reportContent.includes('Report') || reportContent.includes('分析')) {
+      log('分析报告页面加载', 'pass');
+    } else {
+      log('分析报告页面加载', 'fail', '未找到报告相关文字');
+    }
+
+    // ========== 12. 测试生命周期 ==========
+    console.log('\n--- 12. 测试生命周期 ---');
+    await page.goto(`${BASE_URL}/test-lifecycle`, { waitUntil: 'networkidle', timeout: TIMEOUT });
+    await delay(2000);
+
+    const lcContent = await page.textContent('body').catch(() => '');
+    if (lcContent.includes('生命周期') || lcContent.includes('测试') || lcContent.includes('阶段')) {
+      log('测试生命周期页面加载', 'pass');
+    } else {
+      log('测试生命周期页面加载', 'fail', '未找到生命周期相关文字');
+    }
+
+    // ========== 13. API健康检查 ==========
+    console.log('\n--- 13. API健康检查 ---');
     const apiResponse = await page.evaluate(async () => {
       try {
         const res = await fetch(`${API_URL}/api/v1/health`);
@@ -228,8 +276,8 @@ async function runTests() {
       log('API健康检查', 'fail', `状态: ${apiResponse.status}`);
     }
 
-    // ========== 10. 截图验证 ==========
-    console.log('\n--- 10. 截图验证 ---');
+    // ========== 14. 截图验证 ==========
+    console.log('\n--- 14. 截图验证 ---');
     await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle', timeout: TIMEOUT });
     await delay(2000);
     await page.screenshot({ path: 'scripts/test-screenshot-home.png', fullPage: true });
