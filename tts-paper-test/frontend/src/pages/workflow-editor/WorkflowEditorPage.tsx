@@ -604,29 +604,63 @@ export default function WorkflowEditorPage() {
                 }} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50" />
               </div>
               {/* 配置字段 */}
-              {Object.entries(configForm || {}).map(([key, val]) => (
-                <div key={key}>
-                  <label className="text-[10px] text-white/40 uppercase tracking-wider block mb-1">{key}</label>
-                  {typeof val === "string" ? (
-                    <textarea
-                      value={val as string}
-                      onChange={e => updateNodeConfig(selectedNode.id, key, e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50 resize-none font-mono"
-                      rows={key.includes("prompt") || key.includes("code") || key.includes("instruction") ? 4 : 2}
-                    />
-                  ) : typeof val === "number" ? (
-                    <input type="number" value={val as number} onChange={e => updateNodeConfig(selectedNode.id, key, parseFloat(e.target.value))}
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50" />
-                  ) : (
-                    <textarea
-                      value={JSON.stringify(val, null, 2)}
-                      onChange={e => { try { updateNodeConfig(selectedNode.id, key, JSON.parse(e.target.value)) } catch { /* ignore */ } }}
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50 resize-none font-mono"
-                      rows={3}
-                    />
-                  )}
-                </div>
-              ))}
+              {selectedNode.type === "web_automation" ? (
+                <>
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-wider block mb-1">操作类型</label>
+                    <select
+                      value={configForm.action || "explore"}
+                      onChange={e => updateNodeConfig(selectedNode.id, "action", e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50"
+                    >
+                      <option value="explore">AI 探索</option>
+                      <option value="generate">生成测试用例</option>
+                      <option value="execute">执行测试</option>
+                      <option value="list_pages">列出页面</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-wider block mb-1">目标项目</label>
+                    <select
+                      value={configForm.project_id || ""}
+                      onChange={e => updateNodeConfig(selectedNode.id, "project_id", e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50"
+                    >
+                      <option value="">选择项目...</option>
+                      {webProjects.map((p: any) => (
+                        <option key={p.id} value={String(p.id)}>{p.name} ({p.status})</option>
+                      ))}
+                    </select>
+                    {webProjects.length === 0 && (
+                      <p className="text-[10px] text-white/30 mt-1">暂无项目，请先在 AI Web自动化 中创建</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                Object.entries(configForm || {}).map(([key, val]) => (
+                  <div key={key}>
+                    <label className="text-[10px] text-white/40 uppercase tracking-wider block mb-1">{key}</label>
+                    {typeof val === "string" ? (
+                      <textarea
+                        value={val as string}
+                        onChange={e => updateNodeConfig(selectedNode.id, key, e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50 resize-none font-mono"
+                        rows={key.includes("prompt") || key.includes("code") || key.includes("instruction") ? 4 : 2}
+                      />
+                    ) : typeof val === "number" ? (
+                      <input type="number" value={val as number} onChange={e => updateNodeConfig(selectedNode.id, key, parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50" />
+                    ) : (
+                      <textarea
+                        value={JSON.stringify(val, null, 2)}
+                        onChange={e => { try { updateNodeConfig(selectedNode.id, key, JSON.parse(e.target.value)) } catch { /* ignore */ } }}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white outline-none focus:border-amber/50 resize-none font-mono"
+                        rows={3}
+                      />
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}

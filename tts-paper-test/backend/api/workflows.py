@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from database import get_db
 from models.workflow import (
@@ -79,6 +80,7 @@ async def list_workflows(
         query = query.where(Workflow.status == status)
     if search:
         query = query.where(Workflow.name.ilike(f"%{search}%"))
+    query = query.options(selectinload(Workflow.nodes), selectinload(Workflow.edges))
     query = query.order_by(Workflow.updated_at.desc())
 
     total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar() or 0
@@ -97,13 +99,26 @@ async def create_workflow(body: WorkflowCreate, db: AsyncSession = Depends(get_d
     wf = Workflow(name=body.name, description=body.description, tags=body.tags)
     db.add(wf)
     await db.commit()
-    await db.refresh(wf)
+    # 重新加载以获取完整关系数据
+    result = await db.execute(
+        select(Workflow)
+        .where(Workflow.id == wf.id)
+        .options(selectinload(Workflow.nodes), selectinload(Workflow.edges))
+    )
+    wf = result.scalar_one()
     return _wf_to_dict(wf)
 
 
 @router.get("/{workflow_id}", summary="获取工作流详情")
 async def get_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)) -> dict:
-    wf = await _get_wf_or_404(workflow_id, db)
+    result = await db.execute(
+        select(Workflow)
+        .where(Workflow.id == workflow_id)
+        .options(selectinload(Workflow.nodes), selectinload(Workflow.edges))
+    )
+    wf = result.scalar_one_or_none()
+    if not wf:
+        raise HTTPException(404, "工作流不存在")
     return _wf_detail_dict(wf)
 
 
@@ -299,14 +314,24 @@ async def _get_node_or_404(wf_id: int, node_id: int, db: AsyncSession) -> Workfl
 
 
 def _wf_to_dict(wf: Workflow) -> dict:
+    # 安全获取节点和边的数量（避免懒加载触发异步错误）
+    try:
+        node_count = len(wf.nodes) if wf.nodes is not None else 0
+    except Exception:
+        node_count = 0
+    try:
+        edge_count = len(wf.edges) if wf.edges is not None else 0
+    except Exception:
+        edge_count = 0
+
     return {
         "id": wf.id,
         "name": wf.name,
         "description": wf.description or "",
         "status": wf.status,
         "tags": wf.tags or {},
-        "node_count": len(wf.nodes) if wf.nodes else 0,
-        "edge_count": len(wf.edges) if wf.edges else 0,
+        "node_count": node_count,
+        "edge_count": edge_count,
         "created_at": wf.created_at.isoformat() if wf.created_at else None,
         "updated_at": wf.updated_at.isoformat() if wf.updated_at else None,
     }

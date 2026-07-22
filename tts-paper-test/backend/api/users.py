@@ -149,9 +149,9 @@ async def list_login_logs(
         items.append({
             "id": log.id,
             "user_id": log.user_id or 0,
-            "username": log.user or "unknown",
+            "username": log.username or "unknown",
             "ip_address": log.ip_address,
-            "user_agent": log.user_agent,
+            "user_agent": "",
             "status": "success",
             "created_at": log.created_at,
         })

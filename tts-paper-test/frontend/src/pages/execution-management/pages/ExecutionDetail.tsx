@@ -37,14 +37,15 @@ export default function ExecutionDetail() {
   const [loading, setLoading] = useState(false)
   const [liveResults, setLiveResults] = useState<any[]>([])
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hasRunning = useRef(false)
   const pageSize = 10
 
   // 从后端加载执行进度
   const fetchProgress = useCallback(async () => {
     try {
-      // 查找正在执行的记录
       const res: any = await lifecycleApi.listExecutions({ status: "running" })
-      if (res?.data?.items) {
+      if (res?.data?.items && res.data.items.length > 0) {
+        hasRunning.current = true
         for (const exec of res.data.items) {
           const progress: any = await lifecycleApi.getExecutionProgress(exec.id)
           if (progress?.data?.results) {
@@ -64,12 +65,17 @@ export default function ExecutionDetail() {
             setLiveResults(mapped)
           }
         }
+      } else if (hasRunning.current) {
+        // 之前有运行中的任务，现在没有了，停止轮询
+        hasRunning.current = false
+        if (pollTimer.current) { clearInterval(pollTimer.current); pollTimer.current = null }
       }
     } catch {}
   }, [])
 
   useEffect(() => {
-    pollTimer.current = setInterval(fetchProgress, 3000)
+    fetchProgress()
+    pollTimer.current = setInterval(fetchProgress, 5000)
     return () => { if (pollTimer.current) clearInterval(pollTimer.current) }
   }, [fetchProgress])
 
