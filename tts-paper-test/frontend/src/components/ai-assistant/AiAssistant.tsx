@@ -4,6 +4,8 @@
  */
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Bot, Send, X, Sparkles, Copy, Check, Trash2, Loader2 } from "lucide-react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { aiChatApi } from "@/lib/api"
 
 interface Message {
@@ -13,39 +15,11 @@ interface Message {
   timestamp: Date
 }
 
-// 简单的Markdown渲染组件
 function MarkdownContent({ content }: { content: string }) {
-  // 简单的Markdown解析
-  const renderMarkdown = (text: string) => {
-    // 代码块
-    let result = text.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-ink/5 rounded-lg p-3 my-2 overflow-x-auto text-xs font-mono"><code>$2</code></pre>')
-    // 行内代码
-    result = result.replace(/`([^`]+)`/g, '<code class="bg-ink/5 px-1.5 py-0.5 rounded text-xs font-mono">$1</code>')
-    // 粗体
-    result = result.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>')
-    // 标题
-    result = result.replace(/^### (.+)$/gm, '<h4 class="text-sm font-bold text-ink mt-3 mb-1">$1</h4>')
-    result = result.replace(/^## (.+)$/gm, '<h3 class="text-base font-bold text-ink mt-4 mb-2">$1</h3>')
-    result = result.replace(/^# (.+)$/gm, '<h2 class="text-lg font-bold text-ink mt-4 mb-2">$1</h2>')
-    // 列表
-    result = result.replace(/^- (.+)$/gm, '<li class="ml-4 text-sm">• $1</li>')
-    result = result.replace(/^(\d+) (.+)$/gm, '<li class="ml-4 text-sm">$1. $2</li>')
-    // 表格（简单支持）
-    result = result.replace(/\|(.+)\|/g, (match) => {
-      const cells = match.split('|').filter(c => c.trim())
-      if (cells.every(c => c.trim().match(/^-+$/))) return ''
-      return '<tr>' + cells.map(c => `<td class="px-3 py-1.5 border border-border text-xs">${c.trim()}</td>`).join('') + '</tr>'
-    })
-    // 换行
-    result = result.replace(/\n/g, '<br/>')
-    return result
-  }
-
   return (
-    <div
-      className="text-sm leading-relaxed prose prose-sm max-w-none"
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
-    />
+    <div className="text-sm leading-relaxed prose prose-sm max-w-none">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
   )
 }
 

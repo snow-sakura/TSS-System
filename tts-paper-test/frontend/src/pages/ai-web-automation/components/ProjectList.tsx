@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Search, Plus, Edit, Trash2, Eye, X, Globe, RefreshCw, Play, Clock, CheckCircle, ExternalLink } from "lucide-react"
 import { toast } from "sonner"
 import { webApi } from "@/lib/api"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface Project {
   id: number
@@ -50,8 +51,7 @@ export default function ProjectList() {
           created_at: p.created_at, updated_at: p.updated_at,
         })))
       }
-    } catch (err) {
-      console.error("获取项目列表失败，显示预览数据:", err)
+    } catch {
       toast.error("无法连接服务器，显示本地预览数据")
     } finally { setLoading(false) }
   }, [currentPage])
@@ -94,7 +94,8 @@ export default function ProjectList() {
   }
 
   const handleDelete = async (p: any) => {
-    if (!confirm(`确定删除项目「${p.name}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除项目「${p.name}」？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await webApi.deleteProject(p.id)
       toast.success("项目已删除")
@@ -105,11 +106,10 @@ export default function ProjectList() {
   }
 
   const handleBatchDelete = async () => {
-    if (!confirm(`确定删除选中的 ${selectedIds.size} 个项目？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除选中的 ${selectedIds.size} 个项目？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     for (const id of selectedIds) {
-      try { await webApi.deleteProject(Number(id)) } catch (err) {
-        console.error(`删除项目 ${id} 失败:`, err)
-      }
+      try { await webApi.deleteProject(Number(id)) } catch {}
     }
     toast.success("批量删除成功")
     setSelectedIds(new Set())

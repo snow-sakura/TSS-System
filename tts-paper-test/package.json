@@ -1,0 +1,19 @@
+{
+  "name": "tts-paper-test",
+  "version": "1.0.0",
+  "description": "> 基于AI驱动的智能软件测试平台，集成需求分析、用例生成、自动化执行、缺陷管理全流程",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "1.62.0"
+  }
+}

@@ -39,3 +39,15 @@ Thumbs.db
 *.png
 *.jpg
 *.jpeg
+
+# Trae IDE
+.trae/
+
+# 后端运行时日志与临时调试脚本
+backend/logs/
+backend/scripts/test-debug-hub.mjs
+
+# Playwright 产物
+test-results/
+frontend/test-results/
+e2e-report/

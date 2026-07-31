@@ -12,7 +12,7 @@ from services.log_service import create_operation_log as _log
 from models.config import (
     Environment, LLMProvider, PromptTemplate, DeAIStyle,
     MCPService, Skill, HermesChannel,
-    HealthHistory, LLMUsageLog,
+    HealthHistory, LLMUsageLog, StepPromptConfig,
 )
 from schemas.config import (
     EnvironmentCreate, EnvironmentUpdate,
@@ -22,6 +22,8 @@ from schemas.config import (
     MCPServiceCreate, MCPServiceUpdate,
     SkillCreate, SkillUpdate,
     HermesChannelCreate, HermesChannelUpdate,
+    StepPromptConfigCreate, StepPromptConfigUpdate,
+    StepPromptTestRequest,
 )
 
 
@@ -71,6 +73,7 @@ _MODULE_MAP = {
     "MCPService": "MCP服务管理",
     "Skill": "Skills技能",
     "HermesChannel": "Hermes渠道",
+    "StepPromptConfig": "步骤提示词配置",
 }
 
 
@@ -942,4 +945,546 @@ async def send_hermes_message(db: AsyncSession, channel_id: int, message: str):
         "success": success,
         "message_id": message_id,
         "latency": f"{latency}s",
+    }
+
+
+# ============================
+# Pipeline步骤提示词配置 Service
+# ============================
+
+# 步骤默认配置数据（丰富的软件测试理论知识）
+DEFAULT_STEP_CONFIGS = [
+    {
+        "step_key": "analyze",
+        "step_name": "需求分析",
+        "step_order": 1,
+        "icon": "FileText",
+        "description": "深入分析需求文档，提取功能点和业务规则",
+        "system_prompt": """你是一位资深的软件测试需求分析专家，拥有ISTQB认证和10年以上的测试经验。
+你的任务是对用户提供的需求文档进行深入分析，输出专业的需求分析报告。
+
+分析原则：
+1. 完整性：识别所有功能需求、非功能需求、隐含需求
+2. 一致性：检查需求间的矛盾和冲突
+3. 可测试性：确保每个需求点都可以被验证
+4. 优先级：基于风险和影响评估需求优先级
+
+输出要求：
+- 使用结构化的Markdown格式
+- 提供功能点列表和业务规则
+- 标注需求风险和待确认问题
+- 评估需求质量等级""",
+        "user_prompt_template": """请对以下需求内容进行专业分析：
+
+## 需求内容
+{content}
+
+## 补充文档
+{files_list}
+
+请输出：
+1. **功能需求分析**：识别的功能点列表
+2. **业务规则提取**：关键业务规则和约束
+3. **非功能需求**：性能、安全、兼容性等要求
+4. **需求风险评估**：潜在风险和模糊点
+5. **功能点优先级**：P0/P1/P2 分级""",
+        "skill_prompt": """## 需求分析方法论
+
+### 1. 功能点分析法
+- 识别用户角色和交互场景
+- 提取核心业务流程
+- 标注异常处理路径
+
+### 2. 需求质量评估
+- 完整性检查：是否覆盖所有业务场景
+- 一致性检查：是否存在矛盾需求
+- 可行性检查：技术实现难度评估
+- 可追溯性：需求来源和变更记录
+
+### 3. 风险识别技术
+- 业务风险：需求不明确、业务规则冲突
+- 技术风险：技术实现复杂度、依赖关系
+- 进度风险：需求变更频率、优先级冲突""",
+        "output_template": """## 需求分析报告
+
+### 功能需求清单
+| 编号 | 功能点 | 描述 | 优先级 | 风险等级 |
+|------|--------|------|--------|----------|
+| F001 | xxx | xxx | P0 | 高/中/低 |
+
+### 业务规则
+1. xxx
+2. xxx
+
+### 待确认问题
+- [ ] 问题1
+- [ ] 问题2
+
+### 需求质量评分
+- 完整性: X/10
+- 一致性: X/10
+- 可测试性: X/10""",
+        "skills": [
+            {"name": "需求分析", "description": "功能点识别与分析", "content": "使用功能点分析技术识别需求中的核心功能"},
+            {"name": "业务建模", "description": "业务流程建模", "content": "使用UML活动图或流程图建模业务逻辑"},
+            {"name": "风险评估", "description": "需求风险识别", "content": "识别需求中的模糊点、矛盾点和潜在风险"},
+        ],
+        "variables": [
+            {"name": "content", "type": "string", "description": "需求文档内容", "required": True},
+            {"name": "files_list", "type": "string", "description": "上传的文件列表", "required": False},
+        ],
+        "output_logs_template": [
+            {"content": "### 需求分析专家启动\n\n**角色**: 资深软件测试需求分析专家 (ISTQB认证)\n\n---", "delay_ms": 500},
+            {"content": "**📖 开始分析需求文档**\n\n> 正在读取和理解需求内容...\n\n**输入摘要**:\n- 需求主题: {content_preview}\n- 参考文档: {files_list}\n- 分析模式: 深度分析", "delay_ms": 800},
+            {"content": "**🔍 功能点识别**\n\n通过功能点分析法识别出以下核心功能：\n\n| 编号 | 功能点 | 描述 | 优先级 |\n|------|--------|------|--------|\n| F001 | 用户认证 | 支持多种登录方式 | P0 |\n| F002 | 会话管理 | 登录状态维护 | P1 |\n| F003 | 密码安全 | 加密存储和策略 | P0 |\n\n共识别 **3** 个核心功能点", "delay_ms": 1000},
+            {"content": "**📋 业务规则提取**\n\n从需求中提取的关键业务规则：\n\n1. ✅ 支持账号密码登录\n2. ✅ 支持手机验证码登录\n3. ⚠️ 连续失败3次账户锁定30分钟（需确认阈值）\n4. ✅ 支持「记住密码」功能\n5. ⚠️ 会话超时时间未明确（建议24小时）", "delay_ms": 800},
+            {"content": "**⚠️ 风险与问题**\n\n**高风险**:\n- 🔴 登录失败锁定策略的具体阈值需要确认\n- 🔴 密码复杂度要求未明确\n\n**中风险**:\n- 🟡 验证码有效期未指定\n- 🟡 多设备登录策略不明确\n\n**待确认问题**:\n- [ ] 是否需要支持第三方登录（OAuth）？\n- [ ] 密码找回的验证方式？\n- [ ] 是否支持多因素认证（MFA）？", "delay_ms": 900},
+            {"content": "**✅ 需求分析完成**\n\n📊 **质量评估**:\n- 完整性: 7/10（缺少异常场景描述）\n- 一致性: 8/10（规则基本一致）\n- 可测试性: 6/10（部分需求不够具体）\n\n💡 **建议**: 建议补充异常流程和边界条件的需求描述", "delay_ms": 700},
+        ],
+    },
+    {
+        "step_key": "plan",
+        "step_name": "测试方案设计",
+        "step_order": 2,
+        "icon": "ClipboardList",
+        "description": "基于需求分析结果设计测试策略和方案",
+        "system_prompt": """你是一位资深的测试方案设计专家，拥有ISTQB高级测试经理认证。
+你的任务是基于需求分析结果，设计全面、可行的测试方案。
+
+设计原则：
+1. 测试策略选择：基于风险和类型选择合适的测试方法
+2. 范围界定：明确测试范围和边界
+3. 资源评估：评估所需资源、时间和人力
+4. 里程碑规划：合理规划测试各阶段的时间节点
+
+输出要求：
+- 使用结构化的Markdown格式
+- 包含测试策略、范围、方法和工具
+- 提供详细的测试计划时间表
+- 标注关键路径和风险点""",
+        "user_prompt_template": """请基于以下需求分析结果，设计测试方案：
+
+## 需求分析摘要
+{content}
+
+## 功能点列表
+{files_list}
+
+请输出完整的测试方案，包括测试策略、测试范围、测试方法、测试环境、测试进度等""",
+        "skill_prompt": """## 测试方案设计方法论
+
+### 1. 测试策略选择
+- 黑盒测试：基于需求规格说明设计测试用例
+- 白盒测试：基于代码结构设计测试用例
+- 灰盒测试：结合黑盒和白盒测试方法
+- 探索性测试：基于经验和直觉进行测试
+
+### 2. 测试范围界定
+- 功能测试范围
+- 非功能测试范围（性能、安全、兼容性等）
+- 测试入口和出口准则
+- 不在测试范围内的内容
+
+### 3. 资源与进度规划
+- 人力资源分配
+- 测试环境需求
+- 测试工具选择
+- 里程碑和交付物""",
+        "output_template": """## 测试方案
+
+### 测试策略
+| 测试类型 | 测试方法 | 覆盖范围 | 优先级 |
+|----------|----------|----------|--------|
+| 功能测试 | 黑盒测试 | 所有功能需求 | P0 |
+| 性能测试 | 负载测试 | 关键业务流程 | P1 |
+
+### 测试范围
+- **范围内**: xxx
+- **范围外**: xxx
+
+### 测试计划
+| 阶段 | 开始时间 | 结束时间 | 交付物 |
+|------|----------|----------|--------|
+| 测试准备 | xxx | xxx | 测试用例 |
+| 第一轮测试 | xxx | xxx | 缺陷列表 |""",
+        "skills": [
+            {"name": "测试策略", "description": "测试方法选择", "content": "根据需求特点选择合适的测试方法"},
+            {"name": "风险分析", "description": "测试风险评估", "content": "识别测试过程中的风险并制定应对策略"},
+            {"name": "资源规划", "description": "测试资源分配", "content": "合理分配测试资源和制定测试计划"},
+        ],
+        "variables": [
+            {"name": "content", "type": "string", "description": "需求分析摘要", "required": True},
+            {"name": "files_list", "type": "string", "description": "功能点列表", "required": False},
+        ],
+        "output_logs_template": [
+            {"content": "### 测试方案设计专家启动\n\n**角色**: 资深测试方案设计专家 (ISTQB高级)\n\n---", "delay_ms": 500},
+            {"content": "**📊 分析需求特征**\n\n> 基于需求分析结果选择测试策略...\n\n**需求特征**:\n- 功能数量: 5个核心功能\n- 业务复杂度: 中等\n- 风险等级: 中高\n- 建议方法: 黑盒测试 + 边界值分析", "delay_ms": 700},
+            {"content": "**🎯 测试策略选择**\n\n根据需求特征，推荐以下测试策略：\n\n| 测试类型 | 方法 | 覆盖范围 | 理由 |\n|----------|------|----------|------|\n| 功能测试 | 等价类划分 | 所有功能 | 提高用例效率 |\n| 边界值分析 | 边界条件测试 | 输入验证 | 发现边界缺陷 |\n| 状态转换测试 | 状态机 | 登录流程 | 验证状态管理 |\n| 错误推测 | 经验测试 | 异常场景 | 补充边界覆盖 |", "delay_ms": 900},
+            {"content": "**📋 测试范围界定**\n\n**✅ 测试范围内**:\n- 用户登录功能（正常/异常/边界）\n- 账户锁定机制\n- 会话生命周期管理\n- 密码加密存储\n\n**❌ 测试范围外**:\n- 第三方登录集成\n- 移动端适配\n- 国际化支持", "delay_ms": 700},
+            {"content": "**⏱️ 测试计划**\n\n| 阶段 | 主要任务 | 预估时间 | 交付物 |\n|------|----------|----------|--------|\n| 测试准备 | 用例设计、环境准备 | 2天 | 测试用例集 |\n| 第一轮 | 执行全量功能测试 | 3天 | 缺陷报告 |\n| 第二轮 | 回归测试 | 2天 | 回归报告 |\n| 验收测试 | UAT测试 | 1天 | 验收报告 |\n\n**关键路径**: 用例设计 → 功能测试 → 回归测试", "delay_ms": 800},
+            {"content": "**⚠️ 风险与应对**\n\n| 风险 | 影响 | 概率 | 应对措施 |\n|------|------|------|----------|\n| 需求变更 | 高 | 中 | 建立变更控制流程 |\n| 环境不稳定 | 中 | 低 | 准备备用环境 |\n| 用例覆盖率不足 | 高 | 低 | 定期评审和补充 |\n\n✅ **测试方案设计完成**", "delay_ms": 700},
+        ],
+    },
+    {
+        "step_key": "point",
+        "step_name": "测试点分析",
+        "step_order": 3,
+        "icon": "Target",
+        "description": "从需求中提取具体的测试点",
+        "system_prompt": """你是一位资深的测试点分析专家，擅长从需求中提取关键测试点。
+你的任务是基于需求分析结果和测试方案，提取详细的测试点。
+
+分析原则：
+1. 覆盖完整性：覆盖所有功能点和业务规则
+2. 风险导向：优先覆盖高风险和高频使用的场景
+3. 场景化：基于用户场景和业务流程提取测试点
+4. 可验证性：每个测试点都应该是可验证的
+
+输出要求：
+- 使用结构化的Markdown格式
+- 按功能模块组织测试点
+- 标注测试点的类型和优先级
+- 包含正常流程、异常流程和边界条件""",
+        "user_prompt_template": """请基于以下需求和测试方案，提取测试点：
+
+## 需求内容
+{content}
+
+## 功能点与业务规则
+{files_list}
+
+请提取详细的测试点，包括正常场景、异常场景和边界条件""",
+        "skill_prompt": """## 测试点提取方法论
+
+### 1. 场景分析法
+- 识别主要用户场景
+- 分解场景为具体测试点
+- 考虑场景变体和异常情况
+
+### 2. 功能分解法
+- 按功能模块分解测试点
+- 每个功能点覆盖正常/异常/边界
+- 考虑功能间的交互影响
+
+### 3. 风险驱动法
+- 基于风险等级分配测试点
+- 高风险区域增加测试密度
+- 历史缺陷区域增加覆盖""",
+        "output_template": """## 测试点清单
+
+### 功能模块1：xxx
+- [ ] 测试点1：xxx
+- [ ] 测试点2：xxx
+
+### 功能模块2：xxx
+- [ ] 测试点1：xxx
+- [ ] 测试点2：xxx
+
+**统计**: 共 N 个测试点，P0: N个, P1: N个, P2: N个""",
+        "skills": [
+            {"name": "场景分析", "description": "用户场景提取", "content": "基于用户故事和用例场景提取测试点"},
+            {"name": "功能分解", "description": "功能模块拆分", "content": "按功能模块系统化提取测试点"},
+            {"name": "风险评估", "description": "测试点优先级排序", "content": "基于风险等级确定测试点优先级"},
+        ],
+        "variables": [
+            {"name": "content", "type": "string", "description": "需求内容", "required": True},
+            {"name": "files_list", "type": "string", "description": "功能点与业务规则", "required": False},
+        ],
+        "output_logs_template": [
+            {"content": "### 测试点分析专家启动\n\n**角色**: 资深测试点分析专家\n\n---", "delay_ms": 500},
+            {"content": "**🎯 功能模块分解**\n\n> 按功能模块组织测试点...\n\n识别的功能模块：\n1. 🔐 用户认证模块\n2. 👤 账户管理模块\n3. 🔄 会话管理模块\n4. 🔒 安全策略模块", "delay_ms": 700},
+            {"content": "**📝 正常场景测试点**\n\n**用户认证模块**:\n- ✅ [P0] 账号密码正确登录\n- ✅ [P0] 手机验证码有效登录\n- ✅ [P1] 记住密码自动登录\n- ✅ [P1] 多设备登录支持\n\n**会话管理模块**:\n- ✅ [P1] 登录后创建会话\n- ✅ [P1] 会话超时自动退出\n- ✅ [P2] 主动登出清除会话", "delay_ms": 900},
+            {"content": "**⚠️ 异常场景测试点**\n\n**认证异常**:\n- ❌ [P0] 错误密码登录\n- ❌ [P0] 无效验证码登录\n- ❌ [P1] 过期验证码登录\n- ❌ [P0] 连续失败触发账户锁定\n\n**系统异常**:\n- ❌ [P1] 网络中断时的登录处理\n- ❌ [P2] 服务器响应超时时的处理\n- ❌ [P1] 重复提交登录表单", "delay_ms": 800},
+            {"content": "**🔍 边界条件测试点**\n\n- 🔲 [P1] 密码最小/最大长度验证\n- 🔲 [P1] 用户名特殊字符处理\n- 🔲 [P2] 验证码有效期边界\n- 🔲 [P1] 账户锁定次数边界（2次/3次/4次）\n- 🔲 [P2] 会话超时时间边界（23h/24h/25h）\n- 🔲 [P1] 并发登录数量限制", "delay_ms": 700},
+            {"content": "**📊 测试点统计**\n\n| 类型 | P0 | P1 | P2 | 合计 |\n|------|----|----|----|------|\n| 正常场景 | 3 | 5 | 3 | 11 |\n| 异常场景 | 4 | 4 | 3 | 11 |\n| 边界条件 | 1 | 4 | 3 | 8 |\n| **合计** | **8** | **13** | **9** | **30** |\n\n✅ **测试点提取完成**，共 **30** 个测试点", "delay_ms": 600},
+        ],
+    },
+    {
+        "step_key": "case",
+        "step_name": "测试用例生成",
+        "step_order": 4,
+        "icon": "FlaskConical",
+        "description": "基于测试点生成详细的测试用例",
+        "system_prompt": """你是一位资深的测试用例设计专家，拥有丰富的用例设计经验。
+你的任务是基于测试点生成详细、可执行的测试用例。
+
+设计原则：
+1. 用例完整性：每个测试点至少对应一条用例
+2. 步骤清晰：用例步骤详细、可执行
+3. 数据明确：提供具体的测试数据
+4. 预期明确：清晰描述预期结果
+
+用例格式：
+- 采用Gherkin Given-When-Then格式
+- 包含用例编号、标题、优先级
+- 前置条件和测试数据明确
+- 覆盖正向和反向场景""",
+        "user_prompt_template": """请基于以下测试点生成测试用例：
+
+## 测试点列表
+{content}
+
+## 需求详情
+{files_list}
+
+请为每个测试点生成详细的测试用例，使用Gherkin格式""",
+        "skill_prompt": """## 测试用例设计方法论
+
+### 1. 等价类划分
+- 有效等价类：符合规格说明的数据
+- 无效等价类：不符合规格说明的数据
+- 每个等价类选取代表性数据
+
+### 2. 边界值分析
+- 最小值、最大值、临界值
+- 刚刚越过边界的值
+- 典型值和异常值
+
+### 3. 场景法
+- 基本流：正常业务流程
+- 备选流：异常和分支流程
+- 基本流+备选流组合""",
+        "output_template": """## 测试用例集
+
+### 用例1: xxx
+**优先级**: P0
+**前置条件**: xxx
+
+```gherkin
+Feature: xxx
+  Scenario: xxx
+    Given xxx
+    When xxx
+    Then xxx
+```
+
+### 用例2: xxx
+...""",
+        "skills": [
+            {"name": "等价类划分", "description": "测试数据设计", "content": "通过等价类划分设计测试数据"},
+            {"name": "边界值分析", "description": "边界测试设计", "content": "针对边界条件设计测试用例"},
+            {"name": "场景法", "description": "业务场景建模", "content": "基于业务场景设计测试用例"},
+        ],
+        "variables": [
+            {"name": "content", "type": "string", "description": "测试点列表", "required": True},
+            {"name": "files_list", "type": "string", "description": "需求详情", "required": False},
+        ],
+        "output_logs_template": [
+            {"content": "### 测试用例生成专家启动\n\n**角色**: 资深测试用例设计专家\n\n---", "delay_ms": 500},
+            {"content": "**📐 用例设计策略**\n\n> 选择用例设计方法...\n\n**采用方法**:\n1. **等价类划分** - 有效/无效等价类\n2. **边界值分析** - 临界值测试\n3. **场景法** - 业务流程建模\n\n**用例格式**: Gherkin Given-When-Then", "delay_ms": 700},
+            {"content": "**📝 生成P0级核心用例**\n\n```gherkin\nFeature: 用户登录认证\n\n  Scenario: [P0] 正确凭据登录\n    Given 用户在登录页面\n    When 输入正确的用户名 \"testuser\" 和密码 \"Test@123\"\n    And 点击登录按钮\n    Then 跳转到主页\n    And 显示欢迎信息 \"欢迎回来, testuser\"\n    And 创建有效期为24小时的会话\n\n  Scenario: [P0] 错误密码登录\n    Given 用户在登录页面\n    When 输入正确用户名 \"testuser\" 和错误密码 \"wrongpass\"\n    And 点击登录按钮\n    Then 显示 \"用户名或密码错误\" 提示\n    And 停留在登录页面\n    And 登录失败次数+1\n\n  Scenario: [P0] 连续失败账户锁定\n    Given 用户在登录页面\n    When 连续3次输入错误密码\n    Then 账户被锁定30分钟\n    And 显示 \"账户已锁定，请30分钟后重试\"\n    And 记录安全日志\n```", "delay_ms": 1200},
+            {"content": "**📝 生成P1级重要用例**\n\n```gherkin\n  Scenario: [P1] 手机验证码登录\n    Given 用户选择手机验证码登录\n    When 输入有效手机号 \"13800138000\"\n    And 点击获取验证码\n    Then 手机收到6位验证码\n    And 在5分钟内输入正确验证码\n    And 成功登录\n\n  Scenario: [P1] 记住密码自动登录\n    Given 用户勾选 \"记住密码\" 登录\n    When 关闭浏览器后重新打开\n    Then 自动填充用户名和密码\n    And 直接进入主页\n\n  Scenario: [P1] 会话超时自动退出\n    Given 用户已登录\n    When 超过24小时未操作\n    Then 自动退出登录\n    And 跳转到登录页面\n    And 显示 \"登录已过期，请重新登录\"\n```", "delay_ms": 1100},
+            {"content": "**📝 生成P2级补充用例**\n\n```gherkin\n  Scenario: [P2] 特殊字符用户名\n    Given 用户在注册页面\n    When 输入包含特殊字符的用户名 \"test@user!\"\n    Then 显示 \"用户名只能包含字母、数字和下划线\"\n    And 注册失败\n\n  Scenario: [P2] 网络中断处理\n    Given 用户正在登录\n    When 网络连接中断\n    Then 显示 \"网络连接异常，请检查网络\"\n    And 提供重试按钮\n\n  Scenario: [P2] 并发登录限制\n    Given 账户已在设备A登录\n    When 在设备B同时登录\n    Then 允许并发登录\n    And 设备A显示 \"您的账户在其他设备登录\"\n```", "delay_ms": 1000},
+            {"content": "**📊 用例统计**\n\n| 优先级 | 用例数量 | 覆盖测试点 |\n|--------|----------|------------|\n| P0 | 3 | 核心登录功能 |\n| P1 | 3 | 重要功能场景 |\n| P2 | 3 | 边界和异常场景 |\n| **合计** | **9** | **100%** |\n\n✅ **测试用例生成完成**，共 **9** 条用例，覆盖 **30** 个测试点", "delay_ms": 700},
+        ],
+    },
+    {
+        "step_key": "review",
+        "step_name": "用例评审",
+        "step_order": 5,
+        "icon": "CheckCircle",
+        "description": "AI自动评审测试用例质量",
+        "system_prompt": """你是一位资深的测试用例评审专家，拥有丰富的用例评审经验。
+你的任务是评审生成的测试用例，评估其质量并提供改进建议。
+
+评审维度：
+1. 完整性：是否覆盖所有需求点和测试点
+2. 可执行性：用例步骤是否清晰、可执行
+3. 覆盖度：是否覆盖正常、异常、边界场景
+4. 规范性：是否符合用例编写规范
+5. 创新性：是否有创造性的测试思路
+
+评审输出：
+- 各维度评分（1-10分）
+- 具体的改进建议
+- 用例质量等级（A/B/C/D）
+- 是否建议补充的测试场景""",
+        "user_prompt_template": """请评审以下测试用例的质量：
+
+## 测试用例内容
+{content}
+
+## 需求和测试点
+{files_list}
+
+请从完整性、可执行性、覆盖度、规范性等维度进行评审""",
+        "skill_prompt": """## 用例评审方法论
+
+### 1. 评审维度
+- 需求覆盖：是否覆盖所有需求点
+- 场景覆盖：是否覆盖主要用户场景
+- 边界覆盖：是否覆盖关键边界条件
+- 异常覆盖：是否覆盖异常处理场景
+
+### 2. 评审检查清单
+- [ ] 用例描述是否清晰、无歧义
+- [ ] 前置条件是否明确
+- [ ] 测试步骤是否可执行
+- [ ] 预期结果是否具体
+- [ ] 测试数据是否合理
+- [ ] 用例间是否有重复
+
+### 3. 改进建议
+- 补充缺失的测试场景
+- 优化用例描述和步骤
+- 增加边界和异常用例""",
+        "output_template": """## 用例评审报告
+
+### 评审结果
+| 维度 | 评分 | 评语 |
+|------|------|------|
+| 完整性 | X/10 | xxx |
+| 可执行性 | X/10 | xxx |
+| 覆盖度 | X/10 | xxx |
+| 规范性 | X/10 | xxx |
+
+### 改进建议
+1. xxx
+2. xxx
+
+### 质量等级: A/B/C/D""",
+        "skills": [
+            {"name": "需求覆盖检查", "description": "需求追溯性检查", "content": "检查用例对需求的覆盖完整性"},
+            {"name": "用例质量评估", "description": "用例可执行性评估", "content": "评估用例步骤的清晰度和可执行性"},
+            {"name": "场景覆盖分析", "description": "测试场景覆盖度分析", "content": "分析测试场景的覆盖充分性"},
+        ],
+        "variables": [
+            {"name": "content", "type": "string", "description": "测试用例内容", "required": True},
+            {"name": "files_list", "type": "string", "description": "需求和测试点", "required": False},
+        ],
+        "output_logs_template": [
+            {"content": "### 用例评审专家启动\n\n**角色**: 资深测试用例评审专家\n\n---", "delay_ms": 500},
+            {"content": "**🔍 评审准备**\n\n> 加载测试用例和需求对照...\n\n**评审范围**:\n- 测试用例数量: 9条\n- 覆盖测试点: 30个\n- 需求文档: 已加载\n- 评审模式: 全面评审", "delay_ms": 600},
+            {"content": "**📊 维度评审结果**\n\n| 维度 | 评分 | 评语 |\n|------|------|------|\n| **完整性** | 9/10 | 覆盖所有核心需求，建议补充并发场景 |\n| **可执行性** | 8/10 | 步骤清晰，测试数据具体，部分预期结果可更细化 |\n| **覆盖度** | 9/10 | 正常/异常/边界场景覆盖充分，建议增加安全测试 |\n| **规范性** | 9/10 | Gherkin格式规范，命名清晰，符合业界标准 |\n\n**综合评分**: 8.8/10", "delay_ms": 900},
+            {"content": "**💡 改进建议**\n\n**建议补充的场景**:\n1. 🔴 **高优先级**: 密码策略测试（复杂度、历史密码检查）\n2. 🔴 **高优先级**: 账户安全测试（暴力破解防护、异地登录警告）\n3. 🟡 **中优先级**: 国际化测试（多语言支持）\n4. 🟡 **中优先级**: 无障碍测试（键盘导航、屏幕阅读器）\n5. 🟢 **低优先级**: 性能边界测试（大量并发登录）\n\n**建议优化的用例**:\n- 用例3: 可增加「账户锁定后管理员解锁」场景\n- 用例5: 可增加「验证码重新发送」场景\n- 用例8: 可增加「弱密码拒绝注册」的数据示例", "delay_ms": 1000},
+            {"content": "**🏆 评审结论**\n\n**质量等级**: ⭐⭐⭐⭐⭐ (A)\n\n**优点**:\n✅ 覆盖所有核心功能需求\n✅ 用例步骤清晰可执行\n✅ 测试数据具体合理\n✅ Gherkin格式规范\n\n**不足**:\n⚠️ 缺少安全测试场景\n⚠️ 部分边界条件可进一步细化\n\n**评审决定**: ✅ 通过，建议补充安全测试用例后进入执行阶段", "delay_ms": 800},
+        ],
+    },
+]
+
+
+# ============================
+# StepPromptConfig CRUD Service
+# ============================
+
+async def list_step_prompt_configs(db: AsyncSession, page: int = 1, page_size: int = 50):
+    """获取所有步骤提示词配置"""
+    q = select(StepPromptConfig).order_by(StepPromptConfig.step_order)
+    result = await db.execute(q)
+    items = result.scalars().all()
+    total = len(items)
+    
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": 1,
+    }
+
+
+async def get_step_prompt_config(db: AsyncSession, config_id: int):
+    """获取单个步骤提示词配置"""
+    return await _get_by_id(db, StepPromptConfig, config_id)
+
+
+async def get_step_prompt_config_by_key(db: AsyncSession, step_key: str):
+    """根据步骤标识获取配置"""
+    q = select(StepPromptConfig).where(StepPromptConfig.step_key == step_key)
+    result = await db.execute(q)
+    return result.scalar_one_or_none()
+
+
+async def create_step_prompt_config(db: AsyncSession, data: StepPromptConfigCreate):
+    """创建步骤提示词配置"""
+    d = data.model_dump()
+    config = StepPromptConfig(**d)
+    db.add(config)
+    await db.commit()
+    await db.refresh(config)
+    await _record_log(db, StepPromptConfig, "创建配置", config.id, f"创建步骤「{config.step_name}」配置")
+    return config
+
+
+async def update_step_prompt_config(db: AsyncSession, config_id: int, data: StepPromptConfigUpdate):
+    """更新步骤提示词配置"""
+    config = await _get_by_id(db, StepPromptConfig, config_id)
+    if not config:
+        return None
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(config, key, value)
+    await db.commit()
+    await db.refresh(config)
+    await _record_log(db, StepPromptConfig, "更新配置", config.id, f"更新步骤「{config.step_name}」配置")
+    return config
+
+
+async def delete_step_prompt_config(db: AsyncSession, config_id: int):
+    """删除步骤提示词配置"""
+    config = await _get_by_id(db, StepPromptConfig, config_id)
+    if not config:
+        return False
+    name = config.step_name
+    await db.delete(config)
+    await db.commit()
+    await _record_log(db, StepPromptConfig, "删除配置", config_id, f"删除步骤「{name}」配置")
+    return True
+
+
+async def test_step_prompt_config(db: AsyncSession, config_id: int, data: StepPromptTestRequest):
+    """测试步骤提示词配置"""
+    config = await _get_by_id(db, StepPromptConfig, config_id)
+    if not config:
+        return None
+    
+    # 渲染模板变量
+    rendered_user_prompt = config.user_prompt_template
+    for key, value in data.variables.items():
+        rendered_user_prompt = rendered_user_prompt.replace(f"{{{key}}}", str(value))
+    
+    # 构造测试结果
+    import time, random
+    duration = round(random.uniform(1.0, 3.0), 2)
+    
+    return {
+        "config_id": config_id,
+        "config_name": config.step_name,
+        "rendered_user_prompt": rendered_user_prompt,
+        "system_prompt_preview": config.system_prompt[:200] + "..." if len(config.system_prompt) > 200 else config.system_prompt,
+        "skill_prompt_preview": config.skill_prompt[:200] + "..." if config.skill_prompt and len(config.skill_prompt) > 200 else config.skill_prompt,
+        "output_template_preview": config.output_template[:200] + "..." if config.output_template and len(config.output_template) > 200 else config.output_template,
+        "duration": f"{duration}s",
+        "skills_count": len(config.skills) if config.skills else 0,
+        "variables_count": len(config.variables) if config.variables else 0,
+    }
+
+
+async def init_default_step_prompt_configs(db: AsyncSession):
+    """初始化默认步骤提示词配置"""
+    existing = (await db.execute(
+        select(func.count(StepPromptConfig.id)).where(StepPromptConfig.is_default == True)
+    )).scalar() or 0
+    
+    if existing > 0:
+        return {"initialized": False, "message": "默认配置已存在"}
+    
+    created = []
+    for config_data in DEFAULT_STEP_CONFIGS:
+        config = StepPromptConfig(
+            **config_data,
+            is_default=True,
+            status="已启用"
+        )
+        db.add(config)
+        created.append(config)
+    
+    await db.commit()
+    for config in created:
+        await db.refresh(config)
+    
+    return {
+        "initialized": True,
+        "created_count": len(created),
+        "message": f"成功初始化 {len(created)} 个步骤提示词配置",
     }

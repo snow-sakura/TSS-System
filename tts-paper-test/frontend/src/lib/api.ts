@@ -17,15 +17,44 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// 用于取消请求的控制器集合
+const pendingRequests = new Set<AbortController>()
+
+// 创建带取消功能的请求控制器
+function createAbortController() {
+  const controller = new AbortController()
+  pendingRequests.add(controller)
+  controller.signal.addEventListener("abort", () => {
+    pendingRequests.delete(controller)
+  })
+  return controller
+}
+
+// 取消所有正在进行的请求
+function cancelAllRequests() {
+  pendingRequests.forEach((controller) => controller.abort())
+  pendingRequests.clear()
+}
+
 // 响应拦截 - 处理错误
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    // 如果是请求被取消，静默处理
+    if (axios.isCancel(error) || error.code === "ERR_CANCELED" || error.code === "ERR_ABORTED") {
+      return new Promise(() => {}) // 返回一个永远不会 resolve 的 Promise，避免错误冒泡
+    }
+    
     if (error.response?.status === 401) {
       localStorage.removeItem("access_token")
       localStorage.removeItem("refresh_token")
-      window.location.href = "/login"
+      // 取消所有正在进行的请求，避免 ERR_ABORTED 错误
+      cancelAllRequests()
+      // 使用 replace 而不是 href，避免产生历史记录
+      window.location.replace("/login")
+      return new Promise(() => {}) // 静默处理
     }
+    
     return Promise.reject(error.response?.data || error)
   }
 )
@@ -80,18 +109,48 @@ export function createCrudApi<T>(endpoint: string) {
   }
 }
 
-/** 封装的fetch调用 — 自动注入Authorization头和Content-Type，返回原生Response用于SSE流式读取 */
-function apiFetch(url: string, options?: { method?: string; body?: unknown; signal?: AbortSignal }) {
+/** 封装的fetch调用 — 自动注入Authorization头和Content-Type，返回原生Response用于SSE流式读取
+ *  错误处理：捕获网络错误（ERR_ABORTED/ERR_NETWORK/TypeError），避免控制台报错冒泡
+ */
+export async function apiFetch(url: string, options?: { method?: string; body?: unknown; signal?: AbortSignal }) {
   const token = localStorage.getItem("access_token")
-  return fetch(url, {
-    method: options?.method ?? "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
-    signal: options?.signal,
-  })
+  try {
+    const response = await fetch(url, {
+      method: options?.method ?? "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: options?.signal,
+    })
+    return response
+  } catch (err: any) {
+    // 静默处理请求被中止的错误（用户主动停止、组件卸载、HMR 热更新等）
+    // Chrome 的 net::ERR_ABORTED 通常表现为 TypeError: Failed to fetch 或 AbortError
+    const errName = err?.name || ""
+    const errMsg = (err?.message || "").toLowerCase()
+    const isAborted =
+      errName === "AbortError" ||
+      err?.code === "ERR_ABORTED" ||
+      err?.code === "ERR_NETWORK" ||
+      errMsg.includes("failed to fetch") ||
+      errMsg.includes("networkerror") ||
+      errMsg.includes("aborted")
+    if (isAborted) {
+      // 返回一个永远不会 resolve 的 Promise，避免错误冒泡到调用方
+      return new Promise<Response>(() => {}) as any
+    }
+    // 401 未授权：清理 token 并跳转登录页
+    if (err?.response?.status === 401) {
+      localStorage.removeItem("access_token")
+      localStorage.removeItem("refresh_token")
+      cancelAllRequests()
+      window.location.replace("/login")
+      return new Promise<Response>(() => {}) as any
+    }
+    throw err
+  }
 }
 
 // Web Automation API
@@ -134,6 +193,34 @@ export const webApi = {
     api.get(`/web-automation/executions/${executionId}`),
   listProjectsForWorkflow: () =>
     api.get("/web-automation/projects-for-workflow"),
+}
+
+// Project & Version API
+export const projectApi = {
+  listProjects: (params?: Record<string, any>) => api.get("/projects", { params }),
+  getProject: (id: number) => api.get(`/projects/${id}`),
+  createProject: (data: any) => api.post("/projects", data),
+  updateProject: (id: number, data: any) => api.put(`/projects/${id}`, data),
+  deleteProject: (id: number) => api.delete(`/projects/${id}`),
+  batchDeleteProjects: (ids: number[]) => api.post("/projects/batch-delete", ids),
+
+  listVersions: (params?: Record<string, any>) => api.get("/versions", { params }),
+  getVersion: (id: number) => api.get(`/versions/${id}`),
+  createVersion: (data: any) => api.post("/versions", data),
+  updateVersion: (id: number, data: any) => api.put(`/versions/${id}`, data),
+  deleteVersion: (id: number) => api.delete(`/versions/${id}`),
+  batchDeleteVersions: (ids: number[]) => api.post("/versions/batch-delete", ids),
+}
+
+// 角色管理 API
+export const rolesApi = {
+  listRoles: (params?: Record<string, any>) => api.get("/roles", { params }),
+  listAllRoles: () => api.get("/roles/all"),
+  getRole: (id: number) => api.get(`/roles/${id}`),
+  createRole: (data: any) => api.post("/roles", data),
+  updateRole: (id: number, data: any) => api.put(`/roles/${id}`, data),
+  deleteRole: (id: number) => api.delete(`/roles/${id}`),
+  batchDeleteRoles: (ids: number[]) => api.post("/roles/batch-delete", ids),
 }
 
 // 测试生命周期 API
@@ -179,6 +266,7 @@ export const lifecycleApi = {
   createTestPlan: (data: any) => api.post("/test-lifecycle/test-plans", data),
   updateTestPlan: (id: number, data: any) => api.put(`/test-lifecycle/test-plans/${id}`, data),
   deleteTestPlan: (id: number) => api.delete(`/test-lifecycle/test-plans/${id}`),
+  batchDeleteTestPlans: (ids: number[]) => api.post("/test-lifecycle/test-plans/batch-delete", ids),
 
   // 测试点
   listTestPoints: (params?: Record<string, any>) => api.get("/test-lifecycle/test-points", { params }),
@@ -186,6 +274,7 @@ export const lifecycleApi = {
   createTestPoint: (data: any) => api.post("/test-lifecycle/test-points", data),
   updateTestPoint: (id: number, data: any) => api.put(`/test-lifecycle/test-points/${id}`, data),
   deleteTestPoint: (id: number) => api.delete(`/test-lifecycle/test-points/${id}`),
+  batchDeleteTestPoints: (ids: number[]) => api.post("/test-lifecycle/test-points/batch-delete", ids),
 
   // 测试用例
   listTestCases: (params?: Record<string, any>) => api.get("/test-lifecycle/test-cases", { params }),
@@ -205,6 +294,7 @@ export const lifecycleApi = {
   createExecution: (data: any) => api.post("/test-lifecycle/executions", data),
   updateExecution: (id: number, data: any) => api.put(`/test-lifecycle/executions/${id}`, data),
   deleteExecution: (id: number) => api.delete(`/test-lifecycle/executions/${id}`),
+  batchDeleteExecutions: (ids: number[]) => api.post("/test-lifecycle/executions/batch-delete", ids),
   // 执行引擎
   startExecution: (id: number) => api.post(`/test-lifecycle/executions/${id}/start`),
   stopExecution: (id: number) => api.post(`/test-lifecycle/executions/${id}/stop`),
@@ -228,6 +318,7 @@ export const lifecycleApi = {
 
   // 仪表盘
   getDashboardStats: () => api.get("/test-lifecycle/dashboard/stats"),
+  getPipelineStages: () => api.get("/test-lifecycle/pipeline/stages"),
 
   // 测试报告
   listReports: (params?: Record<string, any>) => api.get("/test-lifecycle/reports", { params }),
@@ -235,6 +326,7 @@ export const lifecycleApi = {
   createReport: (data: any) => api.post("/test-lifecycle/reports", data),
   updateReport: (id: number, data: any) => api.put(`/test-lifecycle/reports/${id}`, data),
   deleteReport: (id: number) => api.delete(`/test-lifecycle/reports/${id}`),
+  batchDeleteReports: (ids: number[]) => api.post("/test-lifecycle/reports/batch-delete", ids),
   generateAiReport: (data: { report_type?: string; name?: string }) =>
     api.post("/test-lifecycle/reports/generate", data),
   getQualityMetrics: () => api.get("/test-lifecycle/quality/metrics"),
@@ -243,8 +335,17 @@ export const lifecycleApi = {
 
 
   // 全流程 Pipeline
-  startPipelineSSE: (data: { requirement_content: string; requirement_name?: string }, signal?: AbortSignal) =>
-    apiFetch("/api/v1/pipeline/start", { method: "POST", body: data, signal }),
+  startPipelineSSE: (
+    data: {
+      requirement_content: string
+      requirement_name?: string
+      project_id?: number
+      version_id?: number
+      resume_from?: string
+      record_id?: number
+    },
+    signal?: AbortSignal
+  ) => apiFetch("/api/v1/pipeline/start", { method: "POST", body: data, signal }),
 
   // === 用例确认 ===
   confirmCases: (case_ids: string[], confirmed_by = "manual") =>
@@ -266,12 +367,17 @@ export const lifecycleApi = {
   createReview: (data: any) => api.post("/test-lifecycle/reviews", data),
   updateReview: (id: number, data: any) => api.put(`/test-lifecycle/reviews/${id}`, data),
   deleteReview: (id: number) => api.delete(`/test-lifecycle/reviews/${id}`),
+  batchDeleteReviews: (ids: number[]) => api.post("/test-lifecycle/reviews/batch-delete", ids),
 
   // === 流程记录 (DB版) ===
   listPipelineRecords: (params?: Record<string, any>) =>
     api.get("/test-lifecycle/pipeline-records", { params }),
   getPipelineRecord: (id: number) =>
     api.get(`/test-lifecycle/pipeline-records/${id}`),
+  deletePipelineRecord: (id: number) =>
+    api.delete(`/test-lifecycle/pipeline-records/${id}`),
+  batchDeletePipelineRecords: (ids: number[]) =>
+    api.post("/test-lifecycle/pipeline-records/batch-delete", ids),
 
   // === 引擎管理 ===
   getEngineList: () => api.get("/engines"),
@@ -359,6 +465,16 @@ export const configApi = {
 
   // 操作日志
   listOperationLogs: (params?: Record<string, any>) => api.get("/config/operation-logs", { params }),
+
+  // Pipeline步骤提示词配置
+  listStepPromptConfigs: (page = 1, pageSize = 50) => api.get("/config/step-prompt-configs", { params: { page, page_size: pageSize } }),
+  getStepPromptConfig: (id: number) => api.get(`/config/step-prompt-configs/${id}`),
+  getStepPromptConfigByKey: (stepKey: string) => api.get(`/config/step-prompt-configs/by-key/${stepKey}`),
+  createStepPromptConfig: (data: any) => api.post("/config/step-prompt-configs", data),
+  updateStepPromptConfig: (id: number, data: any) => api.put(`/config/step-prompt-configs/${id}`, data),
+  deleteStepPromptConfig: (id: number) => api.delete(`/config/step-prompt-configs/${id}`),
+  testStepPromptConfig: (id: number, data: { variables?: Record<string, string>; input_text?: string }) => api.post(`/config/step-prompt-configs/${id}/test`, data),
+  initDefaultStepPromptConfigs: () => api.post("/config/step-prompt-configs/init-defaults"),
 }
 
 // MCP Market API

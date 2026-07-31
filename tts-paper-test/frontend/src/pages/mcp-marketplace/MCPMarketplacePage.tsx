@@ -66,9 +66,8 @@ export default function MCPMarketplacePage() {
 
       const res: any = await mcpMarketApi.listServices(params)
       setServices(Array.isArray(res) ? res : res?.data || [])
-    } catch (err) {
-      console.error("获取市场列表失败:", err)
-    } finally {
+    } catch {}
+    finally {
       setLoading(false)
     }
   }, [activeCategory, search])
@@ -77,9 +76,7 @@ export default function MCPMarketplacePage() {
     try {
       const res: any = await mcpMarketApi.listCategories()
       setCategories(Array.isArray(res) ? res : res?.data || [])
-    } catch (err) {
-      console.error("获取分类失败:", err)
-    }
+    } catch {}
   }, [])
 
   useEffect(() => {

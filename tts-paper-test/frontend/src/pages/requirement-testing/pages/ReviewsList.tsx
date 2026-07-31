@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { lifecycleApi } from "@/lib/api"
 import PreviewModal from "../components/PreviewModal"
 import DataTable, { type ColumnDef } from "../components/DataTable"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 const typeOptions = ["用例评审", "方案评审", "报告评审", "AI自动评审"]
 const statusOptions = ["草稿", "待审", "已通过", "已驳回", "已取消"]
@@ -148,7 +149,8 @@ export default function ReviewsList() {
   }
 
   const handleDelete = async (r: any) => {
-    if (!confirm(`确定删除评审「${r.title}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除评审「${r.title}」？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await lifecycleApi.deleteReview(r.id)
       toast.success("评审已删除")
@@ -159,7 +161,8 @@ export default function ReviewsList() {
   }
 
   const handleBatchDelete = async (ids: Set<string>) => {
-    if (!confirm(`确定删除选中的 ${ids.size} 条评审？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除选中的 ${ids.size} 条评审？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     let ok = 0
     for (const id of ids) {
       try { await lifecycleApi.deleteReview(Number(id)); ok++ } catch {}

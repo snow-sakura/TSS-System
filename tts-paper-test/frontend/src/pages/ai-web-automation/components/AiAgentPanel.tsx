@@ -119,7 +119,7 @@ export default function AiAgentPanel() {
   /** 执行单步 */
   const executeStep = async (step: PlanStep, idx: number): Promise<PlanStep> => {
     setActiveStepId(step.id)
-    const updated = { ...step, status: "running" as const }
+    const updated = { ...step, status: step.status as "running" | "completed" | "skipped" }
 
     // 汇报进度
     const stepMessages: Record<string, string> = {

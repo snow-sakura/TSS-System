@@ -21,6 +21,7 @@ from collections import defaultdict, deque
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from models.workflow import (
     Workflow,
@@ -153,7 +154,12 @@ class WorkflowEngine:
         graph: dict[int, list[int]],
         in_degree: dict[int, int],
     ):
-        """按拓扑序执行节点，支持并行执行"""
+        """按拓扑序执行节点
+
+        注意：当前为顺序执行。SQLAlchemy AsyncSession 非并发安全，
+        并行执行需要为每个节点提供独立 session（session_factory），
+        待后续引入独立会话池后再开启并行。
+        """
         # 节点入度（用于判断前置是否全部完成）
         remaining_in = dict(in_degree)
         # 节点输出（传递给下游）
@@ -168,48 +174,25 @@ class WorkflowEngine:
                 ready_queue.append(nid)
                 queued.add(nid)
 
-        running_tasks: dict[int, asyncio.Task] = {}
+        while ready_queue:
+            nid = ready_queue.popleft()
+            node = nodes[nid]
+            inputs = {}
+            # 收集前置节点的输出
+            for e in edges:
+                if e.target_node_id == nid:
+                    if e.source_node_id in node_outputs:
+                        inputs[e.label or f"input_{e.source_node_id}"] = node_outputs[e.source_node_id]
 
-        while ready_queue or running_tasks:
-            # 启动所有 ready 节点
-            while ready_queue:
-                nid = ready_queue.popleft()
-                node = nodes[nid]
-                inputs = {}
-                # 收集前置节点的输出
-                for e in edges:
-                    if e.target_node_id == nid:
-                        if e.source_node_id in node_outputs:
-                            inputs[e.label or f"input_{e.source_node_id}"] = node_outputs[e.source_node_id]
+            result = await self._execute_single_node(node, inputs, node_execs[nid])
+            node_outputs[nid] = result
 
-                task = asyncio.create_task(
-                    self._execute_single_node(node, inputs, node_execs[nid])
-                )
-                running_tasks[nid] = task
-
-            # 等待任一完成
-            if running_tasks:
-                done_set, _ = await asyncio.wait(running_tasks.values(), return_when=asyncio.FIRST_COMPLETED)
-                for task in done_set:
-                    # 找到对应的 node_id
-                    finished_nid = None
-                    for nid, t in running_tasks.items():
-                        if t is task:
-                            finished_nid = nid
-                            break
-                    if finished_nid is None:
-                        continue
-
-                    del running_tasks[finished_nid]
-                    result = task.result()
-                    node_outputs[finished_nid] = result
-
-                    # 更新下游入度，入度归零则入队
-                    for downstream in graph.get(finished_nid, []):
-                        remaining_in[downstream] -= 1
-                        if remaining_in[downstream] == 0 and downstream not in queued:
-                            ready_queue.append(downstream)
-                            queued.add(downstream)
+            # 更新下游入度，入度归零则入队
+            for downstream in graph.get(nid, []):
+                remaining_in[downstream] -= 1
+                if remaining_in[downstream] == 0 and downstream not in queued:
+                    ready_queue.append(downstream)
+                    queued.add(downstream)
 
         # 检查是否有未执行的节点（死锁检测）
         for nid in topo_order:
@@ -224,16 +207,16 @@ class WorkflowEngine:
         node_exec: WorkflowNodeExecution,
     ) -> dict[str, Any]:
         """执行单个节点"""
+        executor = self._node_executors.get(node.type)
+        if not executor:
+            raise WorkflowEngineError(f"不支持的节点类型: {node.type}")
+
         node_exec.status = "running"
         node_exec.started_at = datetime.now(timezone.utc)
         node_exec.input_data = inputs
         await self.db.flush()
 
         try:
-            executor = self._node_executors.get(node.type)
-            if not executor:
-                raise WorkflowEngineError(f"不支持的节点类型: {node.type}")
-
             outputs = await executor(node, inputs)
             node_exec.status = "completed"
             node_exec.output_data = outputs
@@ -455,6 +438,10 @@ class WorkflowEngine:
         """加载工作流（含节点和边）"""
         result = await self.db.execute(
             select(Workflow)
+            .options(
+                selectinload(Workflow.nodes),
+                selectinload(Workflow.edges),
+            )
             .where(Workflow.id == workflow_id)
         )
         workflow = result.scalar_one_or_none()
@@ -468,6 +455,10 @@ class WorkflowEngine:
         in_degree: dict[int, int],
     ) -> list[int]:
         """Kahn 算法拓扑排序"""
+        # 自环检测（自环节点入度恒为 0，会绕过环检测，需单独拦截）
+        for n, neighbors in graph.items():
+            if n in neighbors:
+                raise WorkflowEngineError("工作流存在环，无法执行")
         q = deque([n for n, d in in_degree.items() if d == 0])
         order = []
         temp_in = dict(in_degree)

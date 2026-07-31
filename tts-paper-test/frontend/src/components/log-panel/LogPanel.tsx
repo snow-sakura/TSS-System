@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Terminal, X, ChevronRight, ChevronLeft, Trash2, Download, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useLogStore } from "@/stores/logStore"
 
 export interface LogEntry {
   id: number
@@ -143,17 +144,12 @@ export default function LogPanel({ currentStage = "", sseUrl = "", defaultOpen =
     setLogs((prev) => [...prev, log])
   }, [])
 
-  // 暴露 addLog 方法
+  // 通过 Zustand store 暴露 addLog 方法
+  const setLogAddFn = useLogStore((s) => s.setLogAddFn)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      ;(window as any).__tssLogAdd = addLog
-    }
-    return () => {
-      if (typeof window !== "undefined") {
-        delete (window as any).__tssLogAdd
-      }
-    }
-  }, [addLog])
+    setLogAddFn(addLog)
+    return () => setLogAddFn(null)
+  }, [addLog, setLogAddFn])
 
   const filteredLogs = filterLevel === "ALL"
     ? logs

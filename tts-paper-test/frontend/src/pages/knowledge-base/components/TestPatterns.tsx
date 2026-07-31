@@ -6,6 +6,7 @@ import { Search, Plus, Edit, Trash2, Eye, X, RefreshCw, Loader2 } from "lucide-r
 import { toast } from "sonner"
 import { knowledgeApi } from "@/lib/api"
 import { Skeleton } from "@/components/ui/Skeleton"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface TestPattern {
   id: number
@@ -47,8 +48,8 @@ export default function TestPatterns() {
         setPatterns(res.data.items || [])
         setPagination((p) => ({ ...p, total: res.data.total, total_pages: res.data.total_pages }))
       }
-    } catch (e) {
-      console.error(e)
+    } catch {
+      // silently handle error
     } finally {
       setLoading(false)
     }
@@ -84,7 +85,8 @@ export default function TestPatterns() {
   }
 
   const handleDelete = async (p: TestPattern) => {
-    if (!confirm(`确定删除模式「${p.name}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除模式「${p.name}」？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await knowledgeApi.deleteTestPattern(p.id)
       toast.success("模式已删除")

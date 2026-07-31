@@ -185,3 +185,133 @@ body {
   border-color: #D4A574;
   box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.1);
 }
+
+/* ========== Pipeline Markdown 渲染 ========== */
+.pipeline-markdown {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: #1A0F08;
+}
+.pipeline-markdown h1,
+.pipeline-markdown h2,
+.pipeline-markdown h3,
+.pipeline-markdown h4 {
+  font-weight: 600;
+  margin: 0.75rem 0 0.5rem;
+  color: #2C1810;
+}
+.pipeline-markdown h1 { font-size: 1.1rem; border-bottom: 2px solid #D4A574; padding-bottom: 0.3rem; }
+.pipeline-markdown h2 { font-size: 1rem; border-bottom: 1px solid #E8DDD0; padding-bottom: 0.25rem; }
+.pipeline-markdown h3 { font-size: 0.9rem; color: #B8860B; }
+.pipeline-markdown h4 { font-size: 0.85rem; }
+
+.pipeline-markdown p {
+  margin: 0.4rem 0;
+  line-height: 1.6;
+}
+
+.pipeline-markdown ul,
+.pipeline-markdown ol {
+  margin: 0.4rem 0;
+  padding-left: 1.25rem;
+}
+.pipeline-markdown ul { list-style: disc; }
+.pipeline-markdown ol { list-style: decimal; }
+.pipeline-markdown li { margin: 0.15rem 0; }
+
+.pipeline-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.7rem;
+}
+.pipeline-markdown th,
+.pipeline-markdown td {
+  border: 1px solid #E8DDD0;
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+}
+.pipeline-markdown th {
+  background: #F3EDE4;
+  font-weight: 600;
+  color: #4A3828;
+}
+.pipeline-markdown tr:nth-child(even) {
+  background: #FAF5F0;
+}
+
+.pipeline-markdown code {
+  background: #F3EDE4;
+  color: #8B4513;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+  font-size: 0.7rem;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+.pipeline-markdown pre {
+  background: #2C1810;
+  color: #D4C8BC;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  font-size: 0.65rem;
+}
+.pipeline-markdown pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+.pipeline-markdown blockquote {
+  border-left: 3px solid #D4A574;
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  color: #5A4D42;
+  font-style: italic;
+}
+
+.pipeline-markdown hr {
+  border: none;
+  border-top: 1px solid #E8DDD0;
+  margin: 0.75rem 0;
+}
+
+.pipeline-markdown strong {
+  color: #2C1810;
+  font-weight: 600;
+}
+
+.pipeline-markdown a {
+  color: #B8860B;
+  text-decoration: underline;
+}
+
+/* ========== 闪烁光标 ========== */
+@keyframes blinkCursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.animate-blink-cursor {
+  animation: blinkCursor 1s step-end infinite;
+  display: inline-block;
+  vertical-align: text-bottom;
+}
+
+/* ========== 薄滚动条 ========== */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #D4C8BC;
+  border-radius: 2px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #9C8E82;
+}

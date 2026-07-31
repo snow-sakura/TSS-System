@@ -7,10 +7,22 @@
 """
 import pytest
 from collections import defaultdict, deque
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from models.workflow import Workflow, WorkflowNode, WorkflowEdge
+from models.workflow import Workflow, WorkflowNode, WorkflowEdge, WorkflowExecution
 from services.workflow_engine import WorkflowEngine, WorkflowEngineError
+
+
+async def _load_execution(db: AsyncSession, execution_id: int) -> WorkflowExecution:
+    """加载执行记录（含 node_executions 关系，避免 async 懒加载）"""
+    result = await db.execute(
+        select(WorkflowExecution)
+        .options(selectinload(WorkflowExecution.node_executions))
+        .where(WorkflowExecution.id == execution_id)
+    )
+    return result.scalar_one()
 
 
 class TestTopologicalSort:
@@ -211,6 +223,7 @@ class TestWorkflowExecution:
 
         engine = WorkflowEngine(db=db_session)
         execution = await engine.execute_workflow(wf.id, trigger="manual")
+        execution = await _load_execution(db_session, execution.id)
 
         assert execution.status == "completed"
         assert execution.trigger == "manual"
@@ -247,6 +260,7 @@ class TestWorkflowExecution:
 
         engine = WorkflowEngine(db=db_session)
         execution = await engine.execute_workflow(wf.id)
+        execution = await _load_execution(db_session, execution.id)
 
         assert execution.status == "completed"
         node_execs = execution.node_executions
@@ -291,6 +305,7 @@ class TestWorkflowExecution:
 
         engine = WorkflowEngine(db=db_session)
         execution = await engine.execute_workflow(wf.id)
+        execution = await _load_execution(db_session, execution.id)
 
         assert execution.status == "completed"
         for ne in execution.node_executions:

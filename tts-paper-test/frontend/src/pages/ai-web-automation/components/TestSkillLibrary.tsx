@@ -141,7 +141,7 @@ export default function TestSkillLibrary() {
   const fetchSkills = useCallback(async () => {
     setLoading(true)
     try {
-      const res: any = await configApi.listSkills({ page: 1, page_size: 100 })
+      const res: any = await configApi.listSkills(1, 100)
       const data = res?.data || res?.items || []
       if (Array.isArray(data)) {
         setSkills(data)

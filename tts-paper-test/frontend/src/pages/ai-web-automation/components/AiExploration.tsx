@@ -112,9 +112,7 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
               try {
                 const data = JSON.parse(currentData)
                 handleSSEEvent(currentEvent, data, pages)
-              } catch (e) {
-                console.warn("SSE parse error:", e, "data:", currentData)
-              }
+              } catch {}
             }
             currentEvent = ""
             currentData = ""
@@ -124,9 +122,7 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
             try {
               const data = JSON.parse(currentData)
               handleSSEEvent(currentEvent, data, pages)
-            } catch (e) {
-              console.warn("SSE parse error:", e)
-            }
+            } catch {}
             currentEvent = ""
             currentData = ""
           }
@@ -138,9 +134,7 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
         try {
           const data = JSON.parse(currentData)
           handleSSEEvent(currentEvent, data, pages)
-        } catch (e) {
-          console.warn("SSE parse error (buffer):", e)
-        }
+        } catch {}
       }
 
       // 设置最终结果

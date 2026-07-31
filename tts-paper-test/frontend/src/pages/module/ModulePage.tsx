@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { findModule } from "@/lib/modules"
 import { Button } from "@/components/ui/button"
@@ -34,28 +34,15 @@ const columnsByMenu: Record<string, ColDef[]> = {
   "deai-list": [{ key: "name", label: "策略名称" }, { key: "status", label: "状态", type: "select", options: ["启用","禁用"] }],
   "hm-list": [{ key: "name", label: "渠道名称" }, { key: "status", label: "状态", type: "select", options: ["在线","离线"] }],
   "log-list": [{ key: "name", label: "操作内容" }, { key: "status", label: "结果", type: "select", options: ["成功","失败"] }],
+  // 合并卡片「测试管理」子菜单的列定义（映射到已有定义）
+  "rt-req-list": [{ key: "name", label: "需求名称" }, { key: "status", label: "状态", type: "select", options: ["草稿","已分析","已评审","已批准"] }, { key: "priority", label: "优先级", type: "select", options: ["P0","P1","P2","P3"] }, { key: "deadline", label: "截止日期", type: "date" }],
+  "rt-plan-list": [{ key: "name", label: "方案名称" }, { key: "status", label: "状态", type: "select", options: ["草稿","进行中","已完成"] }, { key: "priority", label: "优先级", type: "select", options: ["P0","P1","P2","P3"] }],
+  "rt-point-list": [{ key: "name", label: "测试点名称" }, { key: "status", label: "状态", type: "select", options: ["草稿","激活","已覆盖"] }, { key: "priority", label: "优先级", type: "select", options: ["P0","P1","P2","P3"] }],
+  "rt-case-list": [{ key: "name", label: "用例名称" }, { key: "status", label: "状态", type: "select", options: ["草稿","已确认","已审核"] }, { key: "priority", label: "优先级", type: "select", options: ["P0","P1","P2","P3"] }, { key: "deadline", label: "截止日期", type: "date" }],
 }
-const defaultData: Record<string, any[]> = {
-  "req-list": [{ id: 1, name: "用户登录功能需求", status: "已分析", priority: "P0", deadline: "2026-07-25" }, { id: 2, name: "商品搜索功能需求", status: "草稿", priority: "P1", deadline: "2026-07-20" }, { id: 3, name: "购物车管理需求", status: "已评审", priority: "P1", deadline: "2026-07-30" }, { id: 4, name: "订单支付流程需求", status: "已分析", priority: "P0", deadline: "2026-07-22" }],
-  "tc-list": [{ id: 1, name: "TC01-登录成功验证", status: "已确认", priority: "P0", ai: true, deadline: "2026-07-25" }, { id: 2, name: "TC02-登录失败提示", status: "草稿", priority: "P1", ai: true, deadline: "2026-07-20" }, { id: 3, name: "TC03-搜索功能验证", status: "已审核", priority: "P1", ai: false, deadline: "2026-07-28" }, { id: 4, name: "TC04-购物车操作", status: "草稿", priority: "P2", ai: true, deadline: "2026-07-30" }, { id: 5, name: "TC05-支付流程验证", status: "已确认", priority: "P0", ai: true, deadline: "2026-07-22" }],
-  "tp-list": [{ id: 1, name: "登录模块测试点", status: "激活", priority: "P0" }, { id: 2, name: "搜索模块测试点", status: "已覆盖", priority: "P1" }, { id: 3, name: "购物车测试点", status: "草稿", priority: "P1" }, { id: 4, name: "支付模块测试点", status: "激活", priority: "P0" }],
-  "tpl-list": [{ id: 1, name: "登录模块测试方案", status: "已完成", priority: "P0" }, { id: 2, name: "搜索模块测试方案", status: "进行中", priority: "P1" }, { id: 3, name: "购物车测试方案", status: "草稿", priority: "P1" }],
-  "ex-list": [{ id: 1, name: "回归测试-第1轮", status: "已完成", priority: "P0" }, { id: 2, name: "回归测试-第2轮", status: "执行中", priority: "P1" }, { id: 3, name: "冒烟测试", status: "待执行", priority: "P0" }],
-  "wa-list": [{ id: 1, name: "example.com 探索", url: "https://example.com", status: "已完成" }, { id: 2, name: "demo-site 测试", url: "https://demo.testsite.com", status: "探索中" }, { id: 3, name: "官网测试", url: "https://www.testsite.com", status: "空闲" }],
-  "env-list": [{ id: 1, name: "开发环境", url: "http://dev.example.com", status: "在线" }, { id: 2, name: "测试环境", url: "http://test.example.com", status: "在线" }, { id: 3, name: "预发布环境", url: "http://staging.example.com", status: "离线" }],
-  "llm-list": [{ id: 1, name: "OpenAI", model: "GPT-4o", status: "已启用" }, { id: 2, name: "阿里云", model: "Qwen3.7-plus", status: "已启用" }, { id: 3, name: "DeepSeek", model: "DeepSeek-V3", status: "未启用" }],
-  "usr-list": [{ id: 1, name: "admin", email: "admin@tss.local", role: "管理员", status: "启用" }, { id: 2, name: "testuser", email: "test@tss.local", role: "测试员", status: "启用" }, { id: 3, name: "viewer", email: "view@tss.local", role: "查看者", status: "禁用" }],
-  "role-list": [{ id: 1, name: "admin", desc: "系统管理员" }, { id: 2, name: "user", desc: "普通用户" }, { id: 3, name: "viewer", desc: "只读查看者" }],
-  "df-list": [{ id: 1, name: "登录页面白屏", status: "新建", priority: "紧急", deadline: "2026-07-20" }, { id: 2, name: "搜索结果排序错误", status: "处理中", priority: "中", deadline: "2026-07-25" }, { id: 3, name: "购物车数量异常", status: "已解决", priority: "高", deadline: "2026-07-18" }],
-  "mcp-list": [{ id: 1, name: "Playwright Server", url: "http://localhost:3000", status: "在线" }, { id: 2, name: "ChromaDB", url: "http://localhost:8000", status: "离线" }],
-  "sk-list": [{ id: 1, name: "web-explorer", desc: "网页自动探索", status: "已启用" }, { id: 2, name: "test-generator", desc: "测试用例生成", status: "已启用" }, { id: 3, name: "defect-analyzer", desc: "缺陷分析", status: "未启用" }],
-  "rp-list": [{ id: 1, name: "v2.1.0质量报告", status: "已发布", deadline: "2026-07-25" }, { id: 2, name: "回归测试报告", status: "草稿", deadline: "2026-07-30" }],
-  "kb-list": [{ id: 1, name: "登录模块测试模式", status: "已发布" }, { id: 2, name: "常见Bug知识库", status: "已发布" }],
-  "pr-list": [{ id: 1, name: "功能测试模板", status: "已发布" }, { id: 2, name: "接口测试模板", status: "草稿" }],
-  "deai-list": [{ id: 1, name: "正式风格策略", status: "启用" }, { id: 2, name: "技术文档策略", status: "启用" }],
-  "hm-list": [{ id: 1, name: "飞书通知", status: "在线" }, { id: 2, name: "钉钉通知", status: "离线" }],
-  "log-list": [{ id: 1, name: "用户登录操作", status: "成功" }, { id: 2, name: "创建需求操作", status: "成功" }, { id: 3, name: "删除用例操作", status: "失败" }],
-}
+/** @deprecated defaultData is no longer used - data comes from useModuleData hook */
+const _defaultData: Record<string, any[]> = {}
+
 const statusColors: Record<string, string> = {
   "已分析": "bg-pass/10 text-pass border border-pass/20", "已评审": "bg-info/10 text-info border border-info/20",
   "已确认": "bg-pass/10 text-pass border border-pass/20", "已审核": "bg-info/10 text-info border border-info/20",
@@ -77,15 +64,13 @@ export default function ModulePage() {
   const [activeMenu, setActiveMenu] = useState<string>("")
   const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState<Record<string, string>>({})
-  const { data, create: createItem, update: updateItem, remove: removeItem, batchRemove } = useModuleData("")
+  const { data, create: createItem, update: updateItem, remove: removeItem, batchRemove, refresh: fetchData, getMeta, setPage, setPageSize } = useModuleData("")
   const [showDialog, setShowDialog] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
   const [editingRow, setEditingRow] = useState<any>(null)
   const [formData, setFormData] = useState<Record<string, string>>({})
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deletingRow, setDeletingRow] = useState<any>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
   const [jumpToPage, setJumpToPage] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false)
@@ -97,11 +82,9 @@ export default function ModulePage() {
   const [previewItem, setPreviewItem] = useState<any>(null)
   const [showPreview, setShowPreview] = useState(false)
 
-  if (!mod) return <div className="min-h-screen bg-paper flex items-center justify-center"><div className="text-center"><p className="text-lg font-medium text-ink">模块不存在</p><Button onClick={() => navigate("/")} className="mt-4 gradient-amber text-white">返回首页</Button></div></div>
-  if (!activeMenu && mod.menus[0]?.children[0]) setActiveMenu(mod.menus[0].children[0].key)
-  const toggleMenu = (key: string) => setOpenMenus((prev) => ({ ...prev, [key]: !prev[key] }))
+  // useMemo 必须在任何条件返回之前调用，以遵守 React Hooks 规则
   const currentData = useMemo(() => {
-    let raw = data[activeMenu] || []
+    let raw = (data[activeMenu] || []).filter(() => true)
     // 搜索过滤
     if (searchTerm) raw = raw.filter((row) => Object.values(row).some((v) => String(v).toLowerCase().includes(searchTerm.toLowerCase())))
     // 筛选过滤
@@ -126,15 +109,27 @@ export default function ModulePage() {
     }
     return raw
   }, [data, activeMenu, searchTerm, filters, sortConfig])
-  const totalPages = Math.max(1, Math.ceil(currentData.length / pageSize))
-  const pagedData = currentData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // 菜单切换时加载对应模块数据（服务端分页第一页）
+  useEffect(() => {
+    if (activeMenu) {
+      setPage(activeMenu, 1)
+    }
+  }, [activeMenu, setPage])
+
+  if (!mod) return <div className="min-h-screen bg-paper flex items-center justify-center"><div className="text-center"><p className="text-lg font-medium text-ink">模块不存在</p><Button onClick={() => navigate("/")} className="mt-4 gradient-amber text-white">返回首页</Button></div></div>
+  if (!activeMenu && mod.menus[0]?.children[0]) setActiveMenu(mod.menus[0].children[0].key)
+  const toggleMenu = (key: string) => setOpenMenus((prev) => ({ ...prev, [key]: !prev[key] }))
+  // 服务端分页：total 来自后端元信息，当前页数据即为服务端返回（不再本地 slice）
+  const pagination = getMeta(activeMenu)
+  const totalPages = Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
+  const pagedData = currentData
   const cols = columnsByMenu[activeMenu] || [{ key: "name", label: "名称" }]
   let activeTitle = ""; for (const menu of mod.menus) for (const child of menu.children) if (child.key === activeMenu) activeTitle = child.label
   const MenuIcon = iconMap[mod.icon] || FileText
 
   const openCreate = () => { setDialogMode("create"); setEditingRow(null); const init: Record<string, string> = {}; cols.forEach((c) => { init[c.key] = "" }); setFormData(init); setFormErrors({}); setFormTouched({}); setShowDialog(true) }
   const openEdit = (row: any) => { setDialogMode("edit"); setEditingRow(row); const init: Record<string, string> = {}; cols.forEach((c) => { init[c.key] = String(row[c.key] || "") }); setFormData(init); setFormErrors({}); setFormTouched({}); setShowDialog(true) }
-  const openView = (row: any) => { setDialogMode("view"); setEditingRow(row); const init: Record<string, string> = {}; cols.forEach((c) => { init[c.key] = String(row[c.key] || "") }); setFormData(init); setShowDialog(true) }
 
   // 表单验证
   const validateField = (key: string, value: string): string => {
@@ -275,11 +270,7 @@ export default function ModulePage() {
                 </button>
                 {isOpen && <div className="px-3 pb-3 space-y-1">{menu.children.map((child) => (
                   <button key={child.key} onClick={() => {
-                    if (child.key === "rt-records-list") {
-                      navigate("/ai-automation")
-                    } else {
-                      setActiveMenu(child.key); setCurrentPage(1); setSearchTerm(""); setFilters({})
-                    }
+                    setActiveMenu(child.key); setSearchTerm(""); setFilters({})
                   }}
                     className={`w-full text-left px-3 py-2 text-[13px] rounded-lg transition-colors ${activeMenu === child.key ? "bg-amber-light text-amber font-semibold shadow-sm" : "text-ink-light hover:text-ink hover:bg-cream font-medium"}`}>{child.label}</button>
                 ))}</div>}
@@ -292,7 +283,7 @@ export default function ModulePage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 md:mb-5 gap-3">
             <div className="flex items-center gap-3"><h2 className="text-lg font-semibold text-ink">{activeTitle || "内容"}</h2><span className="text-xs text-ink-light bg-cream px-2 py-1 rounded-md">{currentData.length} 条</span></div>
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><Input placeholder="搜索..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }} className="w-40 sm:w-56 h-9 pl-9 text-sm bg-white border-border focus:border-amber" /></div>
+              <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><Input placeholder="搜索..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value) }} className="w-40 sm:w-56 h-9 pl-9 text-sm bg-white border-border focus:border-amber" /></div>
               <div className="relative group hidden sm:block">
                 <Button variant="outline" className="h-9 border-border text-ink-light text-sm hover:bg-cream"><Download className="w-4 h-4 mr-1" /> 导出</Button>
                 <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-border rounded-xl shadow-elevated opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
@@ -309,13 +300,13 @@ export default function ModulePage() {
               {cols.filter((c) => c.type === "select" && c.options).map((col) => (
                 <div key={col.key} className="flex items-center gap-2">
                   <label className="text-xs text-ink-light">{col.label}:</label>
-                  <select value={filters[col.key] || ""} onChange={(e) => { setFilters({ ...filters, [col.key]: e.target.value }); setCurrentPage(1) }}
+                  <select value={filters[col.key] || ""} onChange={(e) => { setFilters({ ...filters, [col.key]: e.target.value }) }}
                     className="h-8 px-2 pr-6 text-xs rounded-lg bg-white border border-border text-ink-light focus:border-amber focus:outline-none appearance-none cursor-pointer shadow-sm"
                     style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239C8E82' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: "right 4px center", backgroundRepeat: "no-repeat", backgroundSize: "14px" }}>
                     <option value="">全部</option>{col.options?.map((opt) => <option key={opt} value={opt}>{opt}</option>)}</select>
                 </div>
               ))}
-              {Object.values(filters).some((v) => v) && <button onClick={() => { setFilters({}); setCurrentPage(1) }} className="text-xs text-amber hover:text-amber-hover flex items-center gap-1 font-medium"><X className="w-3 h-3" /> 清除筛选</button>}
+              {Object.values(filters).some((v) => v) && <button onClick={() => { setFilters({}) }} className="text-xs text-amber hover:text-amber-hover flex items-center gap-1 font-medium"><X className="w-3 h-3" /> 清除筛选</button>}
               {Object.values(filters).some((v) => v) && <span className="text-xs text-ink-light">筛选中 · {currentData.length} 条结果</span>}
             </div>
           )}
@@ -462,23 +453,23 @@ export default function ModulePage() {
                 <div className="flex items-center gap-3 flex-wrap justify-center">
                   <span className="text-xs text-ink-light">共 {currentData.length} 条</span>
                   <div className="flex items-center gap-1.5"><span className="text-xs text-ink-light hidden sm:inline">每页</span>
-                    <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }} className="h-7 px-2 text-xs rounded-lg bg-white border border-border text-ink focus:border-amber focus:outline-none shadow-sm"><option value={10}>10</option><option value={20}>20</option><option value={50}>50</option></select>
+                    <select value={pagination.pageSize} onChange={(e) => { setPageSize(activeMenu, Number(e.target.value)) }} className="h-7 px-2 text-xs rounded-lg bg-white border border-border text-ink focus:border-amber focus:outline-none shadow-sm"><option value={10}>10</option><option value={20}>20</option><option value={50}>50</option></select>
                     <span className="text-xs text-ink-light">条</span></div>
                 </div>
                 <div className="flex items-center gap-2 md:gap-3 flex-wrap justify-center">
                   <div className="flex items-center gap-1.5"><span className="text-xs text-ink-light hidden sm:inline">跳至</span>
                     <input type="number" min={1} max={totalPages} value={jumpToPage} onChange={(e) => setJumpToPage(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") { const p = parseInt(jumpToPage); if (p >= 1 && p <= totalPages) { setCurrentPage(p); setJumpToPage("") } } }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { const p = parseInt(jumpToPage); if (p >= 1 && p <= totalPages) { setPage(activeMenu, p); setJumpToPage("") } } }}
                       className="w-12 md:w-14 h-7 px-1 md:px-2 text-xs rounded-lg bg-white border border-border text-ink text-center focus:border-amber focus:outline-none shadow-sm" />
                     <span className="text-xs text-ink-light">页</span></div>
                   <div className="flex items-center gap-0.5 md:gap-1">
-                    <button onClick={() => setCurrentPage(1)} disabled={currentPage <= 1} className="px-1.5 md:px-2 py-1 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40 shadow-sm hidden sm:block">«</button>
-                    <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage <= 1} className="px-2 py-1 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40 shadow-sm">‹</button>
-                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => { let page: number; if (totalPages <= 5) page = i + 1; else if (currentPage <= 3) page = i + 1; else if (currentPage >= totalPages - 2) page = totalPages - 4 + i; else page = currentPage - 2 + i; return <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 md:px-2.5 py-1 text-xs rounded-lg shadow-sm ${page === currentPage ? "gradient-amber text-white" : "border border-border text-ink-light hover:bg-cream"}`}>{page}</button> })}
-                    <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className="px-2 py-1 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40 shadow-sm">›</button>
-                    <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="px-1.5 md:px-2 py-1 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40 shadow-sm hidden sm:block">»</button>
+                    <button onClick={() => setPage(activeMenu, 1)} disabled={pagination.page <= 1} className="px-1.5 md:px-2 py-1 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40 shadow-sm hidden sm:block">«</button>
+                    <button onClick={() => setPage(activeMenu, Math.max(1, pagination.page - 1))} disabled={pagination.page <= 1} className="px-2 py-1 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40 shadow-sm">‹</button>
+                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => { let page: number; if (totalPages <= 5) page = i + 1; else if (pagination.page <= 3) page = i + 1; else if (pagination.page >= totalPages - 2) page = totalPages - 4 + i; else page = pagination.page - 2 + i; return <button key={page} onClick={() => setPage(activeMenu, page)} className={`px-2 md:px-2.5 py-1 text-xs rounded-lg shadow-sm ${page === pagination.page ? "gradient-amber text-white" : "border border-border text-ink-light hover:bg-cream"}`}>{page}</button> })}
+                    <button onClick={() => setPage(activeMenu, Math.min(totalPages, pagination.page + 1))} disabled={pagination.page >= totalPages} className="px-2 py-1 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40 shadow-sm">›</button>
+                    <button onClick={() => setPage(activeMenu, totalPages)} disabled={pagination.page >= totalPages} className="px-1.5 md:px-2 py-1 text-xs rounded-lg border border-border text-ink-light hover:bg-cream disabled:opacity-40 shadow-sm hidden sm:block">»</button>
                   </div>
-                  <span className="text-xs text-ink-light">{currentPage}/{totalPages}页</span>
+                  <span className="text-xs text-ink-light">{pagination.page}/{totalPages}页</span>
                 </div>
               </div>
             </div>

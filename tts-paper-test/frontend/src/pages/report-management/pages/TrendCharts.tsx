@@ -80,8 +80,7 @@ export default function TrendCharts() {
         })
         setDataSource("api")
       }
-    } catch (err) {
-      console.error("获取趋势图表数据失败:", err)
+    } catch {
       toast.error("获取趋势数据失败，已使用本地数据")
       // 保持mock数据
     } finally {

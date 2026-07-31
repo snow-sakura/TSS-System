@@ -158,7 +158,7 @@ export default function ExecutionDetail() {
           </div>
         </div>
       </div>
-      {previewDetail && <PreviewModal title={`${previewDetail.caseId} ${previewDetail.caseTitle}`} content={`# ${previewDetail.caseId}: ${previewDetail.caseTitle}\n\n| 字段 | 值 |\n|------|----|\n| 执行批次 | ${previewDetail.execName} |\n| 模块 | ${previewDetail.module} |\n| 执行结果 | ${previewDetail.result} |\n| 耗时 | ${previewDetail.duration} |\n| 执行时间 | ${previewDetail.executedAt} |\n\n## 执行步骤\n\n${previewDetail.steps || "-"}\n\n${previewDetail.errorMsg ? `## 错误信息\n\n\`\`\`\n${previewDetail.errorMsg}\n\`\`\`` : ""}`} onClose={() => setPreviewDetail(null)} />}
+      {previewDetail && <PreviewModal title={`${previewDetail.caseId} ${previewDetail.caseTitle}`} content={`# ${previewDetail.caseId}: ${previewDetail.caseTitle}\n\n| 字段 | 值 |\n|------|----|\n| 执行批次 | ${previewDetail.execName} |\n| 模块 | ${previewDetail.module} |\n| 执行结果 | ${previewDetail.result} |\n| 耗时 | ${previewDetail.duration} |\n| 执行时间 | ${previewDetail.executedAt} |\n\n## 执行步骤\n\n${previewDetail.steps || "-"}\n\n${previewDetail.errorMsg ? `## 错误信息\n\n${"```"}\n${previewDetail.errorMsg}\n${"```"}` : ""}`} onClose={() => setPreviewDetail(null)} />}
     </div>
   )
 }

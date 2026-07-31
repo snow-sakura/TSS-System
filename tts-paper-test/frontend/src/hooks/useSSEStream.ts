@@ -79,9 +79,7 @@ export function useSSEStream({
         try {
           const parsed = JSON.parse(currentData)
           onEventRef.current(currentEvent || "message", parsed)
-        } catch (e: any) {
-          console.warn("SSE parse error:", e, currentData)
-        }
+        } catch {}
         currentEvent = ""
         currentData = ""
       }

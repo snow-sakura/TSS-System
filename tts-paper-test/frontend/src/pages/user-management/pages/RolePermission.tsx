@@ -6,6 +6,7 @@ import { Search, Plus, Edit, Trash2, Shield, X, Check, ChevronDown, ChevronRight
 import { toast } from "sonner"
 import { usersApi } from "@/lib/api"
 import { SkeletonCard } from "@/components/ui/Skeleton"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface RoleItem {
   key: string
@@ -62,8 +63,8 @@ export default function RolePermission() {
       ])
       if (listRes?.data) setRoles(listRes.data)
       if (statsRes?.data) setRoleStats(statsRes.data)
-    } catch (e) {
-      console.error(e)
+    } catch {
+      // silently handle error
     } finally {
       setLoading(false)
     }
@@ -119,7 +120,13 @@ export default function RolePermission() {
 
   const handleDelete = async (role: RoleItem) => {
     if (role.key === "admin") { toast.error("管理员角色不可删除"); return }
-    if (!confirm(`确定删除角色「${role.name}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: `确定删除角色「${role.name}」？`,
+      danger: true,
+      confirmText: "删除",
+    })
+    if (!confirmed) return
     try {
       await usersApi.deleteRole(role.key)
       toast.success("角色已删除")

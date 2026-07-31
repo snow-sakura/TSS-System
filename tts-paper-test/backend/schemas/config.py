@@ -252,3 +252,53 @@ class HermesSendResponse(BaseModel):
     success: bool
     message_id: str
     latency: str
+
+
+# ====== Pipeline步骤提示词配置 ======
+class StepPromptConfigBase(BaseModel):
+    """步骤提示词配置基础字段"""
+    step_key: str
+    step_name: str
+    step_order: int = 0
+    icon: Optional[str] = None
+    description: Optional[str] = None
+    system_prompt: str
+    user_prompt_template: str
+    skill_prompt: Optional[str] = None
+    output_template: Optional[str] = None
+    skills: Optional[list] = None
+    variables: Optional[list] = None
+    output_logs_template: Optional[list] = None
+
+class StepPromptConfigCreate(StepPromptConfigBase):
+    pass
+
+class StepPromptConfigUpdate(BaseModel):
+    step_name: Optional[str] = None
+    step_order: Optional[int] = None
+    icon: Optional[str] = None
+    description: Optional[str] = None
+    system_prompt: Optional[str] = None
+    user_prompt_template: Optional[str] = None
+    skill_prompt: Optional[str] = None
+    output_template: Optional[str] = None
+    skills: Optional[list] = None
+    variables: Optional[list] = None
+    output_logs_template: Optional[list] = None
+    status: Optional[str] = None
+
+class StepPromptConfigResponse(StepPromptConfigBase):
+    id: int
+    is_default: bool
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class StepPromptTestRequest(BaseModel):
+    """步骤提示词测试请求"""
+    variables: dict = {}
+    input_text: str = ""
+    step_context: Optional[dict] = None

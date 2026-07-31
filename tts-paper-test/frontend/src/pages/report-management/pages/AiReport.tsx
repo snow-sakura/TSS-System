@@ -196,7 +196,7 @@ export default function AiReport() {
                     {Object.entries(generatedReport.ai_analysis.quality_score).map(([k, v]) => (
                       <div key={k} className="flex-1 p-1.5 rounded-lg bg-white border border-border/30 text-center">
                         <div className="text-[9px] text-muted truncate">{k}</div>
-                        <div className="text-xs font-bold" style={{ color: (v as number) >= 80 ? "#10b981" : (v as number) >= 60 ? "#f59e0b" : "#ef4444" }}>{v}</div>
+                        <div className="text-xs font-bold" style={{ color: Number(v) >= 80 ? "#10b981" : Number(v) >= 60 ? "#f59e0b" : "#ef4444" }}>{String(v)}</div>
                       </div>
                     ))}
                   </div>

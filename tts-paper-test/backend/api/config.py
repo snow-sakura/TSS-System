@@ -14,6 +14,8 @@ from schemas.config import (
     SkillCreate, SkillUpdate, SkillResponse,
     HermesChannelCreate, HermesChannelUpdate, HermesChannelResponse,
     PromptTestRequest, DeAITestRequest, SkillExecuteRequest, HermesSendRequest,
+    StepPromptConfigCreate, StepPromptConfigUpdate, StepPromptConfigResponse,
+    StepPromptTestRequest,
 )
 from services import config_service as svc
 from services.log_service import get_operation_logs
@@ -462,3 +464,66 @@ async def list_operation_logs(
         for i in result["items"]
     ]
     return ResponseModel(data=result)
+
+
+# ============================
+# Pipeline步骤提示词配置 CRUD
+# ============================
+
+@router.get("/step-prompt-configs", response_model=ResponseModel)
+async def list_step_prompt_configs(page: int = 1, page_size: int = 50, db: AsyncSession = Depends(get_db)):
+    result = await svc.list_step_prompt_configs(db, page, page_size)
+    result["items"] = _page(StepPromptConfigResponse, result["items"])
+    return ResponseModel(data=result)
+
+
+@router.get("/step-prompt-configs/{config_id}", response_model=ResponseModel)
+async def get_step_prompt_config(config_id: int, db: AsyncSession = Depends(get_db)):
+    config = await svc.get_step_prompt_config(db, config_id)
+    if not config:
+        return ResponseModel(success=False, message="配置不存在")
+    return ResponseModel(data=StepPromptConfigResponse.model_validate(config))
+
+
+@router.get("/step-prompt-configs/by-key/{step_key}", response_model=ResponseModel)
+async def get_step_prompt_config_by_key(step_key: str, db: AsyncSession = Depends(get_db)):
+    config = await svc.get_step_prompt_config_by_key(db, step_key)
+    if not config:
+        return ResponseModel(success=False, message=f"步骤 {step_key} 配置不存在")
+    return ResponseModel(data=StepPromptConfigResponse.model_validate(config))
+
+
+@router.post("/step-prompt-configs", response_model=ResponseModel)
+async def create_step_prompt_config(data: StepPromptConfigCreate, db: AsyncSession = Depends(get_db)):
+    config = await svc.create_step_prompt_config(db, data)
+    return ResponseModel(message="步骤提示词配置创建成功", data=StepPromptConfigResponse.model_validate(config))
+
+
+@router.put("/step-prompt-configs/{config_id}", response_model=ResponseModel)
+async def update_step_prompt_config(config_id: int, data: StepPromptConfigUpdate, db: AsyncSession = Depends(get_db)):
+    config = await svc.update_step_prompt_config(db, config_id, data)
+    if not config:
+        return ResponseModel(success=False, message="配置不存在")
+    return ResponseModel(message="步骤提示词配置更新成功", data=StepPromptConfigResponse.model_validate(config))
+
+
+@router.delete("/step-prompt-configs/{config_id}", response_model=ResponseModel)
+async def delete_step_prompt_config(config_id: int, db: AsyncSession = Depends(get_db)):
+    ok = await svc.delete_step_prompt_config(db, config_id)
+    if not ok:
+        return ResponseModel(success=False, message="配置不存在")
+    return ResponseModel(message="步骤提示词配置已删除")
+
+
+@router.post("/step-prompt-configs/{config_id}/test", response_model=ResponseModel)
+async def test_step_prompt_config(config_id: int, body: StepPromptTestRequest, db: AsyncSession = Depends(get_db)):
+    result = await svc.test_step_prompt_config(db, config_id, body)
+    if not result:
+        return ResponseModel(success=False, message="配置不存在")
+    return ResponseModel(message="步骤提示词测试完成", data=result)
+
+
+@router.post("/step-prompt-configs/init-defaults", response_model=ResponseModel)
+async def init_default_step_prompt_configs(db: AsyncSession = Depends(get_db)):
+    result = await svc.init_default_step_prompt_configs(db)
+    return ResponseModel(message=result["message"], data=result)

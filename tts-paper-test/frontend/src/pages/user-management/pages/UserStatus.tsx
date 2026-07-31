@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Search, Wifi, WifiOff, ShieldOff, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { usersApi } from "@/lib/api"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface StatusItem {
   id: number
@@ -35,8 +36,7 @@ export default function UserStatus() {
           browser: u.browser || "-",
         })))
       }
-    } catch (err) {
-      console.error("获取用户状态失败:", err)
+    } catch {
       toast.error("获取用户状态失败，已使用本地数据")
       // 保持空数据
     } finally {
@@ -47,7 +47,13 @@ export default function UserStatus() {
   useEffect(() => { fetchStatus() }, [fetchStatus])
 
   const handleForceOffline = async (user: StatusItem) => {
-    if (!confirm(`确定强制用户「${user.username}」下线？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认强制下线",
+      message: `确定强制用户「${user.username}」下线？`,
+      danger: true,
+      confirmText: "确认",
+    })
+    if (!confirmed) return
     try {
       await usersApi.updateUser(user.id, { status: "inactive" })
       toast.success(`${user.username} 已被强制下线`)

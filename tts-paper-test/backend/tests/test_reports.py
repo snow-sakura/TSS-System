@@ -61,21 +61,20 @@ class TestReportAPI:
     @pytest.mark.asyncio
     async def test_report_generate(self, async_client: AsyncClient, auth_headers: dict,
                                    db_session: AsyncSession):
-        """AI 报告生成"""
-        # 先创建报告
-        create_resp = await async_client.post(
-            "/api/v1/test-lifecycle/reports",
-            json={"name": "AI Report", "report_type": "version"},
+        """AI 报告生成（POST /reports/generate，直接生成）"""
+        resp = await async_client.post(
+            "/api/v1/test-lifecycle/reports/generate",
+            json={
+                "name": "AI Report",
+                "report_type": "version",
+                "metrics": {"total_cases": 10, "passed": 9, "failed": 1},
+                "summary_data": {},
+            },
             headers=auth_headers,
         )
-        report_id = create_resp.json().get("data", create_resp.json()).get("id")
-
-        if report_id:
-            resp = await async_client.post(
-                f"/api/v1/test-lifecycle/reports/{report_id}/generate",
-                headers=auth_headers,
-            )
-            assert resp.status_code == 200
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("data") is not None
 
     @pytest.mark.asyncio
     async def test_report_list(self, async_client: AsyncClient, auth_headers: dict):
@@ -95,7 +94,12 @@ class TestReportAPI:
         assert resp.status_code == 200
         data = resp.json()
         report_data = data.get("data", data)
-        assert "total_cases" in report_data
+        # 新版嵌套结构：{cases, defects, executions, requirements, quality}
+        assert "cases" in report_data
+        assert "total" in report_data["cases"]
+        assert "defects" in report_data
+        assert "executions" in report_data
+        assert "requirements" in report_data
 
 
 class TestAIReportService:

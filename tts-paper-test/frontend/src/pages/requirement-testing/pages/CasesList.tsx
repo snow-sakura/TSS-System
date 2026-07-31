@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import PreviewModal from "../components/PreviewModal"
 import DataTable, { type ColumnDef } from "../components/DataTable"
 import { lifecycleApi } from "@/lib/api"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 const priorityOptions = ["P0", "P1", "P2", "P3"]
 const statusOptions = ["草稿", "待确认", "已确认", "已驳回", "已完成"]
@@ -102,8 +103,7 @@ export default function CasesList() {
         }))
         setCases(mapped)
       }
-    } catch (err) {
-      console.error("获取用例列表失败:", err)
+    } catch {
       toast.error("获取用例列表失败，已使用本地数据")
       // 保持mock数据
     } finally {
@@ -175,7 +175,8 @@ export default function CasesList() {
   }
 
   const handleDelete = async (c: any) => {
-    if (!confirm(`确定删除用例「${c.title}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除用例「${c.title}」？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await lifecycleApi.deleteTestCase(c.id)
       toast.success("用例已删除")
@@ -186,7 +187,8 @@ export default function CasesList() {
   }
 
   const handleBatchDelete = async (ids: Set<string>) => {
-    if (!confirm(`确定删除选中的 ${ids.size} 条用例？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除选中的 ${ids.size} 条用例？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await lifecycleApi.batchDeleteTestCases(Array.from(ids).map(Number))
       toast.success("批量删除成功")

@@ -6,7 +6,7 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Request, APIRouter
+from fastapi import FastAPI, Request, APIRouter, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +27,8 @@ from api.ai_chat import router as ai_chat_router
 from api.engines import router as engines_router
 from api.mcp_marketplace import router as mcp_marketplace_router
 from api.workflows import router as workflows_router
+from api.projects import router as projects_router
+from api.roles import router as roles_router
 
 settings = get_settings()
 setup_logging()
@@ -354,6 +356,135 @@ async def _create_default_data():
             await db.flush()
             logger.info(f"✅ LLM调用记录种子数据创建完成 ({len(usages)}条)")
 
+        # ── 测试生命周期种子数据 ──
+        from models.test_lifecycle import (
+            Requirement, TestPlan, TestPoint, TestCase,
+            TestExecution, Defect, TestReport, Review,
+        )
+        req_seed_count = (await db.execute(select(func.count(Requirement.id)))).scalar() or 0
+        if req_seed_count == 0:
+            from datetime import datetime, timedelta
+            now = datetime.utcnow()
+            # 创建需求
+            reqs = [
+                Requirement(name="用户登录功能", description="用户通过用户名密码登录系统",
+                    status="analyzed", priority="P0", source="manual", deadline="2026-08-15",
+                    ai_analysis={"modules": ["认证模块"], "test_points": ["登录验证", "密码策略"]}),
+                Requirement(name="商品搜索功能", description="用户按关键词搜索商品",
+                    status="analyzed", priority="P1", source="manual", deadline="2026-08-20",
+                    ai_analysis={"modules": ["商品模块"], "test_points": ["搜索匹配", "分页"]}),
+                Requirement(name="购物车结算", description="用户将商品加入购物车并完成结算",
+                    status="draft", priority="P1", source="manual", deadline="2026-09-01"),
+                Requirement(name="订单管理", description="用户查看和管理历史订单",
+                    status="draft", priority="P2", source="manual", deadline="2026-09-10"),
+                Requirement(name="个人中心", description="用户个人信息编辑与头像上传",
+                    status="analyzed", priority="P2", source="manual", deadline="2026-08-25",
+                    ai_analysis={"modules": ["用户模块"], "test_points": ["信息编辑", "上传验证"]}),
+                Requirement(name="支付接口对接", description="对接第三方支付网关",
+                    status="completed", priority="P0", source="manual", deadline="2026-08-10"),
+            ]
+            db.add_all(reqs)
+            await db.flush()
+
+            # 创建测试方案
+            plans = [
+                TestPlan(name="核心功能测试方案", description="覆盖登录、搜索、购物车", status="completed", priority="P0",
+                    scope="功能测试", strategy={"approach": "UI自动化", "coverage_target": 90}),
+                TestPlan(name="订单流程测试方案", description="覆盖订单创建到支付", status="draft", priority="P1",
+                    scope="集成测试", strategy={"approach": "接口测试", "coverage_target": 85}),
+            ]
+            db.add_all(plans)
+            await db.flush()
+
+            # 创建测试点
+            points = [
+                TestPoint(name="登录功能验证", description="验证用户登录流程", status="active", priority="P0",
+                    requirement_id=reqs[0].id, category="功能测试", coverage=100.0),
+                TestPoint(name="密码强度校验", description="验证密码复杂度规则", status="active", priority="P1",
+                    requirement_id=reqs[0].id, category="安全测试", coverage=80.0),
+                TestPoint(name="搜索关键词匹配", description="验证搜索结果的准确性", status="active", priority="P1",
+                    requirement_id=reqs[1].id, category="功能测试", coverage=90.0),
+                TestPoint(name="购物车添加商品", description="验证添加商品到购物车", status="draft", priority="P1",
+                    requirement_id=reqs[2].id, category="功能测试", coverage=0.0),
+                TestPoint(name="支付回调处理", description="验证支付成功回调", status="completed", priority="P0",
+                    requirement_id=reqs[5].id, category="集成测试", coverage=100.0),
+            ]
+            db.add_all(points)
+            await db.flush()
+
+            # 创建测试用例
+            cases = [
+                TestCase(name="登录-正常流程", description="正确的用户名密码登录",
+                    steps=[{"step": 1, "action": "输入用户名", "expected": "输入成功"}, {"step": 2, "action": "输入密码", "expected": "输入成功"}, {"step": 3, "action": "点击登录", "expected": "登录成功跳转首页"}],
+                    status="approved", priority="P0", test_type="功能", plan_id=plans[0].id, requirement_id=reqs[0].id, test_point_id=points[0].id),
+                TestCase(name="登录-错误密码", description="错误的密码登录",
+                    steps=[{"step": 1, "action": "输入用户名", "expected": "输入成功"}, {"step": 2, "action": "输入错误密码", "expected": "输入成功"}, {"step": 3, "action": "点击登录", "expected": "提示密码错误"}],
+                    status="approved", priority="P0", test_type="功能", plan_id=plans[0].id, requirement_id=reqs[0].id, test_point_id=points[0].id),
+                TestCase(name="搜索-关键词匹配", description="搜索存在的商品",
+                    steps=[{"step": 1, "action": "输入关键词", "expected": "搜索框显示关键词"}, {"step": 2, "action": "点击搜索", "expected": "显示匹配结果"}],
+                    status="draft", priority="P1", test_type="功能", plan_id=plans[0].id, requirement_id=reqs[1].id, test_point_id=points[2].id),
+                TestCase(name="购物车-添加商品", description="从商品详情页添加",
+                    steps=[{"step": 1, "action": "打开商品详情", "expected": "显示商品信息"}, {"step": 2, "action": "点击加入购物车", "expected": "购物车数量增加"}],
+                    status="draft", priority="P1", test_type="功能", requirement_id=reqs[2].id, test_point_id=points[3].id),
+                TestCase(name="支付-回调处理", description="模拟支付成功回调",
+                    steps=[{"step": 1, "action": "发起支付", "expected": "跳转支付页面"}, {"step": 2, "action": "支付成功回调", "expected": "订单状态更新为已支付"}],
+                    status="approved", priority="P0", test_type="集成", plan_id=plans[0].id, requirement_id=reqs[5].id, test_point_id=points[4].id),
+                TestCase(name="个人信息编辑", description="编辑用户昵称和头像",
+                    steps=[{"step": 1, "action": "进入个人中心", "expected": "显示个人信息"}, {"step": 2, "action": "修改昵称", "expected": "保存成功"}],
+                    status="confirmed", priority="P2", test_type="功能", requirement_id=reqs[4].id),
+            ]
+            db.add_all(cases)
+            await db.flush()
+
+            # 创建执行记录
+            execs = [
+                TestExecution(name="核心功能回归执行 v1.0", status="passed", test_type="自动化",
+                    environment="测试环境", total_cases=3, passed=3, failed=0, blocked=0, pass_rate=100.0,
+                    started_at=now - timedelta(hours=2), completed_at=now),
+                TestExecution(name="支付流程验证执行", status="running", test_type="手动",
+                    environment="测试环境", total_cases=5, passed=2, failed=1, blocked=0, pass_rate=40.0,
+                    started_at=now - timedelta(minutes=30)),
+                TestExecution(name="安全测试扫描", status="pending", test_type="安全",
+                    environment="开发环境", total_cases=10, passed=0, failed=0, blocked=0, pass_rate=0.0),
+            ]
+            db.add_all(execs)
+
+            # 创建缺陷
+            defects = [
+                Defect(title="登录页面验证码不显示", description="在Chrome浏览器下验证码图片加载失败",
+                    status="open", priority="高", severity="major", module="认证模块", environment="Chrome 120"),
+                Defect(title="搜索无结果时页面空白", description="搜索不存在的商品时没有友好提示",
+                    status="confirmed", priority="中", severity="minor", module="商品模块", environment="Chrome 120"),
+                Defect(title="购物车数量超过99显示异常", description="超过99时UI显示不全",
+                    status="resolved", priority="中", severity="major", module="购物车模块", environment="iPhone 15"),
+                Defect(title="支付页面加载超时", description="偶发性支付页面白屏加载超10秒",
+                    status="new", priority="紧急", severity="critical", module="支付模块", environment="Safari"),
+            ]
+            db.add_all(defects)
+
+            # 创建评审记录
+            reviews = [
+                Review(title="核心功能用例评审 - 2026-07", review_type="用例评审",
+                    status="completed", source="manual", reviewer="管理员",
+                    case_count=3, passed_count=2, rejected_count=1, summary="通过2条，驳回1条（需补充边界场景）"),
+                Review(title="支付流程 AI 自动评审", review_type="AI自动评审",
+                    status="pending", source="ai", case_count=2, passed_count=0, rejected_count=0,
+                    summary="AI自动评审中，等待人工确认"),
+            ]
+            db.add_all(reviews)
+
+            # 创建报告
+            reports = [
+                TestReport(name="v1.0 测试报告", status="published", report_type="version",
+                    summary={"total_cases": 25, "passed": 20, "failed": 3, "blocked": 2, "pass_rate": 80.0},
+                    conclusion="核心功能通过率80%，支付流程存在阻塞问题需要修复"),
+                TestReport(name="2026-07 质量周报", status="draft", report_type="trend",
+                    summary={"total_cases": 50, "passed": 38, "failed": 7, "blocked": 5, "pass_rate": 76.0}),
+            ]
+            db.add_all(reports)
+            await db.flush()
+            logger.info("✅ 测试生命周期种子数据创建完成")
+
         await db.commit()
         logger.info("🎉 所有默认种子数据已就绪")
 
@@ -442,6 +573,8 @@ app.include_router(ai_chat_router)
 app.include_router(engines_router)
 app.include_router(mcp_marketplace_router)
 app.include_router(workflows_router)
+app.include_router(projects_router, prefix="/api/v1")
+app.include_router(roles_router, prefix="/api/v1")
 
 
 # ============ SSE 实时日志推送 ============
@@ -450,18 +583,20 @@ router_sse = APIRouter(prefix="/api/v1/sse", tags=["SSE实时日志"])
 
 # 存储活跃的SSE连接
 sse_connections: list[asyncio.Queue] = []
+MAX_SSE_CONNECTIONS = 50
 
 
 async def sse_log_generator(queue: asyncio.Queue, stage: str = ""):
     """SSE 日志流生成器"""
     try:
         while True:
-            # 等待新日志，超时30秒发送心跳
             try:
                 data = await asyncio.wait_for(queue.get(), timeout=30)
                 yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
             except asyncio.TimeoutError:
-                yield f": heartbeat\n\n"  # SSE 心跳注释行
+                yield f": heartbeat\n\n"
+            except Exception:
+                break
     except asyncio.CancelledError:
         pass
     finally:
@@ -472,6 +607,9 @@ async def sse_log_generator(queue: asyncio.Queue, stage: str = ""):
 @router_sse.get("/logs")
 async def sse_logs(request: Request, stage: str = ""):
     """SSE 实时日志流"""
+    if len(sse_connections) >= MAX_SSE_CONNECTIONS:
+        raise HTTPException(status_code=503, detail="SSE连接数已达上限")
+    
     queue: asyncio.Queue = asyncio.Queue()
     sse_connections.append(queue)
 
@@ -491,7 +629,6 @@ async def broadcast_log(level: str, message: str, stage: str = "system", detail:
     timestamp = __import__("datetime").datetime.now().isoformat()
     data = {"level": level, "message": message, "stage": stage, "detail": detail, "timestamp": timestamp}
 
-    # 打印到终端（带可读格式）
     stage_tag = f"[{stage}]" if stage and stage != "system" else ""
     emoji_map = {"AGENT": "🤖", "SSE": "📡", "INFO": "ℹ️", "WARN": "⚠️", "ERROR": "❌", "DEBUG": "🔍"}
     emoji = emoji_map.get(level, "📋")
@@ -505,15 +642,17 @@ async def broadcast_log(level: str, message: str, stage: str = "system", detail:
     if detail:
         logger.debug(f"  └─ detail: {detail[:500]}")
 
-    # 广播到SSE连接
     disconnected = []
     for queue in sse_connections:
         try:
-            await queue.put(data)
-        except Exception:
+            await asyncio.wait_for(queue.put(data), timeout=1.0)
+        except (asyncio.TimeoutError, Exception):
             disconnected.append(queue)
-    for q in disconnected:
-        sse_connections.remove(q)
+    
+    if disconnected:
+        for q in disconnected:
+            if q in sse_connections:
+                sse_connections.remove(q)
 
 
 app.include_router(router_sse)

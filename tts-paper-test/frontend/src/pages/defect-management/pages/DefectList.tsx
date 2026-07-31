@@ -7,6 +7,7 @@ import * as XLSX from "xlsx"
 import { toast } from "sonner"
 import PreviewModal from "../../requirement-testing/components/PreviewModal"
 import { lifecycleApi } from "@/lib/api"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 const severityOptions = ["致命", "严重", "一般", "轻微", "建议"]
 const priorityOptions = ["P0", "P1", "P2", "P3"]
@@ -80,8 +81,7 @@ export default function DefectList() {
         }))
         setDefects(mapped)
       }
-    } catch (err) {
-      console.error("获取缺陷列表失败:", err)
+    } catch {
       toast.error("获取缺陷列表失败，已使用本地数据")
       // 保持mock数据
     } finally {
@@ -174,7 +174,13 @@ export default function DefectList() {
   }
 
   const handleDelete = async (d: any) => {
-    if (!confirm(`确定删除缺陷「${d.title}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: `确定删除缺陷「${d.title}」？`,
+      danger: true,
+      confirmText: "删除",
+    })
+    if (!confirmed) return
     try {
       await lifecycleApi.deleteDefect(d.id)
       toast.success("缺陷已删除")
@@ -186,7 +192,13 @@ export default function DefectList() {
   }
 
   const handleBatchDelete = async () => {
-    if (!confirm(`确定删除选中的 ${selectedIds.size} 个缺陷？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: `确定删除选中的 ${selectedIds.size} 个缺陷？`,
+      danger: true,
+      confirmText: "删除",
+    })
+    if (!confirmed) return
     try {
       await lifecycleApi.batchDeleteDefects(Array.from(selectedIds).map(Number))
       toast.success("批量删除成功")

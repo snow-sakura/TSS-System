@@ -2,7 +2,7 @@
  * 各测试类型的子页面配置
  * 定义每个子页面的表格列、Mock数据、统计卡片、操作按钮
  */
-import { CheckCircle, XCircle, Clock, Play, Eye, Edit, Trash2, Download, Pause, AlertTriangle, Shield, Zap, Target, FileText } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Play, Eye, Edit, Trash2, Download, Pause, AlertTriangle, Shield, Loader2 } from "lucide-react"
 import type { Column, StatCard, Action } from "./components/GenericTestPage"
 
 // ════════════════════════════════════════
@@ -659,7 +659,7 @@ export const EXP_PAGES = {
     { key: "id", label: "ID", width: "60px" }, { key: "name", label: "目标名称" }, { key: "url", label: "URL" },
     { key: "status", label: "状态", render: (v: string) => <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${v === "已配置" ? "bg-pass/10 text-pass" : "bg-cream text-muted"}`}>{v}</span> },
   ], data: [
-    { id: 1, name: "TSS售票系统", url: "http://8.141.14.188:5000", status: "已配置" },
+    { id: 1, name: "TSS售票系统", url: "https://tss-server.example.com", status: "已配置" },
   ], stats: [{ label: "目标数", value: 1, color: "text-ink" }], actions: [{ label: "编辑", icon: Edit, onClick: () => {} }, { label: "探索", icon: Play, onClick: () => {} }] },
   "exp-config": { title: "探索策略", subtitle: "配置AI探索策略", columns: [
     { key: "id", label: "ID", width: "60px" }, { key: "name", label: "策略名称" }, { key: "depth", label: "探索深度" },
@@ -696,7 +696,7 @@ export const WEB_PAGES = {
     { key: "id", label: "ID", width: "60px" }, { key: "name", label: "项目名称" }, { key: "url", label: "目标URL" },
     { key: "status", label: "状态", render: (v: string) => <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${v === "已探索" ? "bg-pass/10 text-pass" : "bg-cream text-muted"}`}>{v}</span> },
   ], data: [
-    { id: 1, name: "TSS售票系统", url: "http://8.141.14.188:5000", status: "已探索" },
+    { id: 1, name: "TSS售票系统", url: "https://tss-server.example.com", status: "已探索" },
   ], stats: [{ label: "项目数", value: 1, color: "text-ink" }], actions: [{ label: "查看", icon: Eye, onClick: () => {} }, { label: "探索", icon: Play, onClick: () => {} }] },
   "wa-explore": { title: "AI探索", subtitle: "AI视觉探索Web页面", columns: [
     { key: "id", label: "ID", width: "60px" }, { key: "title", label: "页面标题" }, { key: "url", label: "URL" },

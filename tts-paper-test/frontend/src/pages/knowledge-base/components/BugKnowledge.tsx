@@ -6,6 +6,7 @@ import { Search, Plus, Edit, Trash2, Eye, X, RefreshCw, Loader2 } from "lucide-r
 import { toast } from "sonner"
 import { knowledgeApi } from "@/lib/api"
 import { Skeleton } from "@/components/ui/Skeleton"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface BugKnowledgeItem {
   id: number
@@ -47,8 +48,8 @@ export default function BugKnowledge() {
         setBugs(res.data.items || [])
         setPagination((p) => ({ ...p, total: res.data.total, total_pages: res.data.total_pages }))
       }
-    } catch (e) {
-      console.error(e)
+    } catch {
+      // silently handle error
     } finally {
       setLoading(false)
     }
@@ -82,7 +83,8 @@ export default function BugKnowledge() {
   }
 
   const handleDelete = async (b: BugKnowledgeItem) => {
-    if (!confirm(`确定删除Bug「${b.title}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除Bug「${b.title}」？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await knowledgeApi.deleteBugKnowledge(b.id)
       toast.success("Bug已删除")

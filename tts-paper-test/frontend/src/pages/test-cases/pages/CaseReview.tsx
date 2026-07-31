@@ -40,6 +40,16 @@ export default function CaseReview() {
     return true
   })
 
+  const fetchReviews = async () => {
+    setLoading(true)
+    try {
+      // 重新加载数据
+      setReviews([...INITIAL_REVIEWS])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleApprove = (id: number) => {
     setReviews(reviews.map((r) => r.id === id ? { ...r, status: "已通过", score: 95, comment: "审批通过" } : r))
     toast.success("审批通过")

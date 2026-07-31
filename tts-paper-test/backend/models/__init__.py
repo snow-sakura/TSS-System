@@ -17,6 +17,8 @@ from .test_lifecycle import (
     TestExecution as LifecycleTestExecution,
     Defect,
     TestReport,
+    PipelineRecord,
+    Review,
 )
 from .config import (
     Environment,
@@ -26,6 +28,7 @@ from .config import (
     MCPService,
     Skill,
     HermesChannel,
+    StepPromptConfig,
 )
 from .workflow import (
     Workflow,
@@ -33,6 +36,10 @@ from .workflow import (
     WorkflowEdge,
     WorkflowExecution,
     WorkflowNodeExecution,
+)
+from .project import (
+    Project,
+    Version,
 )
 
 __all__ = [
@@ -54,6 +61,8 @@ __all__ = [
     "LifecycleTestExecution",
     "Defect",
     "TestReport",
+    "PipelineRecord",
+    "Review",
     "Environment",
     "LLMProvider",
     "PromptTemplate",
@@ -61,9 +70,12 @@ __all__ = [
     "MCPService",
     "Skill",
     "HermesChannel",
+    "StepPromptConfig",
     "Workflow",
     "WorkflowNode",
     "WorkflowEdge",
     "WorkflowExecution",
     "WorkflowNodeExecution",
+    "Project",
+    "Version",
 ]

@@ -74,8 +74,7 @@ export default function EngineSelector() {
       setEngines(list)
       const currentEngine = list.find((e) => e.is_default)
       if (currentEngine) setCurrent(currentEngine.type)
-    } catch (err) {
-      console.error("获取引擎列表失败:", err)
+    } catch {
       toast.error("无法获取引擎列表，请检查服务端连接")
     } finally {
       setLoading(false)
@@ -196,8 +195,8 @@ export default function EngineSelector() {
                         {/* 状态 + 切换 */}
                         <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
                           {engine.available
-                            ? <CheckCircle className="w-4 h-4 text-pass" title="可用" />
-                            : <XCircle className="w-4 h-4 text-fail" title="不可用" />
+                            ? <CheckCircle className="w-4 h-4 text-pass" aria-label="可用" />
+                            : <XCircle className="w-4 h-4 text-fail" aria-label="不可用" />
                           }
                           {!isCurrent && (
                             <Button

@@ -62,79 +62,46 @@ export const moduleTabs: ModuleTab[] = [
     label: "测试管理",
     modules: [
       {
-        key: "requirement-testing",
-        title: "需求测试",
-        desc: "全流程自动化：需求分析 → 规划方案 → 提取测试点 → 用例生成 → 用例评审",
+        // 合并卡片：原需求测试+执行测试+缺陷管理+分析报告 合并为一个大卡片
+        key: "test-management-hub",
+        title: "测试管理",
+        desc: "全流程测试管理：需求分析 → 执行测试 → 缺陷跟踪 → 分析报告，一站式闭环",
         icon: "Sparkles",
         gradient: "from-amber to-orange-500",
         menus: [
-          { label: "全流程执行", key: "rt-pipeline", icon: "Play", children: [
-            { label: "执行流水线", key: "rt-run" },
-            { label: "执行历史", key: "rt-history" },
-          ]},
-          { label: "流程记录", key: "rt-process-records", icon: "ScrollText", children: [
-            { label: "流程记录列表", key: "rt-records-list" },
-          ]},
-          { label: "需求分析", key: "rt-requirements", icon: "FileText", children: [
+          // 需求测试（展开子菜单）
+          { label: "需求测试", key: "rt-group", icon: "FileText", children: [
+            { label: "全流程执行", key: "rt-run" },
+            { label: "流程记录", key: "rt-records-list" },
             { label: "需求列表", key: "rt-req-list" },
-            { label: "上传文档", key: "rt-req-upload" },
-          ]},
-          { label: "测试方案", key: "rt-plans", icon: "ClipboardList", children: [
             { label: "方案列表", key: "rt-plan-list" },
-          ]},
-          { label: "测试点", key: "rt-points", icon: "Target", children: [
             { label: "测试点列表", key: "rt-point-list" },
-          ]},
-          { label: "用例管理", key: "rt-cases", icon: "FlaskConical", children: [
             { label: "用例列表", key: "rt-case-list" },
             { label: "用例评审", key: "rt-case-review" },
           ]},
+          // 执行测试（展开子菜单）
+          { label: "执行测试", key: "ex-group", icon: "Play", children: [
+            { label: "执行列表", key: "ex-list" },
+            { label: "执行详情", key: "ex-detail" },
+            { label: "调度配置", key: "ex-schedule" },
+          ]},
+          // 缺陷管理（展开子菜单）
+          { label: "缺陷管理", key: "df-group", icon: "Bug", children: [
+            { label: "缺陷列表", key: "df-list" },
+            { label: "看板视图", key: "df-kanban" },
+            { label: "AI根因分析", key: "df-root-cause" },
+            { label: "趋势分析", key: "df-trend" },
+          ]},
+          // 分析报告（展开子菜单）
+          { label: "分析报告", key: "rp-group", icon: "BarChart3", children: [
+            { label: "报告列表", key: "rp-list" },
+            { label: "AI生成报告", key: "rp-generate" },
+            { label: "质量概览", key: "rp-overview" },
+            { label: "趋势图表", key: "rp-trends" },
+          ]},
         ],
       },
-      {
-        key: "executions",
-        title: "执行测试",
-        desc: "实时执行追踪与结果收集，支持调度与CI触发",
-        icon: "Play",
-        gradient: "from-sky-500 to-blue-600",
-        menus: [
-          { label: "执行列表", key: "ex-list", icon: "Play", children: [] },
-          { label: "执行详情", key: "ex-detail", icon: "Eye", children: [] },
-          { label: "调度配置", key: "ex-schedule", icon: "Calendar", children: [] },
-        ],
-      },
-      {
-        key: "defects",
-        title: "缺陷管理",
-        desc: "AI缺陷分析与根因定位，看板视图与趋势追踪",
-        icon: "Bug",
-        gradient: "from-rose-500 to-red-600",
-        menus: [
-          { label: "缺陷列表", key: "df-list", icon: "Bug", children: [] },
-          { label: "看板视图", key: "df-kanban", icon: "Columns2", children: [] },
-          { label: "AI根因分析", key: "df-root-cause", icon: "Search", children: [] },
-          { label: "趋势分析", key: "df-trend", icon: "TrendingUp", children: [] },
-        ],
-      },
-      {
-        key: "reports",
-        title: "分析报告",
-        desc: "智能质量洞察与报告生成，支持自动汇总与图表",
-        icon: "BarChart3",
-        gradient: "from-teal-500 to-emerald-600",
-        menus: [
-          { label: "报告列表", key: "rp-list", icon: "BarChart3", children: [] },
-          { label: "AI生成报告", key: "rp-generate", icon: "Sparkles", children: [] },
-          { label: "质量概览", key: "rp-overview", icon: "Eye", children: [] },
-          { label: "趋势图表", key: "rp-trends", icon: "LineChart", children: [] },
-        ],
-      },
-    ],
-  },
-  {
-    key: "ai-automation",
-    label: "AI自动化",
-    modules: [
+      // 从原「AI自动化」Tab移入的独立卡片
       {
         key: "web-automation",
         title: "AI Web自动化",

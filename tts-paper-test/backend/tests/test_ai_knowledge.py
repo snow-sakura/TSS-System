@@ -67,13 +67,15 @@ class TestKnowledgeAIAPI:
 
     @pytest.mark.asyncio
     async def test_extract_from_execution_no_id(self, async_client: AsyncClient, auth_headers: dict):
-        """不存在的执行记录应返回 404"""
+        """不存在的执行记录应返回 success=False（统一走 ResponseModel 语义）"""
         resp = await async_client.post(
             "/api/v1/knowledge/ai/extract-from-execution",
             json={"execution_id": 99999},
             headers=auth_headers,
         )
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        data = resp.json().get("data", resp.json())
+        assert data.get("success") is False
 
 
 class TestKnowledgeAIEndpointAvailability:

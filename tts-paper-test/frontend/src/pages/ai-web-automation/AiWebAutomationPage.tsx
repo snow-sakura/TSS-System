@@ -183,8 +183,7 @@ function AiWebAutomationPage() {
       if (pipelineAbortRef.current) return
       updateStep("report", "completed")
 
-    } catch (err) {
-      console.error("流水线执行失败:", err)
+    } catch {
       // 标记当前 running 步骤为 failed
       setFlowStatus((prev) => {
         const updated = { ...prev }
@@ -208,7 +207,7 @@ function AiWebAutomationPage() {
   const renderContent = () => {
     switch (activeMenu) {
       case "wa-projects":
-        return <ProjectList onStatusChange={handleStatusChange} />
+        return <ProjectList />
       case "wa-agent":
         return <AiAgentPanel />
       case "wa-explore":
@@ -218,7 +217,7 @@ function AiWebAutomationPage() {
       case "wa-execution":
         return <ExecutionView />
       default:
-        return <ProjectList onStatusChange={handleStatusChange} />
+        return <ProjectList />
     }
   }
 

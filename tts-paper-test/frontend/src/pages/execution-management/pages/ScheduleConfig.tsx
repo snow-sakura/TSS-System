@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Plus, Edit, Trash2, Calendar, Clock, Power, PowerOff, X, ToggleLeft, ToggleRight } from "lucide-react"
 import { toast } from "sonner"
 import { lifecycleApi } from "@/lib/api"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 const initialSchedules = [
   { id: 1, name: "每日回归测试", cron: "0 22 * * *", module: "全模块", environment: "测试环境", trigger: "定时", enabled: true, lastRun: "2026-07-19 22:00", nextRun: "2026-07-20 22:00", lastResult: "通过", description: "每晚10点执行全量回归测试" },
@@ -46,8 +47,7 @@ export default function ScheduleConfig() {
           }))
         setSchedules(scheduled.length > 0 ? scheduled : initialSchedules)
       }
-    } catch (err) {
-      console.error("获取调度配置失败:", err)
+    } catch {
       toast.error("获取调度配置失败，已使用本地数据")
       // 保持mock数据
     } finally {
@@ -101,7 +101,8 @@ export default function ScheduleConfig() {
   }
 
   const handleDelete = async (s: any) => {
-    if (!confirm(`确定删除调度任务「${s.name}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除调度任务「${s.name}」？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await lifecycleApi.deleteExecution(s.id)
       toast.success("调度任务已删除")

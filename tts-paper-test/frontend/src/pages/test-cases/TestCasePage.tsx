@@ -35,8 +35,8 @@ export default function TestCasePage() {
       iconGradient="from-emerald-500 to-green-600"
       menuItems={MENU_ITEMS}
       activeMenu={activeMenu}
-    >
-      {renderContent()}
-    </PageLayout>
+      basePath="/test-cases"
+      renderContent={renderContent}
+    />
   )
 }

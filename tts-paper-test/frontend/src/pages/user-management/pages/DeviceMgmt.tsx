@@ -6,6 +6,7 @@ import { Search, ShieldCheck, ShieldOff, Trash2, Smartphone, Monitor, Laptop, Re
 import { toast } from "sonner"
 import { usersApi } from "@/lib/api"
 import { Skeleton } from "@/components/ui/Skeleton"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface DeviceItem {
   id: number
@@ -41,8 +42,8 @@ export default function DeviceMgmt() {
         setDevices(res.data.items || [])
         setPagination((p) => ({ ...p, total: res.data.total, total_pages: res.data.total_pages }))
       }
-    } catch (e) {
-      console.error(e)
+    } catch {
+      // silently handle error
     } finally {
       setLoading(false)
     }
@@ -59,7 +60,13 @@ export default function DeviceMgmt() {
   }
 
   const handleBan = async (id: number) => {
-    if (!confirm("确定封禁该设备？")) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认封禁",
+      message: "确定封禁该设备？",
+      danger: true,
+      confirmText: "封禁",
+    })
+    if (!confirmed) return
     try {
       await usersApi.updateDeviceStatus(id, "已封禁")
       toast.success("设备已封禁")
@@ -68,7 +75,13 @@ export default function DeviceMgmt() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm("确定删除该设备记录？")) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: "确定删除该设备记录？",
+      danger: true,
+      confirmText: "删除",
+    })
+    if (!confirmed) return
     try {
       await usersApi.deleteDevice(id)
       toast.success("设备已删除")

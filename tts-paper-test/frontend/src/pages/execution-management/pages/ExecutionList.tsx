@@ -7,6 +7,7 @@ import * as XLSX from "xlsx"
 import { toast } from "sonner"
 import PreviewModal from "../../requirement-testing/components/PreviewModal"
 import { lifecycleApi } from "@/lib/api"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 const environmentOptions = ["测试环境", "预发布环境", "生产环境", "开发环境"]
 const statusOptions = ["待执行", "执行中", "通过", "失败", "跳过", "阻塞", "已停止"]
@@ -77,8 +78,7 @@ export default function ExecutionList() {
         }))
         setExecutions(mapped)
       }
-    } catch (err) {
-      console.error("获取执行列表失败:", err)
+    } catch {
       toast.error("获取执行列表失败，已使用本地数据")
       // 保持mock数据作为后备
     } finally {
@@ -150,7 +150,8 @@ export default function ExecutionList() {
   }
 
   const handleDelete = async (e: any) => {
-    if (!confirm(`确定删除执行「${e.name}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除执行「${e.name}」？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await lifecycleApi.deleteExecution(e.id)
       toast.success("执行已删除")
@@ -184,9 +185,7 @@ export default function ExecutionList() {
               } : e
             ))
           }
-        } catch (err) {
-          console.error("获取执行进度失败:", err)
-        }
+        } catch {}
       }, 2000)
       progressTimers.current.set(exec.id, timer)
       // 5秒后停止轮询
@@ -211,7 +210,8 @@ export default function ExecutionList() {
   }
 
   const handleStopExecution = async (exec: any) => {
-    if (!confirm(`确定停止执行「${exec.name}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认操作", message: `确定停止执行「${exec.name}」？`, confirmText: "确认" })
+    if (!confirmed) return
     try {
       await lifecycleApi.stopExecution(exec.id)
       toast.success("执行已停止")
@@ -229,7 +229,8 @@ export default function ExecutionList() {
   }
 
   const handleBatchDelete = async () => {
-    if (!confirm(`确定删除选中的 ${selectedIds.size} 条执行？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除选中的 ${selectedIds.size} 条执行？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await Promise.all(Array.from(selectedIds).map((id) => lifecycleApi.deleteExecution(Number(id))))
       toast.success("批量删除成功")

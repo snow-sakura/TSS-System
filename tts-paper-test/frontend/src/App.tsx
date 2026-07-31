@@ -8,6 +8,7 @@ import LoginPage from "@/pages/auth/LoginPage"
 import RegisterPage from "@/pages/auth/RegisterPage"
 import DashboardPage from "@/pages/dashboard/DashboardPage"
 import AiAssistant from "@/components/ai-assistant/AiAssistant"
+import ConfirmDialog from "@/components/ui/ConfirmDialog"
 
 // 懒加载页面组件（按路由分割代码）
 const ActivitiesPage = lazy(() => import("@/pages/dashboard/ActivitiesPage"))
@@ -21,11 +22,35 @@ const UserManagementPage = lazy(() => import("@/pages/user-management/UserManage
 const DefectManagementPage = lazy(() => import("@/pages/defect-management/DefectManagementPage"))
 const ExecutionManagementPage = lazy(() => import("@/pages/execution-management/ExecutionManagementPage"))
 const ReportManagementPage = lazy(() => import("@/pages/report-management/ReportManagementPage"))
-const SystemManagementPage = lazy(() => import("@/pages/system-management/SystemManagementPage"))
 const MCPMarketplacePage = lazy(() => import("@/pages/mcp-marketplace/MCPMarketplacePage"))
 const AiWebAutomationPage = lazy(() => import("@/pages/ai-web-automation/AiWebAutomationPage"))
 const KnowledgeBasePage = lazy(() => import("@/pages/knowledge-base/KnowledgeBasePage"))
 const WorkflowEditorPage = lazy(() => import("@/pages/workflow-editor/WorkflowEditorPage"))
+const TestManagementHubPage = lazy(() => import("@/pages/test-management-hub/TestManagementHubPage"))
+
+// 新的测试管理模块（带侧边栏布局）
+const TestManagementLayout = lazy(() => import("@/pages/test-management/TestManagementLayout"))
+const RequirementsPage = lazy(() => import("@/pages/test-management/requirements/RequirementsPage"))
+const PlansPage = lazy(() => import("@/pages/test-management/plans/PlansPage"))
+const PointsPage = lazy(() => import("@/pages/test-management/points/PointsPage"))
+const CasesPage = lazy(() => import("@/pages/test-management/cases/CasesPage"))
+const ReviewsPage = lazy(() => import("@/pages/test-management/reviews/ReviewsPage"))
+const ExecutionsPage = lazy(() => import("@/pages/test-management/executions/ExecutionsPage"))
+const SchedulesPage = lazy(() => import("@/pages/test-management/schedules/SchedulesPage"))
+const DefectsPage = lazy(() => import("@/pages/test-management/defects/DefectsPage"))
+const KanbanPage = lazy(() => import("@/pages/test-management/kanban/KanbanPage"))
+const RootCausePage = lazy(() => import("@/pages/test-management/root-cause/RootCausePage"))
+const TrendPage = lazy(() => import("@/pages/test-management/trend/TrendPage"))
+const ReportsPage = lazy(() => import("@/pages/test-management/reports/ReportsPage"))
+const AIReportPage = lazy(() => import("@/pages/test-management/ai-report/AIReportPage"))
+const QualityPage = lazy(() => import("@/pages/test-management/quality/QualityPage"))
+const AIPipeline = lazy(() => import("@/pages/requirement-testing/pages/AIPipeline"))
+const PipelineRecordsPage = lazy(() => import("@/pages/test-management/pipeline/PipelineRecordsPage"))
+const StepPromptConfigPage = lazy(() => import("@/pages/test-management/StepPromptConfigPage"))
+const TestUserManagementPage = lazy(() => import("@/pages/test-management/UserManagementPage"))
+const TestRoleManagementPage = lazy(() => import("@/pages/test-management/RoleManagementPage"))
+const ProjectManagementPage = lazy(() => import("@/pages/test-management/ProjectManagementPage"))
+const VersionManagementPage = lazy(() => import("@/pages/test-management/VersionManagementPage"))
 
 const queryClient = new QueryClient()
 
@@ -58,11 +83,44 @@ export default function App() {
             <Route path="/defects" element={<DefectManagementPage />} />
             <Route path="/executions" element={<ExecutionManagementPage />} />
             <Route path="/reports" element={<ReportManagementPage />} />
-            <Route path="/system" element={<SystemManagementPage />} />
             <Route path="/mcp-marketplace" element={<MCPMarketplacePage />} />
             <Route path="/ai-web-automation" element={<AiWebAutomationPage />} />
             <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
             <Route path="/workflow-orchestration" element={<WorkflowEditorPage />} />
+            <Route path="/test-management" element={<TestManagementLayout />}>
+              <Route index element={<Navigate to="/test-management/requirements" replace />} />
+              {/* 需求测试 */}
+              <Route path="requirements" element={<RequirementsPage />} />
+              <Route path="plans" element={<PlansPage />} />
+              <Route path="points" element={<PointsPage />} />
+              <Route path="cases" element={<CasesPage />} />
+              <Route path="reviews" element={<ReviewsPage />} />
+              {/* 执行管理 */}
+              <Route path="executions" element={<ExecutionsPage />} />
+              <Route path="schedules" element={<SchedulesPage />} />
+              {/* 缺陷管理 */}
+              <Route path="defects" element={<DefectsPage />} />
+              <Route path="kanban" element={<KanbanPage />} />
+              <Route path="root-cause" element={<RootCausePage />} />
+              <Route path="trend" element={<TrendPage />} />
+              {/* 分析报告 */}
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="ai-report" element={<AIReportPage />} />
+              <Route path="quality" element={<QualityPage />} />
+              {/* AI全流程 */}
+              <Route path="pipeline" element={<AIPipeline />} />
+              <Route path="records" element={<PipelineRecordsPage />} />
+              {/* 基础配置 */}
+              <Route path="project-management" element={<ProjectManagementPage />} />
+              <Route path="version-management" element={<VersionManagementPage />} />
+              <Route path="step-config" element={<StepPromptConfigPage />} />
+              {/* 系统管理 */}
+              <Route path="user-management" element={<TestUserManagementPage />} />
+              <Route path="role-management" element={<TestRoleManagementPage />} />
+            </Route>
+            {/* 保留旧路由以便兼容 */}
+            <Route path="/test-management-hub" element={<TestManagementHubPage />} />
+            <Route path="/test-management-hub/:subKey" element={<TestManagementHubPage />} />
             <Route path="/:moduleKey/detail/:id" element={<DetailPage />} />
             <Route path="/:moduleKey" element={<ModulePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -70,6 +128,7 @@ export default function App() {
         </Suspense>
       </BrowserRouter>
       <AiAssistant />
+      <ConfirmDialog />
       <Toaster position="top-right" richColors />
     </QueryClientProvider>
   )

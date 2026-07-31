@@ -135,6 +135,29 @@ class HealthHistory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 
+class StepPromptConfig(Base):
+    """Pipeline步骤提示词配置表 - 每个步骤的完整AI配置"""
+    __tablename__ = "step_prompt_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    step_key: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, comment="步骤标识：analyze/plan/point/case/review/execution/report")
+    step_name: Mapped[str] = mapped_column(String(100), nullable=False, comment="步骤名称")
+    step_order: Mapped[int] = mapped_column(Integer, default=0, comment="步骤顺序")
+    icon: Mapped[str] = mapped_column(String(50), nullable=True, comment="图标名称")
+    description: Mapped[str] = mapped_column(String(500), nullable=True, comment="步骤描述")
+    system_prompt: Mapped[str] = mapped_column(Text, nullable=False, comment="系统提示词 - 定义AI角色和行为")
+    user_prompt_template: Mapped[str] = mapped_column(Text, nullable=False, comment="用户提示词模板 - 支持变量占位符")
+    skill_prompt: Mapped[str] = mapped_column(Text, nullable=True, comment="技能提示词 - 定义该步骤使用的技能和方法论")
+    output_template: Mapped[str] = mapped_column(Text, nullable=True, comment="输出模板 - 定义输出格式和结构要求")
+    skills: Mapped[dict] = mapped_column(JSON, nullable=True, comment="关联技能列表 [{name, description, content}]")
+    variables: Mapped[dict] = mapped_column(JSON, nullable=True, comment="变量定义 [{name, type, description, required}]")
+    output_logs_template: Mapped[dict] = mapped_column(JSON, nullable=True, comment="输出日志模板 [{content, delay_ms}]")
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, comment="是否为系统默认配置")
+    status: Mapped[str] = mapped_column(String(20), default="已启用", comment="状态：已启用/未启用")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class LLMUsageLog(Base):
     """LLM调用使用记录表"""
     __tablename__ = "llm_usage_logs"

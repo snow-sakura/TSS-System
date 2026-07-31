@@ -115,6 +115,95 @@ async def get_dashboard_stats(
     })
 
 
+@router.get("/pipeline/stages")
+async def get_pipeline_stages(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """获取流水线各阶段统计数据（用于 Hub 页面）"""
+    from sqlalchemy import func
+
+    # 阶段1: 需求测试 - 需求 + 方案 + 测试点 + 用例 + 评审
+    req_count = (await db.execute(select(func.count(Requirement.id)))).scalar() or 0
+    plan_count = (await db.execute(select(func.count(TestPlan.id)))).scalar() or 0
+    point_count = (await db.execute(select(func.count(TestPoint.id)))).scalar() or 0
+    case_count = (await db.execute(select(func.count(TestCase.id)))).scalar() or 0
+    review_count = (await db.execute(select(func.count(Review.id)))).scalar() or 0
+
+    req_done = (await db.execute(select(func.count(Requirement.id)).where(Requirement.status.in_(["analyzed", "completed"])))).scalar() or 0
+    case_done = (await db.execute(select(func.count(TestCase.id)).where(TestCase.status.in_(["approved", "confirmed", "completed"])))).scalar() or 0
+
+    # 阶段2: 执行测试
+    exec_count = (await db.execute(select(func.count(TestExecution.id)))).scalar() or 0
+    exec_running = (await db.execute(select(func.count(TestExecution.id)).where(TestExecution.status == "running"))).scalar() or 0
+    exec_done = (await db.execute(select(func.count(TestExecution.id)).where(TestExecution.status.in_(["passed", "completed", "failed"])))).scalar() or 0
+
+    # 阶段3: 缺陷管理
+    defect_count = (await db.execute(select(func.count(Defect.id)))).scalar() or 0
+    defect_open = (await db.execute(select(func.count(Defect.id)).where(Defect.status.in_(["new", "open", "confirmed", "in_progress"])))).scalar() or 0
+    defect_done = (await db.execute(select(func.count(Defect.id)).where(Defect.status.in_(["resolved", "closed"])))).scalar() or 0
+
+    # 阶段4: 分析报告
+    report_count = (await db.execute(select(func.count(TestReport.id)))).scalar() or 0
+    report_published = (await db.execute(select(func.count(TestReport.id)).where(TestReport.status == "published"))).scalar() or 0
+
+    return ResponseModel(data={
+        "stages": [
+            {
+                "id": "requirements",
+                "label": "需求测试",
+                "icon": "FileText",
+                "total": req_count + plan_count + point_count + case_count,
+                "done": req_done + case_done,
+                "subCounts": {
+                    "requirements": req_count,
+                    "plans": plan_count,
+                    "points": point_count,
+                    "cases": case_count,
+                    "reviews": review_count,
+                },
+                "subDone": {
+                    "requirements": req_done,
+                    "cases": case_done,
+                },
+            },
+            {
+                "id": "execution",
+                "label": "执行测试",
+                "icon": "Play",
+                "total": exec_count,
+                "done": exec_done,
+                "subCounts": {
+                    "executions": exec_count,
+                    "running": exec_running,
+                },
+            },
+            {
+                "id": "defects",
+                "label": "缺陷管理",
+                "icon": "Bug",
+                "total": defect_count,
+                "done": defect_done,
+                "subCounts": {
+                    "defects": defect_count,
+                    "open": defect_open,
+                },
+            },
+            {
+                "id": "reports",
+                "label": "分析报告",
+                "icon": "BarChart3",
+                "total": report_count,
+                "done": report_published,
+                "subCounts": {
+                    "reports": report_count,
+                    "published": report_published,
+                },
+            },
+        ],
+    })
+
+
 # 上传文件存储目录
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads" / "requirements"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -133,7 +222,7 @@ async def create_requirement(
     await create_operation_log(db, module="test-lifecycle", action="create_requirement",
                                user_id=user.id, username=user.username,
                                target_id=str(req.id), target_type="requirement")
-    return ResponseModel(message="需求创建成功", data=RequirementResponse.model_validate(req))
+    return ResponseModel(message="需求创建成功", data=RequirementResponse.from_orm(req))
 
 
 @router.get("/requirements", response_model=ResponseModel)
@@ -146,15 +235,18 @@ async def list_requirements(
     search: str = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    project_id: int = Query(None),
+    version_id: int = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_dep),
 ):
     """需求列表，支持多条件筛选、搜索、排序"""
     result = await tls.list_requirements(
-        db, page, page_size, status, priority, source, search, sort_by, sort_order
+        db, page, page_size, status, priority, source, search, sort_by, sort_order,
+        project_id=project_id, version_id=version_id
     )
     # 序列化 items
-    result["items"] = [RequirementResponse.model_validate(r) for r in result["items"]]
+    result["items"] = [RequirementResponse.from_orm(r) for r in result["items"]]
     return ResponseModel(data=result)
 
 
@@ -166,7 +258,7 @@ async def get_requirement(
 ):
     """需求详情"""
     req = await tls.get_requirement(db, requirement_id)
-    return ResponseModel(data=RequirementResponse.model_validate(req))
+    return ResponseModel(data=RequirementResponse.from_orm(req))
 
 
 @router.put("/requirements/{requirement_id}", response_model=ResponseModel)
@@ -178,7 +270,7 @@ async def update_requirement(
 ):
     """更新需求"""
     req = await tls.update_requirement(db, requirement_id, body.model_dump(exclude_unset=True))
-    return ResponseModel(message="更新成功", data=RequirementResponse.model_validate(req))
+    return ResponseModel(message="更新成功", data=RequirementResponse.from_orm(req))
 
 
 @router.delete("/requirements/{requirement_id}", response_model=ResponseModel)
@@ -212,7 +304,7 @@ async def update_requirement_status(
 ):
     """快速更新需求状态"""
     req = await tls.update_requirement_status(db, requirement_id, status)
-    return ResponseModel(message="状态更新成功", data=RequirementResponse.model_validate(req))
+    return ResponseModel(message="状态更新成功", data=RequirementResponse.from_orm(req))
 
 
 # ============ 需求文档上传 ============
@@ -282,7 +374,7 @@ async def upload_requirement_document(
 
     return ResponseModel(
         message="文档上传成功" if parse_status == "parsed" else f"文档已上传但解析失败: {parse_error}",
-        data=RequirementResponse.model_validate(req),
+        data=RequirementResponse.from_orm(req),
     )
 
 
@@ -313,7 +405,7 @@ async def create_manual_requirement(
                                user_id=user.id, username=user.username,
                                target_id=str(req.id), target_type="requirement")
 
-    return ResponseModel(message="需求创建成功", data=RequirementResponse.model_validate(req))
+    return ResponseModel(message="需求创建成功", data=RequirementResponse.from_orm(req))
 
 
 # ============ 需求AI分析 (SSE流式) ============
@@ -386,16 +478,19 @@ async def create_test_plan(
     user: User = Depends(get_current_user_dep),
 ):
     plan = await tls.create_test_plan(db, body.model_dump(), user.id)
-    return ResponseModel(message="方案创建成功", data=TestPlanResponse.model_validate(plan))
+    return ResponseModel(message="方案创建成功", data=TestPlanResponse.from_orm(plan))
 
 
 @router.get("/test-plans", response_model=ResponseModel)
 async def list_test_plans(
     page: int = 1, page_size: int = 20, status: str = None,
+    project_id: int = Query(None), version_id: int = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_dep),
 ):
-    result = await tls.list_test_plans(db, page, page_size, status)
+    result = await tls.list_test_plans(db, page, page_size, status,
+                                       project_id=project_id, version_id=version_id)
+    result["items"] = [TestPlanResponse.from_orm(p) for p in result["items"]]
     return ResponseModel(data=result)
 
 
@@ -406,7 +501,7 @@ async def get_test_plan(
     user: User = Depends(get_current_user_dep),
 ):
     plan = await tls.get_test_plan(db, plan_id)
-    return ResponseModel(data=TestPlanResponse.model_validate(plan))
+    return ResponseModel(data=TestPlanResponse.from_orm(plan))
 
 
 @router.put("/test-plans/{plan_id}", response_model=ResponseModel)
@@ -416,7 +511,7 @@ async def update_test_plan(
     user: User = Depends(get_current_user_dep),
 ):
     plan = await tls.update_test_plan(db, plan_id, body.model_dump(exclude_unset=True))
-    return ResponseModel(message="更新成功", data=TestPlanResponse.model_validate(plan))
+    return ResponseModel(message="更新成功", data=TestPlanResponse.from_orm(plan))
 
 
 @router.delete("/test-plans/{plan_id}", response_model=ResponseModel)
@@ -424,6 +519,16 @@ async def delete_test_plan(plan_id: int, db: AsyncSession = Depends(get_db),
                            user: User = Depends(get_current_user_dep)):
     await tls.delete_test_plan(db, plan_id)
     return ResponseModel(message="方案已删除")
+
+
+@router.post("/test-plans/batch-delete", response_model=ResponseModel)
+async def batch_delete_test_plans(
+    ids: list[int],
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    count = await tls.batch_delete_test_plans(db, ids)
+    return ResponseModel(message=f"已删除 {count} 条方案")
 
 
 # ============ 测试点管理 ============
@@ -435,16 +540,18 @@ async def create_test_point(
     user: User = Depends(get_current_user_dep),
 ):
     point = await tls.create_test_point(db, body.model_dump(), user.id)
-    return ResponseModel(message="测试点创建成功", data=TestPointResponse.model_validate(point))
+    return ResponseModel(message="测试点创建成功", data=TestPointResponse.from_orm(point))
 
 
 @router.get("/test-points", response_model=ResponseModel)
 async def list_test_points(
     page: int = 1, page_size: int = 20, status: str = None,
+    project_id: int = Query(None), version_id: int = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_dep),
 ):
-    result = await tls.list_test_points(db, page, page_size, status)
+    result = await tls.list_test_points(db, page, page_size, status,
+                                        project_id=project_id, version_id=version_id)
     return ResponseModel(data=result)
 
 
@@ -452,7 +559,7 @@ async def list_test_points(
 async def get_test_point(point_id: int, db: AsyncSession = Depends(get_db),
                          user: User = Depends(get_current_user_dep)):
     point = await tls.get_test_point(db, point_id)
-    return ResponseModel(data=TestPointResponse.model_validate(point))
+    return ResponseModel(data=TestPointResponse.from_orm(point))
 
 
 @router.put("/test-points/{point_id}", response_model=ResponseModel)
@@ -462,7 +569,7 @@ async def update_test_point(
     user: User = Depends(get_current_user_dep),
 ):
     point = await tls.update_test_point(db, point_id, body.model_dump(exclude_unset=True))
-    return ResponseModel(message="更新成功", data=TestPointResponse.model_validate(point))
+    return ResponseModel(message="更新成功", data=TestPointResponse.from_orm(point))
 
 
 @router.delete("/test-points/{point_id}", response_model=ResponseModel)
@@ -470,6 +577,16 @@ async def delete_test_point(point_id: int, db: AsyncSession = Depends(get_db),
                             user: User = Depends(get_current_user_dep)):
     await tls.delete_test_point(db, point_id)
     return ResponseModel(message="测试点已删除")
+
+
+@router.post("/test-points/batch-delete", response_model=ResponseModel)
+async def batch_delete_test_points(
+    ids: list[int],
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    count = await tls.batch_delete_test_points(db, ids)
+    return ResponseModel(message=f"已删除 {count} 条测试点")
 
 
 # ============ 测试用例 ============
@@ -481,16 +598,19 @@ async def create_test_case(
     user: User = Depends(get_current_user_dep),
 ):
     case = await tls.create_lifecycle_test_case(db, body.model_dump(), user.id)
-    return ResponseModel(message="用例创建成功", data=TestCaseResponse.model_validate(case))
+    return ResponseModel(message="用例创建成功", data=TestCaseResponse.from_orm(case))
 
 
 @router.get("/test-cases", response_model=ResponseModel)
 async def list_test_cases(
     page: int = 1, page_size: int = 20, status: str = None,
+    project_id: int = Query(None), version_id: int = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_dep),
 ):
-    result = await tls.list_lifecycle_test_cases(db, page, page_size, status)
+    result = await tls.list_lifecycle_test_cases(db, page, page_size, status,
+                                                  project_id=project_id, version_id=version_id)
+    result["items"] = [TestCaseResponse.from_orm(c) for c in result["items"]]
     return ResponseModel(data=result)
 
 
@@ -498,7 +618,7 @@ async def list_test_cases(
 async def get_test_case(case_id: int, db: AsyncSession = Depends(get_db),
                         user: User = Depends(get_current_user_dep)):
     case = await tls.get_lifecycle_test_case(db, case_id)
-    return ResponseModel(data=TestCaseResponse.model_validate(case))
+    return ResponseModel(data=TestCaseResponse.from_orm(case))
 
 
 @router.put("/test-cases/{case_id}", response_model=ResponseModel)
@@ -508,7 +628,7 @@ async def update_test_case(
     user: User = Depends(get_current_user_dep),
 ):
     case = await tls.update_lifecycle_test_case(db, case_id, body.model_dump(exclude_unset=True))
-    return ResponseModel(message="更新成功", data=TestCaseResponse.model_validate(case))
+    return ResponseModel(message="更新成功", data=TestCaseResponse.from_orm(case))
 
 
 @router.delete("/test-cases/{case_id}", response_model=ResponseModel)
@@ -619,7 +739,7 @@ async def ai_generate_test_cases(
                 "ai_model": settings.DEFAULT_LLM_MODEL,
             }
             case_obj = await tls.create_lifecycle_test_case(db, case_dict, user.id)
-            created_cases.append(TestCaseResponse.model_validate(case_obj))
+            created_cases.append(TestCaseResponse.from_orm(case_obj))
 
         await create_operation_log(
             db, module="test-lifecycle", action="ai_generate_cases",
@@ -655,7 +775,7 @@ async def ai_generate_test_cases(
                 "ai_model": "mock",
             }
             case_obj = await tls.create_lifecycle_test_case(db, case_dict, user.id)
-            mock_cases.append(TestCaseResponse.model_validate(case_obj))
+            mock_cases.append(TestCaseResponse.from_orm(case_obj))
 
         return ResponseModel(
             message=f"已生成 {len(mock_cases)} 条测试用例（模拟模式）",
@@ -681,7 +801,7 @@ async def review_test_case(
     action_labels = {"approved": "通过", "rejected": "驳回", "needs_modification": "需修改"}
     return ResponseModel(
         message=f"用例评审完成: {action_labels.get(body.action, body.action)}",
-        data=TestCaseResponse.model_validate(case),
+        data=TestCaseResponse.from_orm(case),
     )
 
 
@@ -729,6 +849,13 @@ async def delete_execution(execution_id: int, db: AsyncSession = Depends(get_db)
                            user: User = Depends(get_current_user_dep)):
     await tls.delete_execution(db, execution_id)
     return ResponseModel(message="执行记录已删除")
+
+
+@router.post("/executions/batch-delete", response_model=ResponseModel)
+async def batch_delete_executions(ids: list[int], db: AsyncSession = Depends(get_db),
+                                 user: User = Depends(get_current_user_dep)):
+    count = await tls.batch_delete_executions(db, ids)
+    return ResponseModel(message=f"已删除 {count} 条执行记录")
 
 
 # ============ 执行引擎增强 ============
@@ -857,6 +984,7 @@ async def list_defects(
     user: User = Depends(get_current_user_dep),
 ):
     result = await tls.list_defects(db, page, page_size, status)
+    result["items"] = [DefectResponse.model_validate(d) for d in result["items"]]
     return ResponseModel(data=result)
 
 
@@ -1038,18 +1166,23 @@ async def list_reports(
 ):
     result = await tls.list_reports(db, page, page_size, status)
     # 解析 created_by → username
-    user_ids = set()
-    for item in result.get("items", []):
-        if item.get("created_by"):
-            user_ids.add(item["created_by"])
-    if user_ids:
-        from models.user import User as UserModel
-        user_result = await db.execute(
-            select(UserModel).where(UserModel.id.in_(user_ids))
-        )
-        user_map = {u.id: u.username for u in user_result.scalars().all()}
-        for item in result.get("items", []):
-            item["created_by_username"] = user_map.get(item.get("created_by"))
+    raw_items = result.get("items", [])
+    if raw_items:
+        user_ids = {r.created_by for r in raw_items if r.created_by}
+        user_map = {}
+        if user_ids:
+            from models.user import User as UserModel
+            user_result = await db.execute(
+                select(UserModel).where(UserModel.id.in_(user_ids))
+            )
+            user_map = {u.id: u.username for u in user_result.scalars().all()}
+        # 序列化为 Pydantic 模型，注入用户名
+        items = []
+        for r in raw_items:
+            item = ReportResponse.model_validate(r)
+            item.created_by_username = user_map.get(r.created_by) if r.created_by else None
+            items.append(item)
+        result["items"] = items
     return ResponseModel(data=result)
 
 
@@ -1083,6 +1216,13 @@ async def delete_report(report_id: int, db: AsyncSession = Depends(get_db),
                         user: User = Depends(get_current_user_dep)):
     await tls.delete_report(db, report_id)
     return ResponseModel(message="报告已删除")
+
+
+@router.post("/reports/batch-delete", response_model=ResponseModel)
+async def batch_delete_reports(ids: list[int], db: AsyncSession = Depends(get_db),
+                               user: User = Depends(get_current_user_dep)):
+    count = await tls.batch_delete_reports(db, ids)
+    return ResponseModel(message=f"已删除 {count} 条报告")
 
 
 # ============ AI生成报告 ============
@@ -1123,7 +1263,7 @@ async def generate_report(
     major_defects = len([d for d in defects if d.severity in ("major", "严重")])
 
     # 3. 收集测试用例数据
-    cases_result = await db.execute(select(LifecycleTestCase).limit(200))
+    cases_result = await db.execute(select(TestCase).limit(200))
     cases = cases_result.scalars().all()
     total_test_cases = len(cases)
     ai_generated_cases = len([c for c in cases if c.ai_generated])
@@ -1223,7 +1363,7 @@ async def get_quality_metrics(
     critical_defects = len([d for d in defects if d.severity in ("critical", "致命")])
 
     # 用例数据
-    case_result = await db.execute(select(LifecycleTestCase))
+    case_result = await db.execute(select(TestCase))
     cases = case_result.scalars().all()
     total_test_cases = len(cases)
     ai_generated = len([c for c in cases if c.ai_generated])
@@ -1312,11 +1452,14 @@ async def list_reviews(
     page_size: int = Query(20, ge=1, le=100),
     status: str = Query(None),
     review_type: str = Query(None, alias="type"),
+    project_id: int = Query(None),
+    version_id: int = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_dep),
 ):
     """分页查询评审列表"""
-    result = await tls.list_reviews(db, page, page_size, status, review_type)
+    result = await tls.list_reviews(db, page, page_size, status, review_type,
+                                    project_id=project_id, version_id=version_id)
     return ResponseModel(data=result)
 
 
@@ -1327,7 +1470,7 @@ async def get_review(
     user: User = Depends(get_current_user_dep),
 ):
     review = await tls.get_review(db, review_id)
-    return ResponseModel(data=ReviewResponse.model_validate(review))
+    return ResponseModel(data=ReviewResponse.from_orm(review))
 
 
 @router.post("/reviews", response_model=ResponseModel)
@@ -1340,7 +1483,7 @@ async def create_review(
     await create_operation_log(db, module="test-lifecycle", action="create_review",
                                user_id=user.id, username=user.username,
                                target_id=str(review.id), target_type="review")
-    return ResponseModel(message="评审创建成功", data=ReviewResponse.model_validate(review))
+    return ResponseModel(message="评审创建成功", data=ReviewResponse.from_orm(review))
 
 
 @router.put("/reviews/{review_id}", response_model=ResponseModel)
@@ -1354,7 +1497,7 @@ async def update_review(
     await create_operation_log(db, module="test-lifecycle", action="update_review",
                                user_id=user.id, username=user.username,
                                target_id=str(review_id), target_type="review")
-    return ResponseModel(message="评审更新成功", data=ReviewResponse.model_validate(review))
+    return ResponseModel(message="评审更新成功", data=ReviewResponse.from_orm(review))
 
 
 @router.delete("/reviews/{review_id}", response_model=ResponseModel)
@@ -1370,6 +1513,16 @@ async def delete_review(
     return ResponseModel(message="评审已删除")
 
 
+@router.post("/reviews/batch-delete", response_model=ResponseModel)
+async def batch_delete_reviews(
+    ids: list[int],
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    count = await tls.batch_delete_reviews(db, ids)
+    return ResponseModel(message=f"已删除 {count} 条评审")
+
+
 # ============ 流程记录（DB 版，替代 JSON 存储） ============
 
 @router.get("/pipeline-records", summary="查询流程记录列表 (DB)")
@@ -1377,6 +1530,9 @@ async def list_pipeline_records(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: str = Query("", description="搜索"),
+    status: str = Query("", description="状态筛选"),
+    project_id: int = Query(None),
+    version_id: int = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_dep),
 ):
@@ -1384,6 +1540,13 @@ async def list_pipeline_records(
     from sqlalchemy import or_
 
     query = select(PipelineRecord).order_by(PipelineRecord.created_at.desc())
+
+    if status:
+        query = query.where(PipelineRecord.status == status)
+    if project_id:
+        query = query.where(PipelineRecord.project_id == project_id)
+    if version_id:
+        query = query.where(PipelineRecord.version_id == version_id)
 
     if search:
         query = query.where(
@@ -1416,6 +1579,12 @@ async def list_pipeline_records(
             "status": r.status,
             "total_duration": r.total_duration,
             "stage_count": r.stage_count,
+            "project_id": r.project_id,
+            "project_name": r.project.name if r.project else None,
+            "version_id": r.version_id,
+            "version_name": r.version.name if r.version else None,
+            "started_at": r.created_at.isoformat() if r.created_at else None,
+            "completed_at": r.updated_at.isoformat() if r.updated_at and r.status in ("completed", "failed") else None,
             "created_at": r.created_at.isoformat() if r.created_at else None,
         })
 
@@ -1450,6 +1619,30 @@ async def get_pipeline_record(
         "total_duration": record.total_duration,
         "stage_count": record.stage_count,
         "stage_results": record.stage_results,
+        "project_id": record.project_id,
+        "project_name": record.project.name if record.project else None,
+        "version_id": record.version_id,
+        "version_name": record.version.name if record.version else None,
         "created_at": record.created_at.isoformat() if record.created_at else None,
         "updated_at": record.updated_at.isoformat() if record.updated_at else None,
     }
+
+
+@router.delete("/pipeline-records/{record_id}", response_model=ResponseModel)
+async def delete_pipeline_record(
+    record_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    await tls.delete_pipeline_record(db, record_id)
+    return ResponseModel(message="流程记录已删除")
+
+
+@router.post("/pipeline-records/batch-delete", response_model=ResponseModel)
+async def batch_delete_pipeline_records(
+    ids: list[int],
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    count = await tls.batch_delete_pipeline_records(db, ids)
+    return ResponseModel(message=f"已删除 {count} 条流程记录")

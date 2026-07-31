@@ -7,6 +7,7 @@ import { Search, Plus, Edit, Trash2, Eye, X, FlaskConical, Check, XCircle, Check
 import { toast } from "sonner"
 import { webApi } from "@/lib/api"
 import TestSkillLibrary from "./TestSkillLibrary"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface TestCase {
   id: number; project_id: number; title: string; description?: string; preconditions?: string;
@@ -50,9 +51,7 @@ export default function TestCaseManager() {
           setSelectedProjectId(res.data.items[0].id)
         }
       }
-    } catch (err) {
-      console.error("获取项目列表失败:", err)
-    }
+    } catch {}
   }, [selectedProjectId])
 
   // 加载测试用例
@@ -77,8 +76,7 @@ export default function TestCaseManager() {
           page_url: c.page_url,
         })))
       }
-    } catch (err) {
-      console.error("获取测试用例失败:", err)
+    } catch {
       setCases([])
       toast.error("无法加载测试用例，请检查服务器连接")
     } finally {
@@ -132,9 +130,7 @@ export default function TestCaseManager() {
               } else if (currentEvent === "generation_error") {
                 toast.error(`生成失败: ${data.error}`)
               }
-              } catch (parseErr) {
-                console.warn("SSE data parse error:", parseErr)
-              }
+              } catch {}
             currentEvent = ""
             currentData = ""
           }
@@ -160,14 +156,15 @@ export default function TestCaseManager() {
     const note = prompt("请输入驳回原因：")
     if (note === null) return
     try {
-      await webApi.rejectTestCase(c.id, note)
+      await webApi.rejectTestCase(c.id)
       toast.success("已驳回")
       fetchCases()
     } catch { toast.error("操作失败") }
   }
 
   const handleDelete = async (c: TestCase) => {
-    if (!confirm(`确定删除用例「${c.title}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除用例「${c.title}」？`, danger: true, confirmText: "删除" })
+    if (!confirmed) return
     try {
       await webApi.deleteTestCase(c.id)
       toast.success("已删除")

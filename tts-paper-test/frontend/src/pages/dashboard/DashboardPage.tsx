@@ -5,14 +5,15 @@ import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/stores/authStore"
 import { useAppStore } from "@/stores/appStore"
-import { FlaskConical, LogOut, User, Bug, Play, FileText, BarChart3, Users, CheckCircle, TrendingUp, Activity, ArrowRight, PanelRightOpen, X, Zap, Target, Clock, AlertTriangle } from "lucide-react"
+import { FlaskConical, LogOut, User, Activity, ArrowRight, PanelRightOpen, X, Zap, Play } from "lucide-react"
 import { moduleTabs } from "@/lib/modules"
-import { lifecycleApi, configApi } from "@/lib/api"
+import { lifecycleApi } from "@/lib/api"
 
 const cardIcons: Record<string, string> = {
-  "test-lifecycle": `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>`,
+  "test-management-hub": `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>`,
   "web-automation": `<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>`,
   knowledge: `<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>`,
+  "workflow-orchestration": `<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>`,
   environments: `<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/>`,
   llm: `<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/>`,
   prompts: `<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`,
@@ -26,23 +27,11 @@ const cardIcons: Record<string, string> = {
   profile: `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="8" r="4"/><path d="M4.93 17.54A8 8 0 0 1 12 14a8 8 0 0 1 7.07 3.54"/>`,
 }
 
-// 默认Mock数据
-const defaultStats = {
-  cases: { total: 0, passed: 0, failed: 0 },
-  defects: { total: 0, open: 0, critical: 0 },
-  executions: { total: 0, today: 0, running: 0, passed: 0 },
-  requirements: { total: 0, analyzed: 0 },
-  reports: { total: 0 },
-  coverage: 0,
-}
-
 const quickLinks = [
-  { label: "需求测试", path: "/requirement-testing", icon: FileText, gradient: "from-amber to-orange-500" },
-  { label: "执行管理", path: "/executions", icon: Play, gradient: "from-sky-500 to-blue-600" },
-  { label: "缺陷管理", path: "/defects", icon: Bug, gradient: "from-rose-500 to-red-600" },
-  { label: "分析报告", path: "/reports", icon: BarChart3, gradient: "from-teal-500 to-emerald-600" },
+  { label: "测试管理", path: "/test-management", icon: FlaskConical, gradient: "from-amber to-orange-500" },
+  { label: "AI Web自动化", path: "/ai-web-automation", icon: Play, gradient: "from-emerald-500 to-green-600" },
   { label: "知识库", path: "/knowledge-base", icon: FlaskConical, gradient: "from-purple-500 to-violet-600" },
-  { label: "AI Web自动化", path: "/ai-web-automation", icon: Target, gradient: "from-emerald-500 to-green-600" },
+  { label: "流程编排", path: "/workflow-orchestration", icon: Play, gradient: "from-violet-500 to-purple-600" },
 ]
 
 export default function DashboardPage() {
@@ -53,48 +42,28 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { selectedModule, setSelectedModule, activeTab, setActiveTab } = useAppStore()
 
-  const [stats, setStats] = useState(defaultStats)
   const [activities, setActivities] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchActivities = useCallback(async () => {
     setLoading(true)
     try {
       const res: any = await lifecycleApi.getDashboardStats()
-      if (res?.data) {
-        const d = res.data
-        setStats({
-          cases: d.cases || defaultStats.cases,
-          defects: d.defects || defaultStats.defects,
-          executions: d.executions || defaultStats.executions,
-          requirements: d.requirements || defaultStats.requirements,
-          reports: d.reports || defaultStats.reports,
-          coverage: d.coverage || defaultStats.coverage,
-        })
-        if (d.recent_activities?.length) {
-          const iconMap: Record<string, any> = {
-            "execute": Play, "start_execution": Play, "stop_execution": Play,
-            "create_defect": Bug, "ai_analyze_defect": Bug,
-            "ai_generate_report": FileText, "create_report": FileText,
-            "review_test_case": CheckCircle, "create_test_case": FileText,
-            "create_requirement": FileText, "upload_requirement": FileText,
-            "ai_generate_cases": FlaskConical, "login": Users,
-          }
-          setActivities(d.recent_activities.map((a: any) => ({
-            time: a.time,
-            action: a.action,
-            detail: a.detail || "",
-            icon: iconMap[a.action] || Activity,
-            color: a.action?.includes("error") || a.action?.includes("delete") ? "text-fail" :
-                   a.action?.includes("create") || a.action?.includes("generate") ? "text-pass" : "text-muted",
-          })))
-        }
+      if (res?.data?.recent_activities?.length) {
+        setActivities(res.data.recent_activities.map((a: any) => ({
+          time: a.time,
+          action: a.action,
+          detail: a.detail || "",
+          icon: Activity,
+          color: a.action?.includes("error") || a.action?.includes("delete") ? "text-fail" :
+                 a.action?.includes("create") || a.action?.includes("generate") ? "text-pass" : "text-muted",
+        })))
       }
     } catch {}
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { fetchDashboardData() }, [fetchDashboardData])
+  useEffect(() => { fetchActivities() }, [fetchActivities])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape" && drawerOpen) setDrawerOpen(false) }
@@ -110,14 +79,6 @@ export default function DashboardPage() {
 
   const currentTab = moduleTabs.find(t => t.key === activeTab) || moduleTabs[0]
   const displayModules = currentTab.modules.slice(0, 9)
-
-  // 统计卡片配置
-  const statCards = [
-    { label: "测试用例", sub: `${stats.cases.passed}/${stats.cases.total} 通过`, value: stats.cases.total, icon: FileText, gradient: "from-amber to-orange-500", path: "/requirement-testing?menu=cases" },
-    { label: "缺陷跟踪", sub: `${stats.defects.open}个未修复`, value: stats.defects.total, icon: Bug, gradient: "from-rose-500 to-red-600", path: "/defects" },
-    { label: "测试执行", sub: `${stats.executions.passed}通过 ${stats.executions.running}进行中`, value: stats.executions.total, icon: Play, gradient: "from-sky-500 to-blue-600", path: "/executions" },
-    { label: "需求分析", sub: `${stats.requirements.analyzed}/${stats.requirements.total} 已分析`, value: stats.requirements.total, icon: Target, gradient: "from-violet-500 to-purple-600", path: "/requirement-testing" },
-  ]
 
   return (
     <div className="min-h-screen bg-paper">
@@ -148,69 +109,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 仪表盘概览统计 */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          {statCards.map((s) => {
-            const Icon = s.icon
-            return (
-              <div key={s.label} onClick={() => navigate(s.path)} className="bg-white rounded-2xl border border-border shadow-card p-4 sm:p-5 hover:shadow-card-hover transition-all cursor-pointer group">
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.gradient} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
-                    <Icon className="w-5 h-5 text-white" />
-                  </div>
-                  <TrendingUp className="w-4 h-4 text-pass opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <p className="text-2xl sm:text-3xl font-bold text-ink">{s.value}</p>
-                <p className="text-xs text-muted mt-0.5">{s.label}</p>
-                <p className="text-[11px] text-ink-light mt-1">{s.sub}</p>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* 第二行统计：覆盖率 + 报告 + 运行中 */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <div className="bg-white rounded-2xl border border-border shadow-card p-4 sm:p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-md">
-                <Target className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-muted">测试覆盖率</p>
-                <p className="text-xl font-bold text-ink">{stats.coverage}%</p>
-              </div>
-            </div>
-            <div className="mt-3 w-full h-2 bg-cream rounded-full overflow-hidden">
-              <div className="h-full gradient-amber rounded-full transition-all duration-500" style={{ width: `${Math.min(stats.coverage, 100)}%` }} />
-            </div>
-            <p className="text-[10px] text-muted mt-1">目标 ≥ 85%</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-border shadow-card p-4 sm:p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md">
-                <BarChart3 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-muted">测试报告</p>
-                <p className="text-xl font-bold text-ink">{stats.reports.total}</p>
-              </div>
-            </div>
-            <p className="text-[10px] text-muted mt-3">已生成报告总数</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-border shadow-card p-4 sm:p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-md">
-                <Play className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-muted">今日执行</p>
-                <p className="text-xl font-bold text-ink">{stats.executions.today}</p>
-              </div>
-            </div>
-            <p className="text-[10px] text-muted mt-3">{stats.executions.running} 个正在运行</p>
-          </div>
-        </div>
-
         {/* Tab 导航 */}
         <div className="flex items-center justify-center gap-0.5 sm:gap-1 mb-6 sm:mb-8 bg-white rounded-2xl border border-border shadow-card p-1 sm:p-1.5 max-w-xl mx-auto overflow-x-auto">
           {moduleTabs.map((tab) => (
@@ -226,19 +124,16 @@ export default function DashboardPage() {
         {/* 模块卡片网格 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {displayModules.map((mod) => {
-            const iconSvg = cardIcons[mod.key] || cardIcons["test-lifecycle"]
+            const iconSvg = cardIcons[mod.key] || cardIcons["test-management-hub"]
             const routeMap: Record<string, string> = {
-              environments: "/system?menu=sys-env", llm: "/system?menu=sys-llm", prompts: "/system?menu=sys-prompts",
-              "de-ai": "/system?menu=sys-deai", mcp: "/system?menu=sys-mcp", skills: "/system?menu=sys-skills",
-              hermes: "/system?menu=sys-hermes",
-              "operation-logs": "/system?menu=sys-logs", "web-automation": "/ai-web-automation", "knowledge": "/knowledge-base",
+              "test-management-hub": "/test-management-hub",
+              "web-automation": "/ai-web-automation", "knowledge": "/knowledge-base",
               "workflow-orchestration": "/workflow-orchestration",
+              environments: "/environments", llm: "/llm", prompts: "/prompts",
+              "de-ai": "/de-ai", mcp: "/mcp-marketplace", skills: "/skills",
+              hermes: "/hermes", "operation-logs": "/operation-logs",
             }
-            const targetPath = mod.key === "requirement-testing" ? "/requirement-testing"
-              : mod.key === "executions" ? "/executions"
-              : mod.key === "defects" ? "/defects"
-              : mod.key === "reports" ? "/reports"
-              : mod.key === "users" ? "/users"
+            const targetPath = mod.key === "users" ? "/users"
               : routeMap[mod.key] || `/${mod.key}`
             return (
               <div key={mod.key} onClick={() => { setSelectedModule(mod.key); navigate(targetPath) }}

@@ -26,6 +26,7 @@ interface ExecutionRecord {
 interface ExecutionEvent {
   type: string; case_id?: number; case_title?: string; status?: string;
   duration_ms?: number; error?: string; screenshot?: string; index?: number; total?: number;
+  passed?: number; failed?: number;
 }
 
 /** 模拟截图数据（真实数据不足时展示） */
@@ -76,9 +77,7 @@ export default function ExecutionView() {
           setSelectedProjectId(res.data.items[0].id)
         }
       }
-    } catch (err) {
-      console.error("获取项目列表失败:", err)
-    }
+    } catch {}
   }, [selectedProjectId])
 
   // 加载执行记录
@@ -86,13 +85,12 @@ export default function ExecutionView() {
     if (!selectedProjectId) return
     setLoading(true)
     try {
-      const res: any = await webApi.listExecutions(selectedProjectId)
+      const res: any = await webApi.getExecutions(selectedProjectId)
       if (res?.data) {
         const items = Array.isArray(res.data) ? res.data : (res.data.items || [])
         setExecutions(items)
       }
-    } catch (err) {
-      console.error("获取执行记录失败:", err)
+    } catch {
       setExecutions([])
       toast.error("无法加载执行记录")
     } finally {

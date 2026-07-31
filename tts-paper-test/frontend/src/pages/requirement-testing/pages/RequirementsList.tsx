@@ -4,6 +4,7 @@ import DataTable, { type ColumnDef } from "../components/DataTable"
 import PreviewModal from "../components/PreviewModal"
 import { Sparkles, FileText, Upload, Loader2, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 export default function RequirementsList() {
   const [items, setItems] = useState<any[]>([])
@@ -28,7 +29,7 @@ export default function RequirementsList() {
       })
       setItems(res.items || [])
       setPagination((p) => ({ ...p, total: res.total, total_pages: res.total_pages }))
-    } catch (e) { console.error(e) }
+    } catch {}
     finally { setLoading(false) }
   }, [pagination.page, pagination.page_size, search, sourceFilter])
 
@@ -49,8 +50,8 @@ export default function RequirementsList() {
 
   const openCreate = () => { setEditingItem(null); setForm({ title: "", content: "", source: "manual", status: "draft" }); setShowModal(true) }
   const openEdit = (item: any) => { setEditingItem(item); setForm({ title: item.title || "", content: item.content || "", source: item.source || "manual", status: item.status || "draft" }); setShowModal(true) }
-  const handleDelete = async (item: any) => { if (!confirm(`确定删除「${item.title || "未命名"}」？`)) return; await lifecycleApi.deleteData("requirements", item.id); fetchData() }
-  const handleBatchDelete = async (ids: Set<string>) => { if (!confirm(`确定删除选中的 ${ids.size} 条数据？`)) return; for (const id of ids) { await lifecycleApi.deleteData("requirements", id) }; fetchData() }
+  const handleDelete = async (item: any) => { const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除「${item.title || "未命名"}」？`, danger: true, confirmText: "删除" }); if (!confirmed) return; await lifecycleApi.deleteData("requirements", item.id); fetchData() }
+  const handleBatchDelete = async (ids: Set<string>) => { const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除选中的 ${ids.size} 条数据？`, danger: true, confirmText: "删除" }); if (!confirmed) return; for (const id of ids) { await lifecycleApi.deleteData("requirements", id) }; fetchData() }
   const handleSave = async () => { if (!form.title.trim()) return; editingItem ? await lifecycleApi.updateData("requirements", editingItem.id, form) : await lifecycleApi.createData("requirements", form); setShowModal(false); fetchData() }
 
   // 文件上传 - 通过后端 upload 端点解析文档

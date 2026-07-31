@@ -38,8 +38,8 @@ export default function LoginLog() {
         setLogs(res.data.items || [])
         setPagination((p) => ({ ...p, total: res.data.total, total_pages: res.data.total_pages }))
       }
-    } catch (e) {
-      console.error(e)
+    } catch {
+      // silently handle error
     } finally {
       setLoading(false)
     }

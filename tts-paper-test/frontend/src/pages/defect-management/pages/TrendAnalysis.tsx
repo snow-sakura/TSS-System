@@ -88,8 +88,7 @@ export default function TrendAnalysis() {
           })))
         }
       }
-    } catch (err) {
-      console.error("获取趋势数据失败:", err)
+    } catch {
       toast.error("获取趋势数据失败，已显示空数据")
       // 静默处理 — 页面显示空数据而非崩溃
     } finally {

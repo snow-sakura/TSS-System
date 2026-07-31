@@ -75,7 +75,7 @@ function RequirementTestingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col">
+    <div className="h-screen bg-paper flex flex-col overflow-hidden">
       {/* 顶部导航 */}
       <div className="bg-white border-b border-border px-4 md:px-6 py-3 flex-shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-4">
@@ -136,8 +136,10 @@ function RequirementTestingPage() {
         <div className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-200`}>
           <Sidebar items={MENU_ITEMS} activeKey={activeMenu} onSelect={(key) => { navigate(`/requirement-testing?menu=${key}`); setSidebarOpen(false) }} />
         </div>
-        <main className="flex-1 overflow-y-auto p-4 bg-cream/30">
-          {renderContent()}
+        <main className="flex-1 overflow-hidden p-4 bg-cream/30 min-h-0">
+          <div className="h-full w-full">
+            {renderContent()}
+          </div>
         </main>
       </div>
     </div>

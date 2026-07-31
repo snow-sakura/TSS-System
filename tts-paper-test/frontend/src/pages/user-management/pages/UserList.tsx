@@ -6,6 +6,7 @@ import { Search, Plus, Edit, Trash2, X, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { usersApi } from "@/lib/api"
 import { Skeleton } from "@/components/ui/Skeleton"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface UserItem {
   id: number
@@ -51,8 +52,8 @@ export default function UserList() {
         setUsers(res.data.items || [])
         setPagination((p) => ({ ...p, total: res.data.total, total_pages: res.data.total_pages }))
       }
-    } catch (e) {
-      console.error(e)
+    } catch {
+      // silently handle error
     } finally {
       setLoading(false)
     }
@@ -109,7 +110,13 @@ export default function UserList() {
   }
 
   const handleDelete = async (u: UserItem) => {
-    if (!confirm(`确定删除用户「${u.username}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: `确定删除用户「${u.username}」？`,
+      danger: true,
+      confirmText: "删除",
+    })
+    if (!confirmed) return
     try {
       await usersApi.deleteUser(u.id)
       toast.success("用户已删除")

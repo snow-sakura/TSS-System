@@ -1,6 +1,9 @@
 """测试生命周期服务 - 覆盖7个阶段的CRUD操作"""
 from typing import Optional, Any
+from datetime import datetime
 from sqlalchemy import select, func, delete
+from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.test_lifecycle import (
@@ -61,11 +64,20 @@ async def list_requirements(
     search: str = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    project_id: int = None,
+    version_id: int = None,
 ):
     """增强的需求列表查询，支持多条件筛选和全文搜索"""
-    query = select(Requirement)
+    query = select(Requirement).options(
+        selectinload(Requirement.project),
+        selectinload(Requirement.version),
+    )
 
-    # 筛选
+    if project_id:
+        query = query.where(Requirement.project_id == project_id)
+    if version_id:
+        query = query.where(Requirement.version_id == version_id)
+
     if status:
         query = query.where(Requirement.status == status)
     if priority:
@@ -93,16 +105,22 @@ async def get_requirement(db: AsyncSession, requirement_id: int):
 
 
 async def create_requirement(db: AsyncSession, data: dict, user_id: int = None):
-    """创建需求，自动设置 source 和 initial status"""
+    """创建需求，自动设置 source、initial status 和编号"""
     if "source" not in data or not data["source"]:
         data["source"] = "manual"
     if "status" not in data or not data["status"]:
         data["status"] = "draft"
+    if not data.get("code"):
+        result = await db.execute(
+            sa_select(func.count(Requirement.id)).where(Requirement.id > 0)
+        )
+        count = result.scalar() or 0
+        data["code"] = f"REQ-{datetime.now().strftime('%Y%m%d')}-{count + 1:03d}"
     req = Requirement(**data, created_by=user_id)
     db.add(req)
     await db.commit()
     await db.refresh(req)
-    logger.info(f"创建需求: {req.name} (source={req.source})")
+    logger.info(f"创建需求: {req.name} (code={req.code}, source={req.source})")
     return req
 
 
@@ -140,8 +158,17 @@ async def update_requirement_status(db: AsyncSession, requirement_id: int, statu
 
 # ============ 测试方案 CRUD ============
 
-async def list_test_plans(db: AsyncSession, page: int = 1, page_size: int = 20, status: str = None):
-    query = select(TestPlan).order_by(TestPlan.created_at.desc())
+async def list_test_plans(db: AsyncSession, page: int = 1, page_size: int = 20, status: str = None,
+                            project_id: int = None, version_id: int = None):
+    query = select(TestPlan).options(
+        selectinload(TestPlan.project),
+        selectinload(TestPlan.version),
+        selectinload(TestPlan.user),
+    ).order_by(TestPlan.created_at.desc())
+    if project_id:
+        query = query.where(TestPlan.project_id == project_id)
+    if version_id:
+        query = query.where(TestPlan.version_id == version_id)
     if status:
         query = query.where(TestPlan.status == status)
     return await _paginate(db, query, page, page_size)
@@ -152,7 +179,8 @@ async def get_test_plan(db: AsyncSession, plan_id: int):
 
 
 async def create_test_plan(db: AsyncSession, data: dict, user_id: int = None):
-    plan = TestPlan(**data, created_by=user_id)
+    owner_id = data.pop("created_by", None) or user_id
+    plan = TestPlan(**data, created_by=owner_id)
     db.add(plan)
     await db.commit()
     await db.refresh(plan)
@@ -174,10 +202,26 @@ async def delete_test_plan(db: AsyncSession, plan_id: int):
     await _delete_by_id(db, TestPlan, plan_id)
 
 
+async def batch_delete_test_plans(db: AsyncSession, ids: list[int]):
+    from sqlalchemy import delete as sa_delete
+    result = await db.execute(sa_delete(TestPlan).where(TestPlan.id.in_(ids)))
+    await db.commit()
+    logger.info(f"批量删除测试方案: {ids}")
+    return result.rowcount
+
+
 # ============ 测试点 CRUD ============
 
-async def list_test_points(db: AsyncSession, page: int = 1, page_size: int = 20, status: str = None):
-    query = select(TestPoint).order_by(TestPoint.created_at.desc())
+async def list_test_points(db: AsyncSession, page: int = 1, page_size: int = 20, status: str = None,
+                            project_id: int = None, version_id: int = None):
+    query = select(TestPoint).options(
+        selectinload(TestPoint.project),
+        selectinload(TestPoint.version),
+    ).order_by(TestPoint.created_at.desc())
+    if project_id:
+        query = query.where(TestPoint.project_id == project_id)
+    if version_id:
+        query = query.where(TestPoint.version_id == version_id)
     if status:
         query = query.where(TestPoint.status == status)
     return await _paginate(db, query, page, page_size)
@@ -209,10 +253,26 @@ async def delete_test_point(db: AsyncSession, point_id: int):
     await _delete_by_id(db, TestPoint, point_id)
 
 
+async def batch_delete_test_points(db: AsyncSession, ids: list[int]):
+    from sqlalchemy import delete as sa_delete
+    result = await db.execute(sa_delete(TestPoint).where(TestPoint.id.in_(ids)))
+    await db.commit()
+    logger.info(f"批量删除测试点: {ids}")
+    return result.rowcount
+
+
 # ============ 测试用例 CRUD ============
 
-async def list_lifecycle_test_cases(db: AsyncSession, page: int = 1, page_size: int = 20, status: str = None):
-    query = select(LifecycleTestCase).order_by(LifecycleTestCase.created_at.desc())
+async def list_lifecycle_test_cases(db: AsyncSession, page: int = 1, page_size: int = 20, status: str = None,
+                                      project_id: int = None, version_id: int = None):
+    query = select(LifecycleTestCase).options(
+        selectinload(LifecycleTestCase.project),
+        selectinload(LifecycleTestCase.version),
+    ).order_by(LifecycleTestCase.created_at.desc())
+    if project_id:
+        query = query.where(LifecycleTestCase.project_id == project_id)
+    if version_id:
+        query = query.where(LifecycleTestCase.version_id == version_id)
     if status:
         query = query.where(LifecycleTestCase.status == status)
     return await _paginate(db, query, page, page_size)
@@ -313,6 +373,14 @@ async def delete_execution(db: AsyncSession, execution_id: int):
     await _delete_by_id(db, LifecycleTestExecution, execution_id)
 
 
+async def batch_delete_executions(db: AsyncSession, ids: list[int]):
+    from sqlalchemy import delete as sa_delete
+    result = await db.execute(sa_delete(LifecycleTestExecution).where(LifecycleTestExecution.id.in_(ids)))
+    await db.commit()
+    logger.info(f"批量删除执行记录: {ids}")
+    return result.rowcount
+
+
 # ============ 缺陷 CRUD ============
 
 async def list_defects(db: AsyncSession, page: int = 1, page_size: int = 20, status: str = None):
@@ -393,11 +461,27 @@ async def delete_report(db: AsyncSession, report_id: int):
     await _delete_by_id(db, TestReport, report_id)
 
 
+async def batch_delete_reports(db: AsyncSession, ids: list[int]):
+    from sqlalchemy import delete as sa_delete
+    result = await db.execute(sa_delete(TestReport).where(TestReport.id.in_(ids)))
+    await db.commit()
+    logger.info(f"批量删除报告: {ids}")
+    return result.rowcount
+
+
 # ============ 评审 CRUD ============
 
 async def list_reviews(db: AsyncSession, page: int = 1, page_size: int = 20,
-                        status: str = None, review_type: str = None):
-    query = select(Review).order_by(Review.created_at.desc())
+                        status: str = None, review_type: str = None,
+                        project_id: int = None, version_id: int = None):
+    query = select(Review).options(
+        selectinload(Review.project),
+        selectinload(Review.version),
+    ).order_by(Review.created_at.desc())
+    if project_id:
+        query = query.where(Review.project_id == project_id)
+    if version_id:
+        query = query.where(Review.version_id == version_id)
     if status:
         query = query.where(Review.status == status)
     if review_type:
@@ -429,3 +513,25 @@ async def update_review(db: AsyncSession, review_id: int, data: dict):
 
 async def delete_review(db: AsyncSession, review_id: int):
     await _delete_by_id(db, Review, review_id)
+
+
+async def batch_delete_reviews(db: AsyncSession, ids: list[int]):
+    result = await db.execute(delete(Review).where(Review.id.in_(ids)))
+    await db.commit()
+    logger.info(f"批量删除评审: {ids}")
+    return result.rowcount
+
+
+# ============ 流程记录 CRUD ============
+
+async def delete_pipeline_record(db: AsyncSession, record_id: int):
+    from models.test_lifecycle import PipelineRecord
+    await _delete_by_id(db, PipelineRecord, record_id)
+
+
+async def batch_delete_pipeline_records(db: AsyncSession, ids: list[int]):
+    from models.test_lifecycle import PipelineRecord
+    result = await db.execute(delete(PipelineRecord).where(PipelineRecord.id.in_(ids)))
+    await db.commit()
+    logger.info(f"批量删除流程记录: {ids}")
+    return result.rowcount
