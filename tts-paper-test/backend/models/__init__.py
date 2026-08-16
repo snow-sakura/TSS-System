@@ -9,6 +9,14 @@ from .web_automation import (
     WebTestExecution,
     AIDraft,
 )
+from .api_test import (
+    ApiTestProject,
+    ApiEnvironment,
+    ApiEndpoint,
+    ApiTestCase,
+    ApiExecution,
+    ApiTestReport,
+)
 from .test_lifecycle import (
     Requirement,
     TestPlan,
@@ -41,6 +49,15 @@ from .project import (
     Project,
     Version,
 )
+from .app_automation import (
+    AppDevice,
+    AppTestCase,
+    AppExecution,
+    AppScreenshotDiff,
+    AppCrashLog,
+)
+from .ai_test_task import TestTask
+from .data_factory import DataFactoryLog
 
 __all__ = [
     "Base",
@@ -54,6 +71,12 @@ __all__ = [
     "WebTestCase",
     "WebTestExecution",
     "AIDraft",
+    "ApiTestProject",
+    "ApiEnvironment",
+    "ApiEndpoint",
+    "ApiTestCase",
+    "ApiExecution",
+    "ApiTestReport",
     "Requirement",
     "TestPlan",
     "TestPoint",
@@ -78,4 +101,11 @@ __all__ = [
     "WorkflowNodeExecution",
     "Project",
     "Version",
+    "AppDevice",
+    "AppTestCase",
+    "AppExecution",
+    "AppScreenshotDiff",
+    "AppCrashLog",
+    "TestTask",
+    "DataFactoryLog",
 ]

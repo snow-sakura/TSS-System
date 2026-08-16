@@ -18,6 +18,7 @@ from database import init_db, engine, Base
 from api.auth import router as auth_router
 from api.users import router as users_router
 from api.web_automation import router as web_router
+from api.api_test import router as api_test_router
 from api.test_lifecycle import router as test_lifecycle_router
 from api.pipeline import router as pipeline_router
 from api.requirement_data import router as requirement_data_router
@@ -29,6 +30,9 @@ from api.mcp_marketplace import router as mcp_marketplace_router
 from api.workflows import router as workflows_router
 from api.projects import router as projects_router
 from api.roles import router as roles_router
+from api.app_automation import router as app_automation_router
+from api.ai_test_tasks import router as ai_test_tasks_router
+from api.data_factory import router as data_factory_router
 
 settings = get_settings()
 setup_logging()
@@ -1077,6 +1081,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
 app.include_router(web_router, prefix="/api/v1")
+app.include_router(api_test_router, prefix="/api/v1")
 app.include_router(test_lifecycle_router, prefix="/api/v1")
 app.include_router(pipeline_router)
 app.include_router(requirement_data_router)
@@ -1088,6 +1093,9 @@ app.include_router(mcp_marketplace_router)
 app.include_router(workflows_router)
 app.include_router(projects_router, prefix="/api/v1")
 app.include_router(roles_router, prefix="/api/v1")
+app.include_router(app_automation_router, prefix="/api/v1")
+app.include_router(ai_test_tasks_router, prefix="/api/v1")
+app.include_router(data_factory_router, prefix="/api/v1")
 
 
 # ============ SSE 实时日志推送 ============

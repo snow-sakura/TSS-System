@@ -5,11 +5,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.user import User, Role
-from core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
+from core.security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+)
 from core.exceptions import AuthenticationError, NotFoundError
 
 
-async def register_user(db: AsyncSession, username: str, email: str, password: str, display_name: str = None) -> User:
+async def register_user(
+    db: AsyncSession, username: str, email: str, password: str, display_name: str = None
+) -> User:
     """注册用户"""
     # 检查用户名是否已存在
     existing = await db.execute(select(User).where(User.username == username))
@@ -34,6 +42,8 @@ async def register_user(db: AsyncSession, username: str, email: str, password: s
     role_result = await db.execute(select(Role).where(Role.name == "user"))
     role = role_result.scalar_one_or_none()
     if role:
+        # 先显式加载 roles 集合，避免 async 懒加载触发 MissingGreenlet
+        await db.refresh(user, attribute_names=["roles"])
         user.roles.append(role)
 
     await db.commit()
@@ -57,8 +67,12 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> d
     await db.commit()
 
     # 生成Token
-    access_token = create_access_token(data={"sub": str(user.id), "username": user.username})
-    refresh_token = create_refresh_token(data={"sub": str(user.id), "username": user.username})
+    access_token = create_access_token(
+        data={"sub": str(user.id), "username": user.username}
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": str(user.id), "username": user.username}
+    )
 
     return {
         "access_token": access_token,
@@ -87,8 +101,12 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> dict:
     if not user or not user.is_active:
         raise AuthenticationError("用户不存在或已禁用")
 
-    access_token = create_access_token(data={"sub": str(user.id), "username": user.username})
-    new_refresh_token = create_refresh_token(data={"sub": str(user.id), "username": user.username})
+    access_token = create_access_token(
+        data={"sub": str(user.id), "username": user.username}
+    )
+    new_refresh_token = create_refresh_token(
+        data={"sub": str(user.id), "username": user.username}
+    )
 
     return {
         "access_token": access_token,

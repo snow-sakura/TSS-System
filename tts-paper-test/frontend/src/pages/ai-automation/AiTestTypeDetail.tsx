@@ -1,8 +1,9 @@
 /**
  * AI测试类型详情页 — 通用组件
  * 根据URL参数加载对应的测试类型配置，渲染侧边栏和内容区
+ * 数据源：优先使用 PAGE_DATA_SOURCES 中的真实后端 API，未接入的类型回退到静态 Mock 配置
  */
-import { useMemo, memo } from "react"
+import { useEffect, useMemo, useState, useCallback, memo } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import {
   ArrowLeft, Zap, Smartphone, Gauge, Shield, Layers, RefreshCw, Compass, Globe,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react"
 import { TEST_TYPES, type TestType } from "./test-types"
 import { ALL_PAGE_CONFIGS } from "./page-configs"
+import { PAGE_DATA_SOURCES } from "./page-data"
 import Sidebar from "../requirement-testing/components/Sidebar"
 import type { SidebarItem } from "../requirement-testing/components/Sidebar"
 import GenericTestPage from "./components/GenericTestPage"
@@ -67,6 +69,48 @@ function AiTestTypeDetail() {
     return typeConfigs[activeMenu] || null
   }, [typeId, activeMenu])
 
+  // ── 真实数据流：优先使用 page-data.ts 中注册的后端数据源 ──
+  const dataSource = useMemo(() => {
+    if (!typeId || !activeMenu) return null
+    return PAGE_DATA_SOURCES[typeId]?.[activeMenu] ?? null
+  }, [typeId, activeMenu])
+
+  const [rows, setRows] = useState<any[]>([])
+  const [dynamicStats, setDynamicStats] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const loadData = useCallback(async () => {
+    if (!dataSource) {
+      // 无数据源：清空异步数据，回退静态 Mock 配置展示
+      setRows([])
+      setDynamicStats(pageConfig?.stats || [])
+      return
+    }
+    setLoading(true)
+    try {
+      const items = await dataSource.fetch()
+      setRows(items)
+      setDynamicStats(dataSource.buildStats ? dataSource.buildStats(items) : pageConfig?.stats || [])
+    } catch (err) {
+      console.error("加载数据失败:", err)
+      setRows([])
+      setDynamicStats(pageConfig?.stats || [])
+    } finally {
+      setLoading(false)
+    }
+  }, [dataSource, pageConfig])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    // pageConfig 更新时同步兜底 stats（未接入数据源的页面）
+    if (!dataSource) {
+      setDynamicStats(pageConfig?.stats || [])
+    }
+  }, [pageConfig, dataSource])
+
   if (!testType) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center">
@@ -108,8 +152,11 @@ function AiTestTypeDetail() {
         <main className="flex-1 overflow-y-auto p-4 bg-cream/30">
           {pageConfig ? (
             <GenericTestPage title={pageConfig.title} subtitle={pageConfig.subtitle}
-              columns={pageConfig.columns} data={pageConfig.data} stats={pageConfig.stats}
-              actions={pageConfig.actions} searchPlaceholder={`搜索${pageConfig.title}...`} />
+              columns={pageConfig.columns}
+              data={dataSource ? rows : pageConfig.data}
+              stats={dynamicStats.length > 0 ? dynamicStats : pageConfig.stats}
+              actions={pageConfig.actions} loading={loading} onRefresh={loadData}
+              searchPlaceholder={`搜索${pageConfig.title}...`} />
           ) : (
             <TypeWelcome testType={testType} />
           )}

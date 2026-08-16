@@ -6,12 +6,13 @@ import { memo } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   Zap, Smartphone, Gauge, Shield, Layers, RefreshCw, Compass, Globe,
-  ArrowLeft, Sparkles, ArrowRight
+  ArrowLeft, Sparkles, ArrowRight, Database
 } from "lucide-react"
 import { TEST_TYPES } from "./test-types"
 
 const iconMap: Record<string, any> = {
   Zap, Smartphone, Gauge, Shield, Layers, RefreshCw, Compass, Globe,
+  Database,
 }
 
 function AiAutomationHub() {
@@ -108,6 +109,29 @@ function AiAutomationHub() {
               </div>
             )
           })}
+        </div>
+
+        {/* 数据工厂快捷入口 */}
+        <div
+          onClick={() => navigate("/data-factory")}
+          className="mt-4 bg-white rounded-2xl border border-border shadow-card hover:shadow-card-hover transition-all cursor-pointer group overflow-hidden"
+        >
+          <div className="h-1.5 bg-gradient-to-r from-amber to-orange-500" />
+          <div className="p-5 flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber to-orange-500 flex items-center justify-center shadow-md flex-shrink-0 group-hover:scale-105 transition-transform">
+                <Database className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-ink group-hover:text-amber transition-colors">数据工厂</h3>
+                <p className="text-[10px] text-muted font-mono">Data Factory</p>
+                <p className="text-xs text-ink-light mt-1">姓名 / 手机号 / 身份证 / 银行卡 / 营业执照 ... 批量生成真实测试数据</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] font-medium text-amber opacity-0 group-hover:opacity-100 transition-opacity">
+              进入 <ArrowRight className="w-3 h-3" />
+            </div>
+          </div>
         </div>
       </div>
     </div>

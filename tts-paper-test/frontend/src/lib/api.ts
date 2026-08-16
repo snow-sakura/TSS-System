@@ -208,6 +208,44 @@ export const webApi = {
     api.get("/web-automation/projects-for-workflow"),
 }
 
+// AI接口自动化 API
+export const apiTestApi = {
+  // 项目
+  listProjects: (params?: Record<string, any>) => api.get("/api-test/projects", { params }),
+  getProject: (id: number) => api.get(`/api-test/projects/${id}`),
+  createProject: (data: { name: string; base_url: string; description?: string }) =>
+    api.post("/api-test/projects", data),
+  updateProject: (id: number, data: Record<string, any>) => api.put(`/api-test/projects/${id}`, data),
+  deleteProject: (id: number) => api.delete(`/api-test/projects/${id}`),
+  // 环境配置
+  listEnvironments: (params?: Record<string, any>) => api.get("/api-test/environments", { params }),
+  createEnvironment: (data: Record<string, any>) => api.post("/api-test/environments", data),
+  updateEnvironment: (id: number, data: Record<string, any>) => api.put(`/api-test/environments/${id}`, data),
+  deleteEnvironment: (id: number) => api.delete(`/api-test/environments/${id}`),
+  testEnvironment: (id: number) => api.post(`/api-test/environments/${id}/test`),
+  // 接口端点
+  listEndpoints: (params?: Record<string, any>) => api.get("/api-test/endpoints", { params }),
+  createEndpoint: (data: Record<string, any>) => api.post("/api-test/endpoints", data),
+  updateEndpoint: (id: number, data: Record<string, any>) => api.put(`/api-test/endpoints/${id}`, data),
+  deleteEndpoint: (id: number) => api.delete(`/api-test/endpoints/${id}`),
+  testEndpoint: (id: number) => api.post(`/api-test/endpoints/${id}/test`),
+  // 测试用例
+  listTestCases: (params?: Record<string, any>) => api.get("/api-test/test-cases", { params }),
+  createTestCase: (data: Record<string, any>) => api.post("/api-test/test-cases", data),
+  updateTestCase: (id: number, data: Record<string, any>) => api.put(`/api-test/test-cases/${id}`, data),
+  deleteTestCase: (id: number) => api.delete(`/api-test/test-cases/${id}`),
+  // 执行
+  listExecutions: (params?: Record<string, any>) => api.get("/api-test/executions", { params }),
+  getExecution: (id: number) => api.get(`/api-test/executions/${id}`),
+  executeTests: (projectId: number, data?: Record<string, any>) =>
+    api.post(`/api-test/projects/${projectId}/execute`, data),
+  // 报告
+  listReports: (params?: Record<string, any>) => api.get("/api-test/reports", { params }),
+  generateReport: (data: { project_id: number; report_type?: string }) =>
+    api.post("/api-test/reports/generate", data),
+  deleteReport: (id: number) => api.delete(`/api-test/reports/${id}`),
+}
+
 // Project & Version API
 export const projectApi = {
   listProjects: (params?: Record<string, any>) => api.get("/projects", { params }),
@@ -633,6 +671,55 @@ export const workflowApi = {
   listExecutions: (workflowId: number, params?: Record<string, any>) =>
     api.get(`/workflows/${workflowId}/executions`, { params }),
   getExecution: (executionId: number) => api.get(`/workflows/executions/${executionId}`),
+}
+
+// AI App自动化 API
+export const appTestApi = {
+  // 设备管理
+  listDevices: (params?: Record<string, any>) => api.get("/app-test/devices", { params }),
+  createDevice: (data: Record<string, any>) => api.post("/app-test/devices", data),
+  updateDevice: (id: number, data: Record<string, any>) => api.put(`/app-test/devices/${id}`, data),
+  deleteDevice: (id: number) => api.delete(`/app-test/devices/${id}`),
+  // 测试用例
+  listTestCases: (params?: Record<string, any>) => api.get("/app-test/test-cases", { params }),
+  createTestCase: (data: Record<string, any>) => api.post("/app-test/test-cases", data),
+  updateTestCase: (id: number, data: Record<string, any>) => api.put(`/app-test/test-cases/${id}`, data),
+  deleteTestCase: (id: number) => api.delete(`/app-test/test-cases/${id}`),
+  // 远程执行
+  listExecutions: (params?: Record<string, any>) => api.get("/app-test/executions", { params }),
+  createExecution: (data: Record<string, any>) => api.post("/app-test/executions", data),
+  updateExecution: (id: number, data: Record<string, any>) => api.put(`/app-test/executions/${id}`, data),
+  runExecution: (id: number) => api.post(`/app-test/executions/${id}/run`),
+  deleteExecution: (id: number) => api.delete(`/app-test/executions/${id}`),
+  // 截图对比
+  listScreenshotDiffs: (params?: Record<string, any>) => api.get("/app-test/screenshot-diffs", { params }),
+  createScreenshotDiff: (data: Record<string, any>) => api.post("/app-test/screenshot-diffs", data),
+  updateScreenshotDiff: (id: number, data: Record<string, any>) => api.put(`/app-test/screenshot-diffs/${id}`, data),
+  deleteScreenshotDiff: (id: number) => api.delete(`/app-test/screenshot-diffs/${id}`),
+  // 崩溃分析
+  listCrashLogs: (params?: Record<string, any>) => api.get("/app-test/crash-logs", { params }),
+  createCrashLog: (data: Record<string, any>) => api.post("/app-test/crash-logs", data),
+  updateCrashLog: (id: number, data: Record<string, any>) => api.put(`/app-test/crash-logs/${id}`, data),
+  deleteCrashLog: (id: number) => api.delete(`/app-test/crash-logs/${id}`),
+}
+
+// AI通用测试任务 API（性能/安全/兼容/回归/探索）
+export const testTaskApi = {
+  list: (params?: Record<string, any>) => api.get("/ai-test-tasks", { params }),
+  get: (id: number) => api.get(`/ai-test-tasks/${id}`),
+  create: (data: Record<string, any>) => api.post("/ai-test-tasks", data),
+  update: (id: number, data: Record<string, any>) => api.put(`/ai-test-tasks/${id}`, data),
+  delete: (id: number) => api.delete(`/ai-test-tasks/${id}`),
+  execute: (id: number) => api.post(`/ai-test-tasks/${id}/execute`),
+}
+
+// 数据工厂 API
+export const dataFactoryApi = {
+  listGenerators: () => api.get("/data-factory/generators"),
+  generate: (data: { generator: string; count: number; params?: Record<string, any> }) =>
+    api.post("/data-factory/generate", data),
+  listLogs: (params?: Record<string, any>) => api.get("/data-factory/logs", { params }),
+  deleteLog: (id: number) => api.delete(`/data-factory/logs/${id}`),
 }
 
 export default api
