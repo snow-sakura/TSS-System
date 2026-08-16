@@ -2,6 +2,7 @@
  * MCP 市场 — 发现、浏览和安装 MCP 服务
  */
 import { useState, useEffect, useCallback } from "react"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 import { mcpMarketApi } from "@/lib/api"
 import {
   Search, Download, Star, Cpu, Globe, Database,
@@ -268,7 +269,7 @@ export default function MCPMarketplacePage() {
               {/* 描述 */}
               <div>
                 <h4 className="text-xs font-semibold text-ink mb-1">描述</h4>
-                <div className="text-xs text-ink/70 leading-relaxed whitespace-pre-wrap">{selectedService.long_description || selectedService.description}</div>
+                <MarkdownPreview className="text-xs text-ink/70 leading-relaxed" content={selectedService.long_description || selectedService.description} />
               </div>
 
               {/* 标签 */}

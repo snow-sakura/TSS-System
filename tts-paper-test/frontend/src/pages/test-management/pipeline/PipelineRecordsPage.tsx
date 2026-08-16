@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import ReactMarkdown from "react-markdown"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import { lifecycleApi, projectApi } from "@/lib/api"
@@ -191,7 +191,8 @@ export default function PipelineRecordsPage() {
       if (projectFilter) params.project_id = projectFilter
       if (versionFilter) params.version_id = versionFilter
       const res = await lifecycleApi.listPipelineRecords(params)
-      const payload = res?.data
+      // 兼容两种响应结构：统一包装 { success, data } 与平铺 { items, total }
+      const payload = res?.data ?? res
       const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
       const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
       // 规范化状态值（将 completed 映射为 success）
@@ -434,8 +435,8 @@ export default function PipelineRecordsPage() {
                   {detailData.requirement_content && (
                     <div className="p-4 bg-white border border-border rounded-xl">
                       <h4 className="text-sm font-semibold text-ink mb-2">需求描述</h4>
-                      <div className="text-sm text-ink-light whitespace-pre-wrap max-h-32 overflow-y-auto">
-                        {detailData.requirement_content}
+                      <div className="max-h-48 overflow-y-auto">
+                        <MarkdownPreview content={detailData.requirement_content} />
                       </div>
                     </div>
                   )}
@@ -508,9 +509,7 @@ export default function PipelineRecordsPage() {
                               {isExpanded && (
                                 <div className="border-t border-border p-4 bg-cream/30">
                                   {stageContent ? (
-                                    <div className="prose prose-sm max-w-none">
-                                      <ReactMarkdown>{stageContent}</ReactMarkdown>
-                                    </div>
+                                    <MarkdownPreview content={stageContent} />
                                   ) : stage.result ? (
                                     <div className="bg-white border border-border rounded-lg p-3 text-xs text-ink-light font-mono overflow-x-auto">
                                       {typeof stage.result === "object" ? (

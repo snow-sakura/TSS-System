@@ -177,6 +177,8 @@ export const webApi = {
     apiFetch(`/api/v1/web-automation/projects/${projectId}/generate`, { method: "POST" }),
   listTestCases: (projectId: number, status?: string) =>
     api.get(`/web-automation/projects/${projectId}/test-cases`, { params: { status } }),
+  createTestCase: (projectId: number, data: any) =>
+    api.post(`/web-automation/projects/${projectId}/test-cases`, data),
   updateTestCase: (caseId: number, data: any) =>
     api.put(`/web-automation/test-cases/${caseId}`, data),
   approveTestCase: (caseId: number) =>
@@ -185,10 +187,21 @@ export const webApi = {
     api.post(`/web-automation/test-cases/${caseId}/reject`),
   deleteTestCase: (caseId: number) =>
     api.delete(`/web-automation/test-cases/${caseId}`),
-  execute: (projectId: number) =>
-    api.post(`/web-automation/projects/${projectId}/execute`),
+  execute: (projectId: number, data?: Record<string, any>) =>
+    api.post(`/web-automation/projects/${projectId}/execute`, data),
   getExecutions: (projectId: number) =>
     api.get(`/web-automation/projects/${projectId}/executions`),
+  // === 对象库（页面元素） ===
+  listObjectRepo: (projectId: number) =>
+    api.get(`/web-automation/projects/${projectId}/object-repo`),
+  listPageElements: (pageId: number) =>
+    api.get(`/web-automation/pages/${pageId}/elements`),
+  createPageElement: (pageId: number, data: Record<string, any>) =>
+    api.post(`/web-automation/pages/${pageId}/elements`, data),
+  updatePageElement: (elementId: number, data: Record<string, any>) =>
+    api.put(`/web-automation/ui-elements/${elementId}`, data),
+  deletePageElement: (elementId: number) =>
+    api.delete(`/web-automation/ui-elements/${elementId}`),
   getExecution: (executionId: number) =>
     api.get(`/web-automation/executions/${executionId}`),
   listProjectsForWorkflow: () =>

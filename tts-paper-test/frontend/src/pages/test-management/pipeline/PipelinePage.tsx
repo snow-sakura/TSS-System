@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import ReactMarkdown from "react-markdown"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 import { 
   Play, Sparkles, Clock, FileText, ClipboardList, Target, FlaskConical, 
   CheckCircle, Loader2, ChevronDown, ChevronUp, Upload, X, FileIcon,
@@ -1690,9 +1690,7 @@ function StepLogs({ step }: { step: any }) {
           {step.logs.length === 0 ? (
             <p className="text-muted text-center py-8">等待执行...</p>
           ) : (
-            <div className="pipeline-markdown prose prose-sm max-w-none">
-              <ReactMarkdown>{combinedMarkdown}</ReactMarkdown>
-            </div>
+            <MarkdownPreview content={combinedMarkdown} />
           )}
         </div>
       )}

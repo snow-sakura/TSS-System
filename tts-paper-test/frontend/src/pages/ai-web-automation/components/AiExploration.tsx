@@ -4,15 +4,18 @@
  * 使用SSE接收实时探索进度
  */
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Globe, Play, Loader2, CheckCircle, XCircle, Clock, Sparkles, Eye, ChevronDown, ChevronRight, AlertCircle } from "lucide-react"
+import { Globe, Play, Loader2, CheckCircle, XCircle, Clock, Sparkles, Eye, ChevronDown, ChevronRight, AlertCircle, Image as ImageIcon } from "lucide-react"
 import { toast } from "sonner"
 import { webApi } from "@/lib/api"
 
 interface PageResult {
   url: string
   title: string
-  elements: Array<{ text: string; type: string; description: string }>
-  forms: Array<{ action: string; fields: Array<{ name: string; type: string }> }>
+  description?: string
+  elements: Array<{ text: string; type: string; description: string; id?: string; name?: string; href?: string }>
+  forms: Array<{ action: string; fields: Array<{ name: string; type: string; placeholder?: string }> }>
+  sections?: Array<{ name: string; description?: string }>
+  screenshot?: string
   status: string
   error?: string
 }
@@ -170,13 +173,21 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
         pages.push({
           url: data.url,
           title: data.title || "未知页面",
+          description: data.description,
           elements: data.elements || [],
           forms: data.forms || [],
+          sections: data.sections,
+          screenshot: data.screenshot,
           status: "completed",
         })
         break
       case "exploration_complete":
         addLog("success", `探索完成，共 ${data.total_pages || 0} 个页面`)
+        // 若SSE未逐页推送，用完整结果兜底
+        if (pages.length === 0 && data.pages?.length) {
+          data.pages.forEach((p: any) => pages.push(p))
+        }
+        if (data.summary) addLog("info", data.summary)
         break
       case "exploration_error":
         addLog("error", `探索错误: ${data.error}`)
@@ -267,13 +278,28 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
                 </div>
                 {expandedPage === idx && (
                   <div className="px-4 py-3 border-t border-border space-y-2">
-                    <p className="text-xs text-muted font-mono">{page.url}</p>
+                    <p className="text-xs text-muted font-mono break-all">{page.url}</p>
+                    {page.screenshot && (
+                      <div>
+                        <p className="text-xs font-medium text-ink mb-1.5 flex items-center gap-1"><ImageIcon className="w-3.5 h-3.5 text-amber" /> 页面截图</p>
+                        <img src={`/uploads/screenshots/${page.screenshot}`} alt={`${page.title} 截图`} className="w-full rounded-lg border border-border object-cover max-h-56" loading="lazy" onClick={(e) => { e.stopPropagation(); window.open(e.currentTarget.src, "_blank") }} />
+                      </div>
+                    )}
+                    {page.description && <p className="text-xs text-ink-light bg-cream/50 p-2 rounded-lg">{page.description}</p>}
+                    {page.sections && page.sections.length > 0 && (
+                      <div><p className="text-xs font-medium text-ink mb-1.5">页面区域 ({page.sections.length})</p>
+                        <div className="flex flex-wrap gap-1.5">{page.sections.map((s, i) => (
+                          <span key={i} className="px-2 py-1 rounded-lg bg-amber-light/60 text-[11px] text-ink-light" title={s.description}>{s.name}</span>
+                        ))}</div>
+                      </div>
+                    )}
                     {page.elements.length > 0 && (
                       <div><p className="text-xs font-medium text-ink mb-1.5">交互元素 ({page.elements.length})</p>
                         <div className="space-y-1">{page.elements.map((el, i) => (
                           <div key={i} className="flex items-center gap-2 text-xs p-1.5 bg-cream/50 rounded-lg">
-                            <span className="px-1.5 py-0.5 rounded bg-cream text-[10px] font-medium">{el.type}</span>
-                            <span className="text-ink-light">{el.text}</span>
+                            <span className="px-1.5 py-0.5 rounded bg-cream text-[10px] font-medium flex-shrink-0">{el.type}</span>
+                            <span className="text-ink-light truncate">{el.text}</span>
+                            {(el.id || el.name) && <span className="text-[10px] text-muted font-mono ml-auto flex-shrink-0">{el.id ? `#${el.id}` : ""}{el.name ? ` name=${el.name}` : ""}</span>}
                           </div>
                         ))}</div>
                       </div>
@@ -283,7 +309,9 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
                         <div className="space-y-1">{page.forms.map((f, i) => (
                           <div key={i} className="text-xs p-1.5 bg-cream/50 rounded-lg">
                             <span className="text-ink-light">表单: {f.action}</span>
-                            <span className="text-muted ml-2">({f.fields.map((ff: any) => ff.name || ff.type).join(", ")})</span>
+                            <div className="flex flex-wrap gap-1 mt-1">{f.fields.map((ff: any, j: number) => (
+                              <span key={j} className="px-1.5 py-0.5 rounded bg-white border border-border text-[10px] text-muted">{ff.name || ff.type}{ff.placeholder ? ` (${ff.placeholder})` : ""}</span>
+                            ))}</div>
                           </div>
                         ))}</div>
                       </div>

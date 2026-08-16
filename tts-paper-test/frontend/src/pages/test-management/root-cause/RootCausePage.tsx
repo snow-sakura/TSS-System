@@ -4,6 +4,7 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { Search, Sparkles, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface DefectItem {
   id: number
@@ -190,9 +191,7 @@ export default function RootCausePage() {
                     <Sparkles className="w-4 h-4 text-amber" />
                     <span className="text-sm font-semibold text-amber">AI 分析结果</span>
                   </div>
-                  <pre className="text-sm text-ink whitespace-pre-wrap">
-                    {analysisResult}
-                  </pre>
+                  <MarkdownPreview content={analysisResult} />
                 </div>
                 <div className="flex items-center justify-end gap-2 mt-4">
                   <button className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream transition-colors">

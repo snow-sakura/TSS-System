@@ -26,7 +26,6 @@ const MCPMarketplacePage = lazy(() => import("@/pages/mcp-marketplace/MCPMarketp
 const AiWebAutomationPage = lazy(() => import("@/pages/ai-web-automation/AiWebAutomationPage"))
 const KnowledgeBasePage = lazy(() => import("@/pages/knowledge-base/KnowledgeBasePage"))
 const WorkflowEditorPage = lazy(() => import("@/pages/workflow-editor/WorkflowEditorPage"))
-const TestManagementHubPage = lazy(() => import("@/pages/test-management-hub/TestManagementHubPage"))
 
 // 新的测试管理模块（带侧边栏布局）
 const TestManagementLayout = lazy(() => import("@/pages/test-management/TestManagementLayout"))
@@ -34,6 +33,7 @@ const RequirementsPage = lazy(() => import("@/pages/test-management/requirements
 const PlansPage = lazy(() => import("@/pages/test-management/plans/PlansPage"))
 const PointsPage = lazy(() => import("@/pages/test-management/points/PointsPage"))
 const CasesPage = lazy(() => import("@/pages/test-management/cases/CasesPage"))
+const CaseDetailPage = lazy(() => import("@/pages/test-management/cases/CaseDetailPage"))
 const ReviewsPage = lazy(() => import("@/pages/test-management/reviews/ReviewsPage"))
 const ExecutionsPage = lazy(() => import("@/pages/test-management/executions/ExecutionsPage"))
 const SchedulesPage = lazy(() => import("@/pages/test-management/schedules/SchedulesPage"))
@@ -94,6 +94,8 @@ export default function App() {
               <Route path="plans" element={<PlansPage />} />
               <Route path="points" element={<PointsPage />} />
               <Route path="cases" element={<CasesPage />} />
+              {/* 用例详情：嵌套在模块布局内渲染（左右布局壳不变，对标竞品 TestHub） */}
+              <Route path="cases/:id" element={<CaseDetailPage />} />
               <Route path="reviews" element={<ReviewsPage />} />
               {/* 执行管理 */}
               <Route path="executions" element={<ExecutionsPage />} />
@@ -118,9 +120,7 @@ export default function App() {
               <Route path="user-management" element={<TestUserManagementPage />} />
               <Route path="role-management" element={<TestRoleManagementPage />} />
             </Route>
-            {/* 保留旧路由以便兼容 */}
-            <Route path="/test-management-hub" element={<TestManagementHubPage />} />
-            <Route path="/test-management-hub/:subKey" element={<TestManagementHubPage />} />
+            {/* 通用详情页（旧模块体系，保留） */}
             <Route path="/:moduleKey/detail/:id" element={<DetailPage />} />
             <Route path="/:moduleKey" element={<ModulePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

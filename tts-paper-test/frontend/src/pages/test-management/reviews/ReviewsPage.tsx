@@ -61,6 +61,16 @@ const targetTypeOptions = [
   { label: "测试方案", value: "test_plan" },
 ]
 
+/** 评审检查清单模板（竞品对齐：覆盖完整性、可验证性、边界与规范） */
+const CHECKLIST_TEMPLATE: { id: string; label: string; required?: boolean }[] = [
+  { id: "req_coverage", label: "需求覆盖完整性：所有需求点均有对应用例", required: true },
+  { id: "step_clarity", label: "步骤明确性：操作步骤清晰、无歧义", required: true },
+  { id: "expected_verifiable", label: "预期结果可验证：可量化、可判定", required: true },
+  { id: "precondition", label: "前置条件与数据：依赖环境/数据说明完整", required: false },
+  { id: "boundary_exception", label: "边界与异常场景：覆盖边界值、异常与错误路径", required: false },
+  { id: "naming_standard", label: "命名与格式规范：标题/优先级/标签规范", required: false },
+]
+
 const columns: CrudColumn[] = [
   {
     key: "title",
@@ -122,6 +132,33 @@ const columns: CrudColumn[] = [
       // 已是中文则直接显示，否则显示"—"
       const isChinese = /[\u4e00-\u9fa5]/.test(v)
       return <span className="text-sm text-ink">{isChinese ? v : "—"}</span>
+    },
+  },
+  {
+    key: "checklist",
+    title: "清单进度",
+    width: "w-28",
+    align: "center",
+    render: (v: any) => {
+      const items: { passed: boolean | null }[] = Array.isArray(v) ? v : []
+      if (items.length === 0) return <span className="text-muted">—</span>
+      const passed = items.filter((it) => it.passed === true).length
+      const done = items.filter((it) => it.passed !== null).length
+      const allPassed = passed === items.length
+      const color = allPassed ? "text-pass" : done === 0 ? "text-muted" : "text-amber"
+      return (
+        <div className="flex flex-col items-center gap-1">
+          <span className={`text-sm font-medium ${color}`}>
+            {passed}/{items.length}
+          </span>
+          <div className="w-16 h-1.5 rounded-full bg-cream border border-border overflow-hidden">
+            <div
+              className={`h-full rounded-full ${allPassed ? "bg-pass" : done === 0 ? "bg-border" : "bg-amber"}`}
+              style={{ width: `${items.length ? Math.round((done / items.length) * 100) : 0}%` }}
+            />
+          </div>
+        </div>
+      )
     },
   },
   {
@@ -216,6 +253,13 @@ export default function ReviewsPage() {
       default: "formal",
     },
     { key: "comments", label: "评审意见", type: "textarea", placeholder: "请输入评审意见" },
+    {
+      key: "checklist",
+      label: "评审检查清单",
+      type: "checklist",
+      checklistTemplate: CHECKLIST_TEMPLATE,
+      helpText: "逐项勾选评审结果，必查项不通过时建议在备注中说明原因",
+    },
   ]
 
   const loadData = useCallback(async () => {

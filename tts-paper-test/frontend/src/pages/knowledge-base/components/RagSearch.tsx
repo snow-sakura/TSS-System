@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react"
 import { Search, Send, Loader2, BookOpen, Brain, X } from "lucide-react"
 import { toast } from "sonner"
 import { knowledgeApi } from "@/lib/api"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface SearchResult {
   id: number
@@ -172,7 +173,13 @@ export default function RagSearch() {
                   {msg.responseTime && <span className="text-[10px] text-muted ml-auto">{msg.responseTime}ms</span>}
                 </div>
               )}
-              <p className={`text-sm whitespace-pre-wrap ${msg.role === "user" ? "text-white" : "text-ink-light"}`}>{msg.content}</p>
+              {msg.role === "user" ? (
+                <p className="text-sm text-white whitespace-pre-wrap">{msg.content}</p>
+              ) : (
+                <div className="text-sm text-ink-light">
+                  <MarkdownPreview content={msg.content} />
+                </div>
+              )}
               {msg.sources && msg.sources.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border/30">
                   <p className="text-[10px] text-muted mb-1">引用来源：</p>

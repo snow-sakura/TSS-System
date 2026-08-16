@@ -12,6 +12,7 @@ import ProjectList from "./components/ProjectList"
 import AiExploration from "./components/AiExploration"
 import TestCaseManager from "./components/TestCaseManager"
 import ExecutionView from "./components/ExecutionView"
+import ObjectRepository from "./components/ObjectRepository"
 import EngineSelector from "./components/EngineSelector"
 import AiAgentPanel from "./components/AiAgentPanel"
 
@@ -20,6 +21,7 @@ const MENU_ITEMS: SidebarItem[] = [
   { key: "wa-agent", label: "AI智能体", icon: "reviews" },
   { key: "wa-explore", label: "AI探索", icon: "reviews" },
   { key: "wa-cases", label: "测试用例", icon: "cases" },
+  { key: "wa-objects", label: "对象库", icon: "records" },
   { key: "wa-execution", label: "测试执行", icon: "pipeline" },
 ]
 
@@ -214,6 +216,8 @@ function AiWebAutomationPage() {
         return <AiExploration onStatusChange={handleStatusChange} />
       case "wa-cases":
         return <TestCaseManager />
+      case "wa-objects":
+        return <ObjectRepository />
       case "wa-execution":
         return <ExecutionView />
       default:

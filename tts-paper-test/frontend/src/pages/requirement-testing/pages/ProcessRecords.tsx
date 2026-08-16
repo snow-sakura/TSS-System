@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { useAutomationStore } from "@/stores/automationStore"
 import { lifecycleApi } from "@/lib/api"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface ProcessRecord {
   id: number
@@ -400,11 +401,11 @@ export default function ProcessRecords() {
               </div>
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-ink mb-2">描述</h4>
-                <div className="bg-cream/50 rounded-xl p-4 text-sm text-ink-light">{previewRecord.description || "无描述"}</div>
+                <MarkdownPreview content={previewRecord.description || "无描述"} />
               </div>
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-ink mb-2">需求内容</h4>
-                <div className="bg-cream/50 rounded-xl p-4 text-sm text-ink-light whitespace-pre-wrap">{previewRecord.requirementContent || "无内容"}</div>
+                <MarkdownPreview content={previewRecord.requirementContent || "无内容"} />
               </div>
               <div>
                 <h4 className="text-sm font-semibold text-ink mb-2">执行进度</h4>

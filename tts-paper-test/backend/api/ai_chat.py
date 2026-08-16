@@ -2,13 +2,15 @@
 
 import json
 import asyncio
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
+from database import get_db
 
 settings = get_settings()
 
@@ -62,6 +64,25 @@ SYSTEM_PROMPT = """你是TSS AI测试平台的智能助手，名为"TSS AI助手
 """
 
 
+# RAG 增强：从知识库检索的相关上下文注入
+async def _retrieve_knowledge_context(question: str, db) -> str:
+    """检索知识库（测试模式/Bug知识），组装为可引用的上下文片段"""
+    try:
+        from services.knowledge_service import search_knowledge
+
+        results = await search_knowledge(db, question, search_type="all", limit=5)
+        if not results:
+            return ""
+        lines = ["基于知识库检索到以下相关内容，回答时优先参考："]
+        for r in results:
+            content = (r.get("content") or "").strip()[:300]
+            lines.append(f"- [{r.get('type')}] {r.get('title')}: {content}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.warning(f"知识库检索失败（跳过RAG）: {e}")
+        return ""
+
+
 async def stream_chat_response(messages: List[dict], request: Request):
     """流式生成聊天回复"""
     try:
@@ -104,9 +125,32 @@ async def stream_chat_response(messages: List[dict], request: Request):
 
 
 @router.post("/chat")
-async def chat(request: Request, chat_request: ChatRequest):
-    """AI聊天接口 - 流式响应"""
-    messages = [{"role": msg.role, "content": msg.content} for msg in chat_request.messages]
+async def chat(
+    request: Request,
+    chat_request: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """AI聊天接口 - 流式响应（RAG增强：自动检索知识库作为上下文）"""
+    messages = [
+        {"role": msg.role, "content": msg.content} for msg in chat_request.messages
+    ]
+
+    # 取用户最近一条问题做知识库检索
+    last_user_msg = next(
+        (m["content"] for m in reversed(messages) if m["role"] == "user"), ""
+    )
+    knowledge_ctx = ""
+    if last_user_msg.strip():
+        knowledge_ctx = await _retrieve_knowledge_context(
+            last_user_msg.strip()[:200], db
+        )
+    if knowledge_ctx:
+        messages.append(
+            {
+                "role": "user",
+                "content": f"【知识库参考】\n{knowledge_ctx}\n\n请结合上述参考与你的能力回答。",
+            }
+        )
 
     return StreamingResponse(
         stream_chat_response(messages, request),

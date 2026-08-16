@@ -2,7 +2,7 @@
 
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # 项目
@@ -45,6 +45,59 @@ class PageResponse(BaseModel):
 
 
 # 测试用例
+class ExecuteRequest(BaseModel):
+    """执行请求：可选指定用例ID列表，不传则执行全部已审批用例"""
+
+    case_ids: Optional[list[int]] = None
+
+
+# 对象库（页面元素）
+class UIElementCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    element_type: Optional[str] = None
+    locator: Optional[str] = None
+    attributes: Optional[dict] = None
+    description: Optional[str] = None
+
+
+class UIElementUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=200)
+    element_type: Optional[str] = None
+    locator: Optional[str] = None
+    attributes: Optional[dict] = None
+    description: Optional[str] = None
+
+
+class UIElementResponse(BaseModel):
+    id: int
+    project_id: int
+    page_id: Optional[int]
+    name: str
+    element_type: Optional[str]
+    locator: Optional[str]
+    attributes: Optional[dict]
+    description: Optional[str]
+    created_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class ObjectRepoPageResponse(BaseModel):
+    """对象库中的页面对象（含元素统计）"""
+
+    id: int
+    project_id: int
+    url: str
+    title: Optional[str]
+    screenshot_path: Optional[str]
+    element_count: int = 0
+    created_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
 class TestCaseCreate(BaseModel):
     title: str = Field(..., max_length=500)
     description: Optional[str] = None
@@ -91,6 +144,8 @@ class ExecutionResponse(BaseModel):
     id: int
     project_id: int
     test_case_id: Optional[int]
+    execution_case_ids: Optional[list[int]] = None
+    case_titles: Optional[list[str]] = None
     status: str
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
@@ -100,6 +155,13 @@ class ExecutionResponse(BaseModel):
     ai_analysis: Optional[str]
     executed_by: Optional[int]
     created_at: datetime
+
+    @model_validator(mode="after")
+    def _backfill_case_ids(self):
+        """旧数据兼容：execution_case_ids 为空时回退到 test_case_id"""
+        if not self.execution_case_ids and self.test_case_id:
+            self.execution_case_ids = [self.test_case_id]
+        return self
 
     class Config:
         from_attributes = True

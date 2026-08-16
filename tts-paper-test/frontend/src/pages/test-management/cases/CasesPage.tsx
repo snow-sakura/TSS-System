@@ -1,85 +1,27 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { useNavigate } from "react-router-dom"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
 import { lifecycleApi, projectApi } from "@/lib/api"
-import { CheckCircle, XCircle, AlertCircle, X } from "lucide-react"
+import { CheckCircle, XCircle, AlertCircle, X, Download } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
 import { useToast } from "@/hooks/useToast"
-
-interface TestCase {
-  id: number
-  name: string
-  module?: string
-  description?: string
-  preconditions?: string
-  steps?: string
-  expected_result?: string
-  status: "draft" | "active" | "deprecated" | "approved" | "rejected" | "needs_modification"
-  priority: "P0" | "P1" | "P2" | "P3"
-  test_type?: string
-  reviewed_by?: number
-  reviewed_at?: string
-  project_id?: number
-  project_name?: string
-  version_id?: number
-  version_name?: string
-  created_at?: string
-}
-
-const statusConfig = {
-  draft: { label: "待评审", color: "bg-amber/10 text-amber border border-amber/20" },
-  active: { label: "活跃", color: "bg-info/10 text-info border border-info/20" },
-  deprecated: { label: "已废弃", color: "bg-fail/10 text-fail border border-fail/20" },
-  approved: { label: "已通过", color: "bg-pass/10 text-pass border border-pass/20" },
-  rejected: { label: "已驳回", color: "bg-fail/10 text-fail border border-fail/20" },
-  needs_modification: { label: "需修改", color: "bg-amber/10 text-amber border border-amber/20" },
-}
-
-const priorityConfig = {
-  P0: { label: "P0 - 紧急", color: "text-fail font-semibold" },
-  P1: { label: "P1 - 高", color: "text-amber font-semibold" },
-  P2: { label: "P2 - 中", color: "text-info font-semibold" },
-  P3: { label: "P3 - 低", color: "text-muted" },
-}
-
-const statusOptions = [
-  { label: "待评审", value: "draft" },
-  { label: "已通过", value: "approved" },
-  { label: "已驳回", value: "rejected" },
-  { label: "需修改", value: "needs_modification" },
-  { label: "活跃", value: "active" },
-  { label: "已废弃", value: "deprecated" },
-]
-
-const priorityOptions = [
-  { label: "P0 - 紧急", value: "P0" },
-  { label: "P1 - 高", value: "P1" },
-  { label: "P2 - 中", value: "P2" },
-  { label: "P3 - 低", value: "P3" },
-]
-
-/** 用例类型英文值 → 中文映射 */
-const testTypeConfig: Record<string, string> = {
-  functional: "功能",
-  performance: "性能",
-  security: "安全",
-  compatibility: "兼容",
-  api: "接口",
-  interface: "接口",
-}
-
-const testTypeOptions = [
-  { label: "功能", value: "功能" },
-  { label: "性能", value: "性能" },
-  { label: "安全", value: "安全" },
-  { label: "兼容", value: "兼容" },
-  { label: "接口", value: "接口" },
-]
+import { useConfirmStore } from "@/stores/confirmStore"
+import {
+  type TestCase,
+  statusConfig,
+  priorityConfig,
+  statusOptions,
+  priorityOptions,
+  testTypeConfig,
+  caseFields,
+} from "./caseConfig"
 
 export default function CasesPage() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [data, setData] = useState<TestCase[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -90,6 +32,7 @@ export default function CasesPage() {
   const [priorityFilter, setPriorityFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [versionFilter, setVersionFilter] = useState("")
+  const [tagFilter, setTagFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [reviewingCase, setReviewingCase] = useState<TestCase | null>(null)
@@ -185,6 +128,29 @@ export default function CasesPage() {
       },
     },
     {
+      key: "tags",
+      title: "标签",
+      width: "min-w-[120px]",
+      align: "center",
+      render: (v: string[] | null | undefined) => {
+        if (!Array.isArray(v) || v.length === 0) {
+          return <span className="text-muted">—</span>
+        }
+        return (
+          <div className="flex flex-wrap items-center justify-center gap-1">
+            {v.map((t, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber/10 text-amber border border-amber/20"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )
+      },
+    },
+    {
       key: "status",
       title: "评审状态",
       width: "w-36",
@@ -226,27 +192,31 @@ export default function CasesPage() {
     },
   ]
 
+  // 从当前数据收集全部标签，作为筛选选项
+  const tagOptions = useMemo(() => {
+    const tags = new Set<string>()
+    data.forEach((row: any) => {
+      if (Array.isArray(row.tags)) row.tags.forEach((t: string) => t && tags.add(t))
+    })
+    return Array.from(tags).map((t) => ({ label: t, value: t }))
+  }, [data])
+
   const filters: CrudFilter[] = [
     { key: "search", label: "搜索用例标题...", type: "search" },
     { key: "status", label: "全部状态", type: "select", options: statusOptions },
     { key: "priority", label: "全部优先级", type: "select", options: priorityOptions },
     { key: "project", label: "全部项目", type: "select", options: projectOptions },
     { key: "version", label: "全部版本", type: "select", options: versionOptions },
+    { key: "tag", label: "全部标签", type: "select", options: tagOptions },
   ]
 
-  const fields: CrudField[] = [
-    { key: "project_id", label: "项目", type: "select", options: projectOptions },
-    { key: "version_id", label: "版本", type: "select", options: versionOptions },
-    { key: "name", label: "用例标题", type: "text", required: true, placeholder: "请输入用例标题" },
-    { key: "module", label: "所属模块", type: "text", placeholder: "请输入所属模块" },
-    { key: "description", label: "描述", type: "textarea", placeholder: "请输入用例描述" },
-    { key: "precondition", label: "前置条件", type: "textarea", placeholder: "请输入前置条件" },
-    { key: "steps", label: "测试步骤", type: "textarea", placeholder: "请输入测试步骤" },
-    { key: "expected_result", label: "预期结果", type: "textarea", placeholder: "请输入预期结果" },
-    { key: "status", label: "状态", type: "select", options: statusOptions, default: "draft" },
-    { key: "priority", label: "优先级", type: "select", options: priorityOptions, default: "P2" },
-    { key: "test_type", label: "用例类型", type: "select", options: testTypeOptions },
-  ]
+  // 基于共享 caseFields 构造表单字段，动态补充项目/版本选项
+  // （字段 key 与后端 schema 对齐，preconditions 为后端字段名）
+  const fields: CrudField[] = caseFields.map((f) => {
+    if (f.key === "project_id") return { ...f, options: projectOptions }
+    if (f.key === "version_id") return { ...f, options: versionOptions }
+    return f
+  })
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -257,6 +227,7 @@ export default function CasesPage() {
       if (priorityFilter) params.priority = priorityFilter
       if (projectFilter) params.project_id = projectFilter
       if (versionFilter) params.version_id = versionFilter
+      if (tagFilter) params.tag = tagFilter
       const res = await lifecycleApi.listTestCases(params)
       const payload = res?.data
       const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
@@ -269,7 +240,7 @@ export default function CasesPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, searchTerm, statusFilter, priorityFilter, projectFilter, versionFilter])
+  }, [page, pageSize, searchTerm, statusFilter, priorityFilter, projectFilter, versionFilter, tagFilter])
 
   useEffect(() => {
     loadData()
@@ -294,6 +265,9 @@ export default function CasesPage() {
     } else if (key === "version") {
       setVersionFilter(value)
       setPage(1)
+    } else if (key === "tag") {
+      setTagFilter(value)
+      setPage(1)
     }
   }, [])
 
@@ -309,15 +283,24 @@ export default function CasesPage() {
     setDialogOpen(true)
   }, [])
 
-  const handleView = useCallback((row: TestCase) => {
-    setDialogMode("view")
-    setEditingCase(row)
-    setDialogOpen(true)
-  }, [])
+  const handleView = useCallback(
+    (row: TestCase) => {
+      // 独立详情页：左侧导航 + 面包屑 + 工具栏 + 内容区
+      navigate(`/test-management/cases/${row.id}`)
+    },
+    [navigate]
+  )
 
   const handleDelete = useCallback(
     async (row: TestCase) => {
-      if (!window.confirm(`确定要删除用例「${row.name}」吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "确认删除",
+        message: "确定要删除该测试用例吗？删除后不可恢复。",
+        itemName: row.name,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.deleteTestCase(row.id)
         toast.success("删除成功")
@@ -331,7 +314,13 @@ export default function CasesPage() {
 
   const handleBatchDelete = useCallback(
     async (ids: (string | number)[]) => {
-      if (!window.confirm(`确定要删除选中的 ${ids.length} 个用例吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "批量删除",
+        message: `确定要删除选中的 ${ids.length} 个测试用例吗？删除后不可恢复。`,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.batchDeleteTestCases(ids as number[])
         toast.success("批量删除成功")
@@ -419,6 +408,63 @@ export default function CasesPage() {
     }
   }, [editingCase])
 
+  /** 导出当前筛选条件下的全部用例为 CSV（PingCode 对齐：用例导出） */
+  const [exporting, setExporting] = useState(false)
+  const handleExport = useCallback(async () => {
+    setExporting(true)
+    try {
+      const params: Record<string, any> = { page: 1, page_size: 10000 }
+      if (searchTerm) params.search = searchTerm
+      if (statusFilter) params.status = statusFilter
+      if (priorityFilter) params.priority = priorityFilter
+      if (projectFilter) params.project_id = projectFilter
+      if (versionFilter) params.version_id = versionFilter
+      if (tagFilter) params.tag = tagFilter
+      const res = await lifecycleApi.listTestCases(params)
+      const list = Array.isArray(res?.data?.items)
+        ? res.data.items
+        : Array.isArray(res?.data)
+          ? res.data
+          : []
+      // 生成 CSV（含 BOM 保证 Excel 中文正常）
+      const header = ["ID", "用例标题", "所属模块", "项目", "版本", "优先级", "用例类型", "标签", "状态", "前置条件", "测试步骤", "预期结果", "创建时间"]
+      const rows = list.map((c: any) => [
+        c.id ?? "",
+        c.name ?? "",
+        c.module ?? "",
+        c.project_name ?? "",
+        c.version_name ?? "",
+        c.priority ?? "",
+        c.test_type ?? "",
+        Array.isArray(c.tags) ? c.tags.join("|") : "",
+        c.status ?? "",
+        (c.preconditions || "").replace(/[\r\n]+/g, " "),
+        (Array.isArray(c.steps) ? c.steps.map((s: any) => (typeof s === "string" ? s : JSON.stringify(s))).join(" | ") : c.steps || "").replace(/[\r\n]+/g, " "),
+        (c.expected_result || "").replace(/[\r\n]+/g, " "),
+        c.created_at ?? "",
+      ])
+      const escape = (v: any) => {
+        const s = String(v ?? "")
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+      }
+      const csv = "\uFEFF" + [header, ...rows]
+        .map((r) => r.map(escape).join(","))
+        .join("\n")
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `测试用例导出_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`已导出 ${list.length} 条用例`)
+    } catch (e: any) {
+      toast.error(e?.message || "导出失败")
+    } finally {
+      setExporting(false)
+    }
+  }, [searchTerm, statusFilter, priorityFilter, projectFilter, versionFilter, tagFilter, toast])
+
   const dialogTitle =
     dialogMode === "create" ? "新建测试用例" : dialogMode === "edit" ? "编辑测试用例" : "测试用例详情"
 
@@ -446,17 +492,30 @@ export default function CasesPage() {
         onEdit={handleEdit}
         onView={handleView}
         onDelete={handleDelete}
+        onRowClick={handleView}
         onBatchDelete={handleBatchDelete}
         emptyText="暂无测试用例数据"
-        toolbarExtra={selectedIds.size > 0 ? (
-          <button
-            onClick={() => setBatchReviewOpen(true)}
-            className="h-9 px-4 rounded-xl bg-amber text-white text-sm font-medium shadow-sm hover:bg-amber/90 transition-all flex items-center gap-2"
-          >
-            <CheckCircle className="w-4 h-4" />
-            批量评审 ({selectedIds.size})
-          </button>
-        ) : null}
+        toolbarExtra={
+          <>
+            {selectedIds.size > 0 && (
+              <button
+                onClick={() => setBatchReviewOpen(true)}
+                className="h-9 px-4 rounded-xl bg-amber text-white text-sm font-medium shadow-sm hover:bg-amber/90 transition-all flex items-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" />
+                批量评审 ({selectedIds.size})
+              </button>
+            )}
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream disabled:opacity-50 transition-colors flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? "导出中..." : "导出CSV"}
+            </button>
+          </>
+        }
         createButtonText="新建用例"
       />
 

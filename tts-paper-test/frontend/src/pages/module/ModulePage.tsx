@@ -9,7 +9,7 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 import { useModuleData } from "@/hooks/useModuleData"
-import ReactMarkdown from "react-markdown"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 const iconMap: Record<string, React.ComponentType<any>> = { FileText, Target, ClipboardList, FlaskConical, Globe, Play, Bug, BarChart3, BookOpen, Server, Brain, MessageSquare, Wand2, Webhook, Puzzle, Key, ScrollText, Users, Shield, Settings, CheckCircle }
 
@@ -486,7 +486,9 @@ export default function ModulePage() {
                 {col.label}
                 {(col.key === "name" || col.type === "select") && dialogMode !== "view" && <span className="text-fail ml-1">*</span>}
               </label>
-              {dialogMode === "view" ? <div className="px-3 py-2.5 rounded-lg bg-cream border border-border text-sm text-ink">{formData[col.key] || "-"}</div>
+              {dialogMode === "view" ? (col.type === "textarea" ? (
+                <div className="px-3 py-2.5 rounded-lg bg-cream border border-border"><MarkdownPreview content={formData[col.key] || ""} emptyText="暂无内容" /></div>
+              ) : <div className="px-3 py-2.5 rounded-lg bg-cream border border-border text-sm text-ink">{formData[col.key] || "-"}</div>)
               : col.type === "select" ? <select value={formData[col.key] || ""} onChange={(e) => handleFieldChange(col.key, e.target.value)}
                 className={`w-full h-10 px-3 rounded-lg bg-white border text-sm text-ink focus:outline-none shadow-sm transition-colors ${formErrors[col.key] ? "border-fail focus:border-fail" : "border-border focus:border-amber"}`}>
                 <option value="">请选择</option>{col.options?.map((opt) => <option key={opt} value={opt}>{opt}</option>)}</select>
@@ -537,10 +539,8 @@ export default function ModulePage() {
             {/* 内容描述 */}
             <div className="mb-6">
               <h4 className="text-sm font-semibold text-ink mb-2">详细描述</h4>
-              <div className="bg-cream/50 rounded-xl p-4 prose prose-sm max-w-none">
-                <ReactMarkdown>
-                  {`## ${previewItem.name}\n\n这是一个需求的详细描述。在实际应用中，这里会显示从数据库查询到的完整数据。\n\n### 功能点\n\n- 实现用户登录功能\n- 支持用户名+密码登录\n- 支持记住密码功能\n\n### 技术要求\n\n1. 前端使用React框架\n2. 后端使用FastAPI\n3. 数据库使用PostgreSQL\n\n### 验收标准\n\n| 标准 | 说明 |\n|------|------|\n| 登录成功率 | >= 99% |\n| 响应时间 | < 2s |\n| 安全性 | 支持HTTPS |`}
-                </ReactMarkdown>
+              <div className="bg-cream/50 rounded-xl p-4">
+                <MarkdownPreview content={`## ${previewItem.name}\n\n这是一个需求的详细描述。在实际应用中，这里会显示从数据库查询到的完整数据。\n\n### 功能点\n\n- 实现用户登录功能\n- 支持用户名+密码登录\n- 支持记住密码功能\n\n### 技术要求\n\n1. 前端使用React框架\n2. 后端使用FastAPI\n3. 数据库使用PostgreSQL\n\n### 验收标准\n\n| 标准 | 说明 |\n|------|------|\n| 登录成功率 | >= 99% |\n| 响应时间 | < 2s |\n| 安全性 | 支持HTTPS |`} />
               </div>
             </div>
           </div>

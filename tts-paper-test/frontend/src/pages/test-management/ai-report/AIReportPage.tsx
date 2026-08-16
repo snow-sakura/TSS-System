@@ -4,6 +4,7 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { Sparkles, FileText, Download, Eye, Loader2, CheckCircle } from "lucide-react"
 import { useToast } from "@/hooks/useToast"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 type ReportType = "full" | "summary" | "defect" | "quality"
 
@@ -255,9 +256,7 @@ export default function AIReportPage() {
                   </div>
                 </div>
                 <div className="p-6 max-h-[500px] overflow-y-auto">
-                  <pre className="text-sm text-ink whitespace-pre-wrap font-sans leading-relaxed">
-                    {generatedReport}
-                  </pre>
+                  <MarkdownPreview content={generatedReport} />
                 </div>
               </div>
             ) : (

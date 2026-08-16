@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Sparkles, Search, AlertTriangle, Code, Database, Globe, Shield, Loader2, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { lifecycleApi } from "@/lib/api"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 const initialDefects = [
   { id: 4, title: "支付超时后订单状态异常", module: "支付模块", severity: "致命", priority: "P0", aiAnalysis: "" },
@@ -123,7 +124,9 @@ export default function RootCauseAnalysis() {
                     <Sparkles className="w-3 h-3 text-amber" />
                     <span className="text-[11px] font-semibold text-amber-hover">AI分析结果</span>
                   </div>
-                  <p className="text-xs text-ink-light leading-relaxed">{d.aiAnalysis}</p>
+                  <div className="text-xs text-ink-light leading-relaxed">
+                    <MarkdownPreview content={d.aiAnalysis} />
+                  </div>
                 </div>
               )}
             </div>

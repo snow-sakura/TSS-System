@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { webApi } from "@/lib/api"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface PlanStep {
   id: string
@@ -301,7 +302,11 @@ export default function AiAgentPanel() {
                       ? "bg-cream/60 text-ink-light border border-border/50"
                       : "bg-cream/30 text-ink-light border border-border/30"
                   }`}>
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    {msg.role === "user" ? (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    ) : (
+                      <MarkdownPreview content={msg.content} />
+                    )}
                     <p className={`text-[10px] mt-1.5 opacity-60 ${msg.role === "user" ? "text-white/70" : "text-muted"}`}>
                       {msg.timestamp}
                     </p>

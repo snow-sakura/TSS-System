@@ -1,7 +1,18 @@
 """测试生命周期模型 - 需求分析→方案→测试点→用例→执行→缺陷→报告"""
 
 from datetime import datetime
-from sqlalchemy import String, Text, Boolean, DateTime, ForeignKey, func, Column, Integer, JSON, Float
+from sqlalchemy import (
+    String,
+    Text,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    func,
+    Column,
+    Integer,
+    JSON,
+    Float,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -10,13 +21,16 @@ from .base import TimestampMixin
 
 class Requirement(Base, TimestampMixin):
     """需求"""
+
     __tablename__ = "requirements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(50), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="draft", nullable=False, index=True
+    )
     priority: Mapped[str] = mapped_column(String(10), default="P2", nullable=False)
     source: Mapped[str] = mapped_column(String(50), nullable=True)
     requirement_type: Mapped[str] = mapped_column(String(50), nullable=True)
@@ -30,14 +44,24 @@ class Requirement(Base, TimestampMixin):
     file_path: Mapped[str] = mapped_column(String(500), nullable=True)
     file_type: Mapped[str] = mapped_column(String(20), nullable=True)
     file_size: Mapped[int] = mapped_column(Integer, nullable=True)
-    parse_status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    parse_status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False
+    )
     parse_error: Mapped[str] = mapped_column(Text, nullable=True)
     raw_content: Mapped[str] = mapped_column(Text, nullable=True)
 
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
-    version_id: Mapped[int] = mapped_column(Integer, ForeignKey("versions.id"), nullable=True, index=True)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    reviewed_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=True, index=True
+    )
+    version_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("versions.id"), nullable=True, index=True
+    )
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
+    reviewed_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     project = relationship("Project", lazy="selectin")
@@ -46,21 +70,30 @@ class Requirement(Base, TimestampMixin):
 
 class TestPlan(Base, TimestampMixin):
     """测试方案"""
+
     __tablename__ = "test_plans"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="draft", nullable=False, index=True
+    )
     priority: Mapped[str] = mapped_column(String(10), default="P2", nullable=False)
     scope: Mapped[str] = mapped_column(String(100), nullable=True)  # 测试范围
     risk_level: Mapped[str] = mapped_column(String(20), default="low")
     strategy: Mapped[dict] = mapped_column(JSON, nullable=True)  # 测试策略详情
     ai_suggestions: Mapped[dict] = mapped_column(JSON, nullable=True)  # AI建议
     requirement_ids: Mapped[dict] = mapped_column(JSON, nullable=True)  # 关联需求ID列表
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
-    version_id: Mapped[int] = mapped_column(Integer, ForeignKey("versions.id"), nullable=True, index=True)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=True, index=True
+    )
+    version_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("versions.id"), nullable=True, index=True
+    )
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
 
     project = relationship("Project", lazy="selectin")
     version = relationship("Version", lazy="selectin")
@@ -69,21 +102,34 @@ class TestPlan(Base, TimestampMixin):
 
 class TestPoint(Base, TimestampMixin):
     """测试点"""
+
     __tablename__ = "test_points"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="draft", nullable=False, index=True
+    )
     priority: Mapped[str] = mapped_column(String(10), default="P2", nullable=False)
     category: Mapped[str] = mapped_column(String(50), nullable=True)  # 分类
     coverage: Mapped[float] = mapped_column(Float, default=0.0)  # 覆盖率
-    requirement_id: Mapped[int] = mapped_column(Integer, ForeignKey("requirements.id"), nullable=True)
-    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("test_plans.id"), nullable=True)
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
-    version_id: Mapped[int] = mapped_column(Integer, ForeignKey("versions.id"), nullable=True, index=True)
+    requirement_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("requirements.id"), nullable=True
+    )
+    plan_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("test_plans.id"), nullable=True
+    )
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=True, index=True
+    )
+    version_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("versions.id"), nullable=True, index=True
+    )
     ai_extracted: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
 
     project = relationship("Project", lazy="selectin")
     version = relationship("Version", lazy="selectin")
@@ -91,6 +137,7 @@ class TestPoint(Base, TimestampMixin):
 
 class TestCase(Base, TimestampMixin):
     """测试用例"""
+
     __tablename__ = "lifecycle_test_cases"  # 避免与web_automation的web_test_cases冲突
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -99,19 +146,38 @@ class TestCase(Base, TimestampMixin):
     preconditions: Mapped[str] = mapped_column(Text, nullable=True)
     steps: Mapped[dict] = mapped_column(JSON, default=list, nullable=False)
     expected_result: Mapped[str] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="draft", nullable=False, index=True
+    )
     priority: Mapped[str] = mapped_column(String(10), default="P2", nullable=False)
     test_type: Mapped[str] = mapped_column(String(50), nullable=True)  # 功能/性能/安全
-    requirement_id: Mapped[int] = mapped_column(Integer, ForeignKey("requirements.id"), nullable=True)
-    test_point_id: Mapped[int] = mapped_column(Integer, ForeignKey("test_points.id"), nullable=True)
-    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("test_plans.id"), nullable=True)
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
-    version_id: Mapped[int] = mapped_column(Integer, ForeignKey("versions.id"), nullable=True, index=True)
+    tags: Mapped[dict] = mapped_column(
+        JSON, nullable=True
+    )  # 标签列表（如 冒烟/回归/核心流程）
+    requirement_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("requirements.id"), nullable=True
+    )
+    test_point_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("test_points.id"), nullable=True
+    )
+    plan_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("test_plans.id"), nullable=True
+    )
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=True, index=True
+    )
+    version_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("versions.id"), nullable=True, index=True
+    )
     ai_generated: Mapped[bool] = mapped_column(Boolean, default=False)
     ai_model: Mapped[str] = mapped_column(String(100), nullable=True)
-    reviewed_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
     reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
 
     project = relationship("Project", lazy="selectin")
     version = relationship("Version", lazy="selectin")
@@ -119,11 +185,14 @@ class TestCase(Base, TimestampMixin):
 
 class TestExecution(Base, TimestampMixin):
     """测试执行"""
+
     __tablename__ = "lifecycle_executions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False, index=True
+    )
     test_type: Mapped[str] = mapped_column(String(50), nullable=True)
     environment: Mapped[str] = mapped_column(String(100), nullable=True)
     total_cases: Mapped[int] = mapped_column(Integer, default=0)
@@ -135,20 +204,29 @@ class TestExecution(Base, TimestampMixin):
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     test_case_ids: Mapped[dict] = mapped_column(JSON, nullable=True)
-    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("test_plans.id"), nullable=True)
-    triggered_by: Mapped[str] = mapped_column(String(50), default="manual")  # manual, schedule, ci
-    executed_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    plan_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("test_plans.id"), nullable=True
+    )
+    triggered_by: Mapped[str] = mapped_column(
+        String(50), default="manual"
+    )  # manual, schedule, ci
+    executed_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
     report_id: Mapped[int] = mapped_column(Integer, nullable=True)
 
 
 class Defect(Base, TimestampMixin):
     """缺陷"""
+
     __tablename__ = "defects"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="new", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="new", nullable=False, index=True
+    )
     priority: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
     severity: Mapped[str] = mapped_column(String(20), default="major", nullable=False)
     steps_to_reproduce: Mapped[dict] = mapped_column(JSON, nullable=True)
@@ -159,38 +237,71 @@ class Defect(Base, TimestampMixin):
     root_cause: Mapped[str] = mapped_column(Text, nullable=True)
     root_cause_ai: Mapped[dict] = mapped_column(JSON, nullable=True)  # AI根因分析
     screenshot_paths: Mapped[dict] = mapped_column(JSON, nullable=True)
-    execution_id: Mapped[int] = mapped_column(Integer, ForeignKey("lifecycle_executions.id"), nullable=True)
-    test_case_id: Mapped[int] = mapped_column(Integer, ForeignKey("lifecycle_test_cases.id"), nullable=True)
-    assigned_to: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
-    resolved_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    execution_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("lifecycle_executions.id"), nullable=True
+    )
+    test_case_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("lifecycle_test_cases.id"), nullable=True
+    )
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=True
+    )
+    version_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("versions.id"), nullable=True
+    )
+    assigned_to: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
+    resolved_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
     resolved_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
+
+    project = relationship("Project", lazy="selectin")
+    version = relationship("Version", lazy="selectin")
 
 
 class Review(Base, TimestampMixin):
     """用例评审记录"""
+
     __tablename__ = "test_reviews"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=True)         # 评审内容
-    review_type: Mapped[str] = mapped_column(String(50), nullable=True)  # 用例评审/方案评审/报告评审/AI自动评审
-    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False, index=True)
-    source: Mapped[str] = mapped_column(String(50), nullable=True)     # manual / ai
+    content: Mapped[str] = mapped_column(Text, nullable=True)  # 评审内容
+    review_type: Mapped[str] = mapped_column(
+        String(50), nullable=True
+    )  # 用例评审/方案评审/报告评审/AI自动评审
+    status: Mapped[str] = mapped_column(
+        String(20), default="draft", nullable=False, index=True
+    )
+    source: Mapped[str] = mapped_column(String(50), nullable=True)  # manual / ai
     reviewer: Mapped[str] = mapped_column(String(100), nullable=True)  # 评审人
-    reviewer2: Mapped[str] = mapped_column(String(100), nullable=True) # 二次评审人
-    case_count: Mapped[int] = mapped_column(Integer, default=0)        # 关联用例数
-    passed_count: Mapped[int] = mapped_column(Integer, default=0)      # 通过数
-    rejected_count: Mapped[int] = mapped_column(Integer, default=0)    # 驳回数
-    summary: Mapped[str] = mapped_column(Text, nullable=True)          # 评审摘要
-    comments: Mapped[str] = mapped_column(Text, nullable=True)         # 评审意见
+    reviewer2: Mapped[str] = mapped_column(String(100), nullable=True)  # 二次评审人
+    case_count: Mapped[int] = mapped_column(Integer, default=0)  # 关联用例数
+    passed_count: Mapped[int] = mapped_column(Integer, default=0)  # 通过数
+    rejected_count: Mapped[int] = mapped_column(Integer, default=0)  # 驳回数
+    summary: Mapped[str] = mapped_column(Text, nullable=True)  # 评审摘要
+    comments: Mapped[str] = mapped_column(Text, nullable=True)  # 评审意见
+    checklist: Mapped[dict] = mapped_column(
+        JSON, nullable=True
+    )  # 评审检查清单 [{id,label,required,passed,comment}]
     completed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     pipeline_id: Mapped[str] = mapped_column(String(100), nullable=True)
     stage_key: Mapped[str] = mapped_column(String(50), nullable=True)
-    case_ids: Mapped[dict] = mapped_column(JSON, nullable=True)       # 关联用例ID
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
-    version_id: Mapped[int] = mapped_column(Integer, ForeignKey("versions.id"), nullable=True, index=True)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    case_ids: Mapped[dict] = mapped_column(JSON, nullable=True)  # 关联用例ID
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=True, index=True
+    )
+    version_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("versions.id"), nullable=True, index=True
+    )
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
 
     project = relationship("Project", lazy="selectin")
     version = relationship("Version", lazy="selectin")
@@ -198,20 +309,29 @@ class Review(Base, TimestampMixin):
 
 class PipelineRecord(Base, TimestampMixin):
     """全流程流水线记录"""
+
     __tablename__ = "pipeline_records"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="running", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="running", nullable=False, index=True
+    )
     pipeline_id: Mapped[str] = mapped_column(String(100), nullable=True)
     requirement_content: Mapped[str] = mapped_column(Text, nullable=True)
     requirement_name: Mapped[str] = mapped_column(String(500), nullable=True)
     total_duration: Mapped[float] = mapped_column(Float, nullable=True)
     stage_count: Mapped[int] = mapped_column(Integer, default=0)
-    stage_results: Mapped[dict] = mapped_column(JSON, nullable=True)   # 各阶段执行结果
-    project_id: Mapped[int] = mapped_column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
-    version_id: Mapped[int] = mapped_column(Integer, ForeignKey("versions.id"), nullable=True, index=True)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    stage_results: Mapped[dict] = mapped_column(JSON, nullable=True)  # 各阶段执行结果
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=True, index=True
+    )
+    version_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("versions.id"), nullable=True, index=True
+    )
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
 
     project = relationship("Project", lazy="selectin")
     version = relationship("Version", lazy="selectin")
@@ -219,13 +339,18 @@ class PipelineRecord(Base, TimestampMixin):
 
 class TestReport(Base, TimestampMixin):
     """测试报告"""
+
     __tablename__ = "test_reports"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False, index=True)
-    report_type: Mapped[str] = mapped_column(String(50), nullable=True)  # version, regression, trend
+    status: Mapped[str] = mapped_column(
+        String(20), default="draft", nullable=False, index=True
+    )
+    report_type: Mapped[str] = mapped_column(
+        String(50), nullable=True
+    )  # version, regression, trend
     summary: Mapped[dict] = mapped_column(JSON, nullable=True)  # 汇总数据
     metrics: Mapped[dict] = mapped_column(JSON, nullable=True)  # 指标
     charts: Mapped[dict] = mapped_column(JSON, nullable=True)  # 图表数据
@@ -234,7 +359,11 @@ class TestReport(Base, TimestampMixin):
     recommendations: Mapped[dict] = mapped_column(JSON, nullable=True)
     execution_ids: Mapped[dict] = mapped_column(JSON, nullable=True)
     defect_ids: Mapped[dict] = mapped_column(JSON, nullable=True)
-    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("test_plans.id"), nullable=True)
+    plan_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("test_plans.id"), nullable=True
+    )
     ai_generated: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
     published_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

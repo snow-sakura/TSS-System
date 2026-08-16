@@ -96,8 +96,12 @@ export default function TestManagementLayout() {
 
   // 从路径解析当前激活的菜单
   useEffect(() => {
-    const pathParts = location.pathname.split("/")
-    const currentPath = pathParts[pathParts.length - 1] || "requirements"
+    const pathParts = location.pathname.split("/").filter(Boolean)
+    // 已知菜单路径集合（用于详情页 :id 路径回退，如 cases/123 → cases）
+    const knownPaths = new Set(menuGroups.flatMap(g => g.children.map(item => item.path)))
+    // 从末段向前查找第一个已知菜单段
+    const currentPath =
+      [...pathParts].reverse().find(part => knownPaths.has(part)) || "requirements"
     setActiveKey(currentPath)
 
     // 自动展开包含当前菜单的分组
@@ -297,11 +301,9 @@ export default function TestManagementLayout() {
           
         </aside>
 
-        {/* 主内容区 */}
-        <main className="flex-1 overflow-hidden bg-cream/30 min-h-0">
-          <div className="h-full w-full">
-            <Outlet />
-          </div>
+        {/* 主内容区：可滚动容器，列表数据超过一屏时可下拉查看全部（含分页栏） */}
+        <main className="flex-1 overflow-y-auto bg-cream/30 min-h-0">
+          <Outlet />
         </main>
       </div>
     </div>

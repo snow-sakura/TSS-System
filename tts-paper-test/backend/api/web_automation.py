@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,9 +10,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models.user import User
 from schemas.web_automation import (
-    ProjectCreate, ProjectResponse, PageResponse,
-    TestCaseCreate, TestCaseUpdate, TestCaseResponse,
+    ProjectCreate,
+    ProjectResponse,
+    PageResponse,
+    ExecuteRequest,
+    TestCaseCreate,
+    TestCaseUpdate,
+    TestCaseResponse,
     ExecutionResponse,
+    UIElementCreate,
+    UIElementUpdate,
+    UIElementResponse,
+    ObjectRepoPageResponse,
 )
 from schemas.common import ResponseModel
 from api.deps import get_current_user_dep
@@ -24,6 +34,7 @@ router = APIRouter(prefix="/web-automation", tags=["Web自动化测试"])
 
 # ============ 项目管理 ============
 
+
 @router.post("/projects", response_model=ResponseModel)
 async def create_project(
     body: ProjectCreate,
@@ -33,17 +44,25 @@ async def create_project(
     """创建自动化项目"""
     project = await was.create_project(db, body, user.id)
     await create_operation_log(
-        db, module="web-automation", action="create_project",
-        user_id=user.id, username=user.username,
-        target_id=str(project.id), target_type="project",
+        db,
+        module="web-automation",
+        action="create_project",
+        user_id=user.id,
+        username=user.username,
+        target_id=str(project.id),
+        target_type="project",
         detail={"name": project.name, "url": project.target_url},
     )
     return ResponseModel(
         message="项目创建成功",
         data=ProjectResponse(
-            id=project.id, name=project.name, target_url=project.target_url,
-            description=project.description, status=project.status,
-            created_by=project.created_by, created_at=project.created_at,
+            id=project.id,
+            name=project.name,
+            target_url=project.target_url,
+            description=project.description,
+            status=project.status,
+            created_by=project.created_by,
+            created_at=project.created_at,
             updated_at=project.updated_at,
         ),
     )
@@ -71,9 +90,13 @@ async def get_project(
     project = await was.get_project(db, project_id)
     return ResponseModel(
         data=ProjectResponse(
-            id=project.id, name=project.name, target_url=project.target_url,
-            description=project.description, status=project.status,
-            created_by=project.created_by, created_at=project.created_at,
+            id=project.id,
+            name=project.name,
+            target_url=project.target_url,
+            description=project.description,
+            status=project.status,
+            created_by=project.created_by,
+            created_at=project.created_at,
             updated_at=project.updated_at,
         )
     )
@@ -88,14 +111,19 @@ async def delete_project(
     """删除项目"""
     await was.delete_project(db, project_id)
     await create_operation_log(
-        db, module="web-automation", action="delete_project",
-        user_id=user.id, username=user.username,
-        target_id=str(project_id), target_type="project",
+        db,
+        module="web-automation",
+        action="delete_project",
+        user_id=user.id,
+        username=user.username,
+        target_id=str(project_id),
+        target_type="project",
     )
     return ResponseModel(message="项目已删除")
 
 
 # ============ AI探索 ============
+
 
 @router.post("/projects/{project_id}/explore")
 async def start_exploration(
@@ -111,9 +139,13 @@ async def start_exploration(
     await was.update_project_status(db, project_id, "exploring")
 
     await create_operation_log(
-        db, module="web-automation", action="explore",
-        user_id=user.id, username=user.username,
-        target_id=str(project_id), target_type="project",
+        db,
+        module="web-automation",
+        action="explore",
+        user_id=user.id,
+        username=user.username,
+        target_id=str(project_id),
+        target_type="project",
     )
 
     return StreamingResponse(
@@ -145,7 +177,9 @@ async def _run_exploration(project_id: int, target_url: str, user_id: int):
         return f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
     try:
-        yield event("exploration_start", {"project_id": project_id, "target_url": target_url})
+        yield event(
+            "exploration_start", {"project_id": project_id, "target_url": target_url}
+        )
 
         # 额度监控：记录API调用次数
         api_call_count = 0
@@ -154,26 +188,48 @@ async def _run_exploration(project_id: int, target_url: str, user_id: int):
         # 进度回调
         async def progress_callback(msg: dict):
             nonlocal api_call_count
-            
+
             # 检查是否是API调用事件
             if msg.get("type") == "page_analyzed":
                 api_call_count += 1
                 if api_call_count >= MAX_API_CALLS:
-                    await callback({"type": "status", "message": f"已达到免费额度限制 ({MAX_API_CALLS}次调用)，停止探索"})
-                    raise Exception(f"免费额度已用完（已调用{api_call_count}次API），请充值后重试")
-            
+                    await broadcast_to_project(
+                        project_id,
+                        {
+                            "type": "status",
+                            "message": f"已达到免费额度限制 ({MAX_API_CALLS}次调用)，停止探索",
+                        },
+                    )
+                    raise Exception(
+                        f"免费额度已用完（已调用{api_call_count}次API），请充值后重试"
+                    )
+
             # 检查错误消息中的额度相关错误
             error_msg = msg.get("message", "") or msg.get("error", "")
-            if any(keyword in error_msg.lower() for keyword in ["quota", "limit", "billing", "payment", "insufficient", "余额", "额度"]):
-                await callback({"type": "status", "message": "检测到额度不足，停止探索"})
+            if any(
+                keyword in error_msg.lower()
+                for keyword in [
+                    "quota",
+                    "limit",
+                    "billing",
+                    "payment",
+                    "insufficient",
+                    "余额",
+                    "额度",
+                ]
+            ):
+                await broadcast_to_project(
+                    project_id,
+                    {"type": "status", "message": "检测到额度不足，停止探索"},
+                )
                 raise Exception(f"API额度不足: {error_msg}")
-            
+
             # 广播到WebSocket
             await broadcast_to_project(project_id, msg)
             # 保存页面到数据库（如果是页面分析完成）
             if msg.get("type") == "page_analyzed":
                 async with AsyncSessionLocal() as db:
-                    await was.create_page(db, project_id, msg)
+                    await was.upsert_page(db, project_id, msg)
 
         # 执行探索
         result = await agent.explore(target_url, callback=progress_callback)
@@ -181,28 +237,41 @@ async def _run_exploration(project_id: int, target_url: str, user_id: int):
         # 保存探索结果
         async with AsyncSessionLocal() as db:
             for page_data in result.get("pages", []):
-                await was.create_page(db, project_id, page_data)
+                await was.upsert_page(db, project_id, page_data)
 
             # 更新项目状态
             await was.update_project_status(db, project_id, "explored")
 
-        yield event("exploration_complete", {
-            "project_id": project_id,
-            "total_pages": len(result.get("pages", [])),
-            "pages": result.get("pages", []),
-        })
+            # 生成探索摘要并回填项目描述
+            summary = await was.update_project_summary(
+                db, project_id, result.get("pages", [])
+            )
+
+        yield event(
+            "exploration_complete",
+            {
+                "project_id": project_id,
+                "total_pages": len(result.get("pages", [])),
+                "pages": result.get("pages", []),
+                "summary": summary,
+            },
+        )
 
     except Exception as e:
         from loguru import logger
+
         logger.error(f"探索失败: {e}")
 
         async with AsyncSessionLocal() as db:
             await was.update_project_status(db, project_id, "failed")
 
-        yield event("exploration_error", {
-            "project_id": project_id,
-            "error": str(e),
-        })
+        yield event(
+            "exploration_error",
+            {
+                "project_id": project_id,
+                "error": str(e),
+            },
+        )
 
 
 @router.get("/projects/{project_id}/pages")
@@ -213,12 +282,11 @@ async def list_pages(
 ):
     """探索到的页面列表"""
     pages = await was.list_pages(db, project_id)
-    return ResponseModel(
-        data=[PageResponse.model_validate(p) for p in pages]
-    )
+    return ResponseModel(data=[PageResponse.model_validate(p) for p in pages])
 
 
 # ============ 测试用例 ============
+
 
 @router.post("/projects/{project_id}/generate")
 async def generate_test_cases(
@@ -239,9 +307,13 @@ async def generate_test_cases(
         )
 
     await create_operation_log(
-        db, module="web-automation", action="generate_cases",
-        user_id=user.id, username=user.username,
-        target_id=str(project_id), target_type="project",
+        db,
+        module="web-automation",
+        action="generate_cases",
+        user_id=user.id,
+        username=user.username,
+        target_id=str(project_id),
+        target_type="project",
     )
 
     return StreamingResponse(
@@ -294,19 +366,26 @@ async def _run_generation(project_id: int, target_url: str, pages: list, user_id
                 db, project_id, test_cases, agent.model_name
             )
 
-        yield event("generation_complete", {
-            "project_id": project_id,
-            "total": len(test_cases),
-            "cases": test_cases,
-        })
+        yield event(
+            "generation_complete",
+            {
+                "project_id": project_id,
+                "total": len(test_cases),
+                "cases": test_cases,
+            },
+        )
 
     except Exception as e:
         from loguru import logger
+
         logger.error(f"测试用例生成失败: {e}")
-        yield event("generation_error", {
-            "project_id": project_id,
-            "error": str(e),
-        })
+        yield event(
+            "generation_error",
+            {
+                "project_id": project_id,
+                "error": str(e),
+            },
+        )
 
 
 @router.get("/projects/{project_id}/test-cases")
@@ -318,9 +397,28 @@ async def list_test_cases(
 ):
     """测试用例列表"""
     cases = await was.list_test_cases(db, project_id, status)
-    return ResponseModel(
-        data=[TestCaseResponse.model_validate(c) for c in cases]
+    return ResponseModel(data=[TestCaseResponse.model_validate(c) for c in cases])
+
+
+@router.post("/projects/{project_id}/test-cases")
+async def create_test_case(
+    project_id: int,
+    body: TestCaseCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """手动创建测试用例"""
+    case = await was.create_test_case(db, project_id, body.model_dump(), user.id)
+    await create_operation_log(
+        db,
+        module="web-automation",
+        action="create_case",
+        user_id=user.id,
+        username=user.username,
+        target_id=str(case.id),
+        target_type="test_case",
     )
+    return ResponseModel(message="创建成功", data=TestCaseResponse.model_validate(case))
 
 
 @router.put("/test-cases/{case_id}")
@@ -333,6 +431,7 @@ async def update_test_case(
     """编辑测试用例"""
     from sqlalchemy import select
     from models.web_automation import WebTestCase
+
     result = await db.execute(select(WebTestCase).where(WebTestCase.id == case_id))
     case = result.scalar_one_or_none()
     if not case:
@@ -355,9 +454,13 @@ async def approve_test_case(
     """确认测试用例"""
     case = await was.approve_test_case(db, case_id, user.id)
     await create_operation_log(
-        db, module="web-automation", action="approve_case",
-        user_id=user.id, username=user.username,
-        target_id=str(case_id), target_type="test_case",
+        db,
+        module="web-automation",
+        action="approve_case",
+        user_id=user.id,
+        username=user.username,
+        target_id=str(case_id),
+        target_type="test_case",
     )
     return ResponseModel(message="已确认", data=TestCaseResponse.model_validate(case))
 
@@ -374,22 +477,46 @@ async def reject_test_case(
     return ResponseModel(message="已驳回", data=TestCaseResponse.model_validate(case))
 
 
+@router.delete("/test-cases/{case_id}")
+async def delete_test_case(
+    case_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """删除测试用例"""
+    case = await was.delete_test_case(db, case_id)
+    await create_operation_log(
+        db,
+        module="web-automation",
+        action="delete_case",
+        user_id=user.id,
+        username=user.username,
+        target_id=str(case_id),
+        target_type="test_case",
+    )
+    return ResponseModel(message="已删除", data={"id": case.id})
+
+
 # ============ 执行 ============
 
+
+@router.get("/projects/{project_id}/executions")
 @router.get("/executions")
 async def list_executions(
-    project_id: int = None,
+    project_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_dep),
 ):
-    """执行记录列表"""
+    """执行记录列表（RESTful 路径版优先，兼容全局查询版）"""
     result = await was.list_executions(db, project_id, page, page_size)
     # 转换为Pydantic模型
     items = result.get("items", [])
     serialized_items = [ExecutionResponse.model_validate(item) for item in items]
-    return ResponseModel(data={"items": serialized_items, "total": result.get("total", 0)})
+    return ResponseModel(
+        data={"items": serialized_items, "total": result.get("total", 0)}
+    )
 
 
 @router.get("/executions/{execution_id}")
@@ -406,22 +533,35 @@ async def get_execution(
 @router.post("/projects/{project_id}/execute")
 async def start_execution(
     project_id: int,
+    body: Optional[ExecuteRequest] = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user_dep),
 ):
-    """启动Web自动化测试执行"""
+    """启动Web自动化测试执行（可选指定用例，不传执行全部已审批用例）"""
     # 获取项目
     project = await was.get_project(db, project_id)
 
     # 获取已审批的测试用例
     from sqlalchemy import select
     from models.web_automation import WebTestCase
+
     result = await db.execute(
         select(WebTestCase)
         .where(WebTestCase.project_id == project_id, WebTestCase.status == "approved")
         .order_by(WebTestCase.id)
     )
     approved_cases = result.scalars().all()
+
+    # 指定用例过滤
+    request_case_ids = (body or ExecuteRequest()).case_ids
+    if request_case_ids:
+        id_set = set(request_case_ids)
+        approved_cases = [c for c in approved_cases if c.id in id_set]
+        if not approved_cases:
+            return ResponseModel(
+                message="所选用例不存在或未审批，请先审批用例",
+                data={"project_id": project_id, "cases_count": 0},
+            )
 
     if not approved_cases:
         return ResponseModel(
@@ -440,12 +580,14 @@ async def start_execution(
     test_cases = []
     for case in approved_cases:
         steps = case.steps if isinstance(case.steps, list) else []
-        test_cases.append({
-            "id": case.id,
-            "title": case.title or f"测试用例 {case.id}",
-            "steps": steps,
-            "page_url": project.target_url,
-        })
+        test_cases.append(
+            {
+                "id": case.id,
+                "title": case.title or f"测试用例 {case.id}",
+                "steps": steps,
+                "page_url": project.target_url,
+            }
+        )
 
     # 异步启动执行引擎
     asyncio.create_task(_run_execution(project_id, execution.id, test_cases, user.id))
@@ -461,7 +603,9 @@ async def start_execution(
     )
 
 
-async def _run_execution(project_id: int, execution_id: int, test_cases: list[dict], user_id: int):
+async def _run_execution(
+    project_id: int, execution_id: int, test_cases: list[dict], user_id: int
+):
     """后台执行测试（异步任务）"""
     from agents.execution_agent import ExecutionAgent
     from config import get_settings
@@ -476,11 +620,15 @@ async def _run_execution(project_id: int, execution_id: int, test_cases: list[di
 
     # WebSocket回调
     async def ws_callback(event: dict):
+        # 将临时截图持久化，SSE事件中替换为文件名
+        if event.get("type") == "case_complete" and event.get("screenshot"):
+            event["screenshot"] = was.persist_screenshot(event["screenshot"])
         await broadcast_to_project(project_id, event)
 
     try:
         # 更新执行状态为running
         from database import AsyncSessionLocal
+
         async with AsyncSessionLocal() as db:
             await was.update_execution(db, execution_id, {"status": "running"})
 
@@ -491,55 +639,76 @@ async def _run_execution(project_id: int, execution_id: int, test_cases: list[di
         passed = sum(1 for r in results if r.get("status") == "passed")
         failed = sum(1 for r in results if r.get("status") == "failed")
         total_duration = sum(r.get("duration_ms", 0) for r in results)
-        screenshots = [r.get("screenshot", "") for r in results if r.get("screenshot")]
+        screenshots = [
+            was.persist_screenshot(r.get("screenshot", ""))
+            for r in results
+            if r.get("screenshot")
+        ]
         errors = [r.get("error", "") for r in results if r.get("error")]
 
         final_status = "completed" if failed == 0 else "failed"
 
         # 更新执行记录
         from datetime import datetime, timezone
+
         async with AsyncSessionLocal() as db:
-            await was.update_execution(db, execution_id, {
-                "status": final_status,
-                "completed_at": datetime.now(timezone.utc),
-                "duration_ms": total_duration,
-                "screenshots": screenshots,
-                "error_message": "\n".join(errors) if errors else None,
-            })
+            await was.update_execution(
+                db,
+                execution_id,
+                {
+                    "status": final_status,
+                    "completed_at": datetime.now(timezone.utc),
+                    "duration_ms": total_duration,
+                    "screenshots": screenshots,
+                    "error_message": "\n".join(errors) if errors else None,
+                },
+            )
 
         # 更新项目状态
         async with AsyncSessionLocal() as db:
             await was.update_project_status(db, project_id, "completed")
 
         # 广播完成事件
-        await broadcast_to_project(project_id, {
-            "type": "execution_complete",
-            "execution_id": execution_id,
-            "status": final_status,
-            "passed": passed,
-            "failed": failed,
-            "total": len(test_cases),
-            "duration_ms": total_duration,
-        })
+        await broadcast_to_project(
+            project_id,
+            {
+                "type": "execution_complete",
+                "execution_id": execution_id,
+                "status": final_status,
+                "passed": passed,
+                "failed": failed,
+                "total": len(test_cases),
+                "duration_ms": total_duration,
+            },
+        )
 
     except Exception as e:
         from loguru import logger
+
         logger.error(f"执行失败: {e}")
         from database import AsyncSessionLocal
         from datetime import datetime, timezone
+
         async with AsyncSessionLocal() as db:
-            await was.update_execution(db, execution_id, {
-                "status": "failed",
-                "completed_at": datetime.now(timezone.utc),
-                "error_message": str(e),
-            })
+            await was.update_execution(
+                db,
+                execution_id,
+                {
+                    "status": "failed",
+                    "completed_at": datetime.now(timezone.utc),
+                    "error_message": str(e),
+                },
+            )
             await was.update_project_status(db, project_id, "failed")
 
-        await broadcast_to_project(project_id, {
-            "type": "execution_error",
-            "execution_id": execution_id,
-            "error": str(e),
-        })
+        await broadcast_to_project(
+            project_id,
+            {
+                "type": "execution_error",
+                "execution_id": execution_id,
+                "error": str(e),
+            },
+        )
 
 
 # ============ WebSocket实时推送 ============
@@ -577,7 +746,10 @@ async def list_projects_for_workflow(
     result = await was.list_projects(db, user.id, page=1, page_size=100)
     items = result.get("items", []) if isinstance(result, dict) else []
     return ResponseModel(
-        data=[{"id": p.id, "name": p.name, "target_url": p.target_url, "status": p.status} for p in items]
+        data=[
+            {"id": p.id, "name": p.name, "target_url": p.target_url, "status": p.status}
+            for p in items
+        ]
     )
 
 
@@ -592,3 +764,86 @@ async def broadcast_to_project(project_id: int, message: dict):
                 disconnected.append(ws)
         for ws in disconnected:
             connected_clients[project_id].remove(ws)
+
+
+# ============ 对象库（页面元素） ============
+
+
+@router.get(
+    "/projects/{project_id}/object-repo", summary="对象库：页面对象列表（含元素统计）"
+)
+async def list_object_repo(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """对象库页面列表，每页附元素数量"""
+    pages = await was.list_object_repo(db, project_id)
+    return ResponseModel(data=[ObjectRepoPageResponse.model_validate(p) for p in pages])
+
+
+@router.get("/pages/{page_id}/elements", summary="对象库：页面元素列表")
+async def list_page_elements(
+    page_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """获取某页面的元素对象列表"""
+    elements = await was.list_page_elements(db, page_id)
+    return ResponseModel(data=[UIElementResponse.model_validate(e) for e in elements])
+
+
+@router.post("/pages/{page_id}/elements", summary="对象库：添加元素")
+async def create_page_element(
+    page_id: int,
+    body: UIElementCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """手动添加元素对象"""
+    from sqlalchemy import select
+    from models.web_automation import WebPage
+
+    result = await db.execute(select(WebPage).where(WebPage.id == page_id))
+    page = result.scalar_one_or_none()
+    if not page:
+        raise HTTPException(status_code=404, detail="页面不存在")
+    elem = await was.create_ui_element(
+        db, page.project_id, page_id, body.model_dump(exclude_none=True)
+    )
+    return ResponseModel(
+        message="元素已添加", data=UIElementResponse.model_validate(elem)
+    )
+
+
+@router.put("/ui-elements/{element_id}", summary="对象库：更新元素")
+async def update_page_element(
+    element_id: int,
+    body: UIElementUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """更新元素对象"""
+    try:
+        elem = await was.update_ui_element(
+            db, element_id, body.model_dump(exclude_none=True)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return ResponseModel(
+        message="元素已更新", data=UIElementResponse.model_validate(elem)
+    )
+
+
+@router.delete("/ui-elements/{element_id}", summary="对象库：删除元素")
+async def delete_page_element(
+    element_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """删除元素对象"""
+    try:
+        await was.delete_ui_element(db, element_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return ResponseModel(message="元素已删除")

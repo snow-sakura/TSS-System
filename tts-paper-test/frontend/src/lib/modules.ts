@@ -63,7 +63,7 @@ export const moduleTabs: ModuleTab[] = [
     modules: [
       {
         // 合并卡片：原需求测试+执行测试+缺陷管理+分析报告 合并为一个大卡片
-        key: "test-management-hub",
+        key: "test-management",
         title: "测试管理",
         desc: "全流程测试管理：需求分析 → 执行测试 → 缺陷跟踪 → 分析报告，一站式闭环",
         icon: "Sparkles",

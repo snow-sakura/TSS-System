@@ -10,6 +10,7 @@
   - 格式: [时间] [级别] [阶段标签] 消息内容
   - SSE流式内容以 [SSE→event_type] 前缀标记
 """
+
 import json
 import time
 import uuid
@@ -19,7 +20,14 @@ from openai import AsyncOpenAI, APIError, RateLimitError, APITimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging_config import get_logger
-from models.test_lifecycle import Requirement, TestPlan, TestPoint, TestCase, PipelineRecord, Review
+from models.test_lifecycle import (
+    Requirement,
+    TestPlan,
+    TestPoint,
+    TestCase,
+    PipelineRecord,
+    Review,
+)
 
 logger = get_logger("pipeline_service")
 
@@ -29,9 +37,12 @@ API_TIMEOUT = 120
 
 # 5个阶段的定义
 STAGES = [
-    {"key": "requirements", "label": "需求分析",
-     "icon": "FileText", "gradient": "from-blue-500 to-indigo-600",
-     "system_prompt": """你是一位资深的 AI 软件测试需求分析专家，拥有 ISTQB 认证和需求工程实践经验。
+    {
+        "key": "requirements",
+        "label": "需求分析",
+        "icon": "FileText",
+        "gradient": "from-blue-500 to-indigo-600",
+        "system_prompt": """你是一位资深的 AI 软件测试需求分析专家，拥有 ISTQB 认证和需求工程实践经验。
 你融合「多智能体协作（Multi-Agent Collaboration）」思维：同时扮演分析 Agent、质量 Agent、风险 Agent 三个子角色，
 分别从完整性、可测试性、风险三个维度对需求进行交叉分析，最终合成统一报告。
 
@@ -129,10 +140,14 @@ STAGES = [
 | 分析Agent | 功能点完整性 | [要点] |
 | 质量Agent | 需求可测试性 | [要点] |
 | 风险Agent | 潜在风险识别 | [要点] |
-"""},
-    {"key": "test-plans", "label": "规划方案",
-     "icon": "ClipboardList", "gradient": "from-cyan-500 to-teal-600",
-     "system_prompt": """你是一位资深的 AI 测试策略专家，持有 ISTQB高级测试经理认证。
+""",
+    },
+    {
+        "key": "test-plans",
+        "label": "规划方案",
+        "icon": "ClipboardList",
+        "gradient": "from-cyan-500 to-teal-600",
+        "system_prompt": """你是一位资深的 AI 测试策略专家，持有 ISTQB高级测试经理认证。
 你采用「分层多Agent策略规划」方法论：
 - 策略Agent：确定总体测试范围、风险优先级、测试深度
 - 资源Agent：评估人力、环境、工具资源约束
@@ -227,10 +242,14 @@ STAGES = [
 | 用例通过率 | >=XX% | [测量方式] | [是否] |
 | 缺陷逃逸率 | <=XX% | [测量方式] | [是否] |
 | AI自动生成覆盖率 | >=XX% | [测量方式] | [是否] |
-"""},
-    {"key": "test-points", "label": "提取测试点",
-     "icon": "Target", "gradient": "from-violet-500 to-purple-600",
-     "system_prompt": """你是一位资深的 AI 测试点分析专家，精通 ISTQB测试设计技术（等价类划分、边界值分析、判定表、状态转换、错误推测）。
+""",
+    },
+    {
+        "key": "test-points",
+        "label": "提取测试点",
+        "icon": "Target",
+        "gradient": "from-violet-500 to-purple-600",
+        "system_prompt": """你是一位资深的 AI 测试点分析专家，精通 ISTQB测试设计技术（等价类划分、边界值分析、判定表、状态转换、错误推测）。
 你采用「多Agent正交分析」方法论：
 - 正向Agent：识别Happy Path测试场景
 - 逆向Agent：识别异常/容错测试场景
@@ -325,10 +344,14 @@ STAGES = [
 ## 📊 测试点统计
 
 总测试点: X | P0: X | P1: X | P2: X | AI自动提取: X | 人工建议: X
-"""},
-    {"key": "test-cases", "label": "用例生成",
-     "icon": "TestTubes", "gradient": "from-emerald-500 to-green-600",
-     "system_prompt": """你是一位资深的 AI 测试用例设计专家，精通 ISTQB 用例设计方法。
+""",
+    },
+    {
+        "key": "test-cases",
+        "label": "用例生成",
+        "icon": "TestTubes",
+        "gradient": "from-emerald-500 to-green-600",
+        "system_prompt": """你是一位资深的 AI 测试用例设计专家，精通 ISTQB 用例设计方法。
 你采用「多Agent生成-验证」协作模式：
 - 生成Agent：根据测试点生成结构化测试用例
 - 验证Agent：检查用例的完整性、可执行性
@@ -392,10 +415,14 @@ STAGES = [
 - **覆盖测试点**: X / X
 - **AI生成**: X 条 | **AI辅助**: X 条
 - **可自动化**: X 条
-"""},
-    {"key": "test-review", "label": "用例评审",
-     "icon": "CheckCircle", "gradient": "from-pink-500 to-rose-600",
-     "system_prompt": """你是一位资深的 AI 测试用例评审专家，持有 ISTQB认证 + 代码审查经验。
+""",
+    },
+    {
+        "key": "test-review",
+        "label": "用例评审",
+        "icon": "CheckCircle",
+        "gradient": "from-pink-500 to-rose-600",
+        "system_prompt": """你是一位资深的 AI 测试用例评审专家，持有 ISTQB认证 + 代码审查经验。
 你采用「多Agent交叉评审」模式：
 - 质量Agent：逐条校验用例的可执行性、完整性和正确性
 - 覆盖率Agent：检查需求-测试点-用例的追溯矩阵完整性
@@ -499,7 +526,8 @@ STAGES = [
 通过用例: X | 需修改: X | 不通过: X
 AI自动评审项: X项 | AI发现的问题: X个 | AI建议采纳率: X%
 建议: [总体改进建议]
-"""},
+""",
+    },
 ]
 
 
@@ -508,14 +536,20 @@ class PipelineService:
 
     def __init__(self, db: Optional[AsyncSession] = None):
         from config import get_settings
+
         settings = get_settings()
         self.api_key = settings.OPENAI_API_KEY
         self.base_url = settings.OPENAI_BASE_URL
         self.model = settings.DEFAULT_LLM_MODEL
         self.db = db
 
-    async def _call_llm_with_retry(self, client: AsyncOpenAI, messages: list, 
-                                    temperature: float = 0.7, max_tokens: int = 8192) -> AsyncGenerator:
+    async def _call_llm_with_retry(
+        self,
+        client: AsyncOpenAI,
+        messages: list,
+        temperature: float = 0.7,
+        max_tokens: int = 8192,
+    ) -> AsyncGenerator:
         """带重试的LLM调用"""
         last_error = None
         for attempt in range(MAX_RETRIES):
@@ -531,8 +565,10 @@ class PipelineService:
                 return stream
             except RateLimitError as e:
                 last_error = e
-                wait_time = RETRY_DELAY * (2 ** attempt)
-                logger.warning(f"速率限制，等待 {wait_time}s 后重试 (attempt {attempt + 1}/{MAX_RETRIES})")
+                wait_time = RETRY_DELAY * (2**attempt)
+                logger.warning(
+                    f"速率限制，等待 {wait_time}s 后重试 (attempt {attempt + 1}/{MAX_RETRIES})"
+                )
                 await asyncio.sleep(wait_time)
             except APITimeoutError as e:
                 last_error = e
@@ -542,18 +578,25 @@ class PipelineService:
             except APIError as e:
                 last_error = e
                 if e.status_code and e.status_code >= 500:
-                    logger.warning(f"API服务错误，重试 (attempt {attempt + 1}/{MAX_RETRIES})")
+                    logger.warning(
+                        f"API服务错误，重试 (attempt {attempt + 1}/{MAX_RETRIES})"
+                    )
                     if attempt < MAX_RETRIES - 1:
                         await asyncio.sleep(RETRY_DELAY * (attempt + 1))
                 else:
                     raise
         raise last_error
 
-    async def run_pipeline(self, requirement_content: str, requirement_name: str = "",
-                           project_id: Optional[int] = None, version_id: Optional[int] = None,
-                           resume_from: Optional[str] = None,
-                           record_id: Optional[int] = None,
-                           db: Optional[AsyncSession] = None) -> AsyncGenerator[str, None]:
+    async def run_pipeline(
+        self,
+        requirement_content: str,
+        requirement_name: str = "",
+        project_id: Optional[int] = None,
+        version_id: Optional[int] = None,
+        resume_from: Optional[str] = None,
+        record_id: Optional[int] = None,
+        db: Optional[AsyncSession] = None,
+    ) -> AsyncGenerator[str, None]:
         """
         执行全流程，SSE事件流：
           pipeline_start
@@ -568,20 +611,25 @@ class PipelineService:
         session = db if db is not None else self.db
 
         logger.info(f"")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
         logger.info(f"  🚀 Pipeline [{pipeline_id}] 启动全流程 (DB版)")
         logger.info(f"  📄 需求: {requirement_name or '(未命名)'}")
         logger.info(f"  🤖 模型: {self.model}")
         logger.info(f"  📐 内容长度: {len(requirement_content)} 字符")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
 
         # pipeline_start
-        yield self._event("pipeline_start", {
-            "pipeline_id": pipeline_id,
-            "total_stages": len(STAGES),
-            "requirement_name": requirement_name,
-        })
-        logger.info(f"📡 [SSE→pipeline_start] pipeline_id={pipeline_id}, stages={len(STAGES)}")
+        yield self._event(
+            "pipeline_start",
+            {
+                "pipeline_id": pipeline_id,
+                "total_stages": len(STAGES),
+                "requirement_name": requirement_name,
+            },
+        )
+        logger.info(
+            f"📡 [SSE→pipeline_start] pipeline_id={pipeline_id}, stages={len(STAGES)}"
+        )
 
         previous_output = requirement_content
         stage_results = []
@@ -591,30 +639,41 @@ class PipelineService:
         resume_index = 0
         existing_record = None
         if resume_from:
-            resume_index = next((i for i, s in enumerate(STAGES) if s["key"] == resume_from), 0)
-            logger.info(f"  ↻ 继续执行: 从阶段 {resume_index+1}/{len(STAGES)} ({resume_from}) 开始")
+            resume_index = next(
+                (i for i, s in enumerate(STAGES) if s["key"] == resume_from), 0
+            )
+            logger.info(
+                f"  ↻ 继续执行: 从阶段 {resume_index + 1}/{len(STAGES)} ({resume_from}) 开始"
+            )
 
         if record_id and session is not None:
             existing_record = await session.get(PipelineRecord, record_id)
             if existing_record and existing_record.stage_results:
                 completed_stages = existing_record.stage_results[:resume_index]
                 for prev in completed_stages:
-                    stage_results.append({
-                        "key": prev["key"],
-                        "content": prev.get("content", ""),
-                        "duration": prev.get("duration", 0),
-                    })
+                    stage_results.append(
+                        {
+                            "key": prev["key"],
+                            "content": prev.get("content", ""),
+                            "duration": prev.get("duration", 0),
+                        }
+                    )
                     if prev.get("content"):
                         previous_output = prev["content"]
                     # 推送已跳过事件给前端（让前端回显状态）
-                    yield self._event("stage_complete", {
-                        "stage": prev["key"],
-                        "status": "completed",
-                        "duration": prev.get("duration", 0),
-                        "skipped": True,
-                    })
+                    yield self._event(
+                        "stage_complete",
+                        {
+                            "stage": prev["key"],
+                            "status": "completed",
+                            "duration": prev.get("duration", 0),
+                            "skipped": True,
+                        },
+                    )
                     logger.info(f"  ⏭ 跳过已完成阶段: {prev['key']}")
-                logger.info(f"  ↻ 已加载 {len(completed_stages)} 个已完成阶段作为上下文")
+                logger.info(
+                    f"  ↻ 已加载 {len(completed_stages)} 个已完成阶段作为上下文"
+                )
 
         # ── 保存原始需求到 DB（仅新建模式；继续执行模式不重复保存） ──
         if not existing_record and requirement_content.strip() and session is not None:
@@ -644,25 +703,33 @@ class PipelineService:
             # stage_start
             stage_start_time = time.time()
             logger.info(f"")
-            logger.info(f"  ┌─{'─'*56}┐")
+            logger.info(f"  ┌─{'─' * 56}┐")
             logger.info(f"  │  ▶ 阶段 {order}/5: {stage_label}  ")
-            logger.info(f"  └─{'─'*56}┘")
+            logger.info(f"  └─{'─' * 56}┘")
 
-            yield self._event("stage_start", {
-                "stage": stage_key,
-                "label": stage_label,
-                "order": order,
-                "icon": stage_info["icon"],
-                "gradient": stage_info["gradient"],
-            })
+            yield self._event(
+                "stage_start",
+                {
+                    "stage": stage_key,
+                    "label": stage_label,
+                    "order": order,
+                    "icon": stage_info["icon"],
+                    "gradient": stage_info["gradient"],
+                },
+            )
             logger.info(f"📡 [SSE→stage_start] stage={stage_key}, label={stage_label}")
 
-            yield self._event("stage_log", {
-                "stage": stage_key,
-                "level": "AGENT",
-                "message": f"🚀 启动{stage_label}Agent",
-            })
-            logger.info(f"🤖 [Agent] 启动 {stage_label} - 正在调用 API {self.model} ...")
+            yield self._event(
+                "stage_log",
+                {
+                    "stage": stage_key,
+                    "level": "AGENT",
+                    "message": f"🚀 启动{stage_label}Agent",
+                },
+            )
+            logger.info(
+                f"🤖 [Agent] 启动 {stage_label} - 正在调用 API {self.model} ..."
+            )
 
             # 执行流式分析
             full_content = ""
@@ -675,17 +742,17 @@ class PipelineService:
                 prompt = f"""# AI全流程测试 — 阶段 {stage_index}/{total_stages}：{stage_label}
 
 ## 📌 阶段角色
-{stage_info['system_prompt'][:200].strip()}
+{stage_info["system_prompt"][:200].strip()}
 ...
 
 ## 📄 原始需求
 ```text
-{requirement_content[:3000]}{'...' if len(requirement_content) > 3000 else ''}
+{requirement_content[:3000]}{"..." if len(requirement_content) > 3000 else ""}
 ```
 
 ## 📋 上阶段输出上下文
 ```markdown
-{previous_output[:5000]}{'...' if len(previous_output) > 5000 else ''}
+{previous_output[:5000]}{"..." if len(previous_output) > 5000 else ""}
 ```
 
 ## 🎯 当前任务
@@ -705,10 +772,14 @@ class PipelineService:
                     {"role": "user", "content": prompt},
                 ]
 
-                logger.info(f"📤 [API→{self.model}] {stage_label} 发送请求 (prompt≈{len(prompt)}字符)")
+                logger.info(
+                    f"📤 [API→{self.model}] {stage_label} 发送请求 (prompt≈{len(prompt)}字符)"
+                )
                 # 输出 prompt 内容预览（前300字符）
                 prompt_preview = prompt[:300].replace("\n", "\n    ").strip()
-                logger.info(f"📝 [Prompt预览→{stage_key}] \n    {prompt_preview}{'...' if len(prompt) > 300 else ''}")
+                logger.info(
+                    f"📝 [Prompt预览→{stage_key}] \n    {prompt_preview}{'...' if len(prompt) > 300 else ''}"
+                )
                 stream = await self._call_llm_with_retry(
                     client=client,
                     messages=messages,
@@ -723,44 +794,72 @@ class PipelineService:
                         if delta and delta.content:
                             full_content += delta.content
                             chunk_count += 1
-                            yield self._event("stage_output", {
-                                "stage": stage_key,
-                                "content": delta.content,
-                            })
+                            yield self._event(
+                                "stage_output",
+                                {
+                                    "stage": stage_key,
+                                    "content": delta.content,
+                                },
+                            )
                             # 输出实际内容片段（每50个chunk输出最近的内容）
                             if chunk_count % 50 == 0:
                                 recent = full_content[-200:].replace("\n", " ").strip()
-                                logger.info(f"📡 [SSE→{stage_key}] 内容片段: ...{recent}...")
+                                logger.info(
+                                    f"📡 [SSE→{stage_key}] 内容片段: ...{recent}..."
+                                )
 
-                logger.info(f"📥 [API←] {stage_label} 完成: 共 {len(full_content)} 字符")
+                logger.info(
+                    f"📥 [API←] {stage_label} 完成: 共 {len(full_content)} 字符"
+                )
                 # 输出完整内容预览（前500字符）
                 preview = full_content[:500].replace("\n", "\n    ").strip()
-                logger.info(f"📄 [内容预览→{stage_key}] \n    {preview}{'...' if len(full_content) > 500 else ''}")
+                logger.info(
+                    f"📄 [内容预览→{stage_key}] \n    {preview}{'...' if len(full_content) > 500 else ''}"
+                )
 
                 duration_ms = int((time.time() - stage_start_time) * 1000)
-                stage_results.append({"key": stage_key, "content": full_content, "duration_ms": duration_ms})
+                stage_results.append(
+                    {
+                        "key": stage_key,
+                        "content": full_content,
+                        "duration_ms": duration_ms,
+                    }
+                )
 
-                yield self._event("stage_log", {
-                    "stage": stage_key,
-                    "level": "INFO",
-                    "message": f"✅ {stage_label}完成，耗时 {duration_ms}ms",
-                })
-                logger.info(f"✅ [完成] {stage_label} - 耗时 {duration_ms}ms, 共 {len(full_content)} 字符, {chunk_count} chunks")
+                yield self._event(
+                    "stage_log",
+                    {
+                        "stage": stage_key,
+                        "level": "INFO",
+                        "message": f"✅ {stage_label}完成，耗时 {duration_ms}ms",
+                    },
+                )
+                logger.info(
+                    f"✅ [完成] {stage_label} - 耗时 {duration_ms}ms, 共 {len(full_content)} 字符, {chunk_count} chunks"
+                )
 
-                yield self._event("stage_complete", {
-                    "stage": stage_key,
-                    "status": "completed",
-                    "duration": duration_ms,
-                })
-                logger.info(f"📡 [SSE→stage_complete] {stage_key} → completed ({duration_ms}ms)")
+                yield self._event(
+                    "stage_complete",
+                    {
+                        "stage": stage_key,
+                        "status": "completed",
+                        "duration": duration_ms,
+                    },
+                )
+                logger.info(
+                    f"📡 [SSE→stage_complete] {stage_key} → completed ({duration_ms}ms)"
+                )
 
                 # 将阶段结果持久化到对应业务模块
                 if session is not None:
                     try:
                         await self._persist_stage_to_module(
-                            stage_key, stage_label,
-                            full_content, session,
-                            project_id=project_id, version_id=version_id,
+                            stage_key,
+                            stage_label,
+                            full_content,
+                            session,
+                            project_id=project_id,
+                            version_id=version_id,
                             requirement_name=requirement_name,
                         )
                     except Exception as e:
@@ -775,49 +874,76 @@ class PipelineService:
                 error_msg = str(e)
                 logger.error(f"❌ [失败] {stage_label}: {error_msg}")
                 import traceback
+
                 logger.error(f"   └─ traceback: {traceback.format_exc()}")
 
                 has_failure = True  # 标记有失败
 
-                yield self._event("stage_log", {
-                    "stage": stage_key,
-                    "level": "ERROR",
-                    "message": f"❌ {stage_label} 执行失败: {error_msg}",
-                })
-                logger.info(f"📡 [SSE→stage_log] {stage_key} → ERROR: {error_msg[:200]}")
+                yield self._event(
+                    "stage_log",
+                    {
+                        "stage": stage_key,
+                        "level": "ERROR",
+                        "message": f"❌ {stage_label} 执行失败: {error_msg}",
+                    },
+                )
+                logger.info(
+                    f"📡 [SSE→stage_log] {stage_key} → ERROR: {error_msg[:200]}"
+                )
 
-                yield self._event("stage_error", {
-                    "stage": stage_key,
-                    "error": error_msg,
-                    "duration": duration,
-                })
-                logger.info(f"📡 [SSE→stage_error] {stage_key} → duration={duration}s")
+                yield self._event(
+                    "stage_error",
+                    {
+                        "stage": stage_key,
+                        "error": error_msg,
+                        "duration": duration_ms,
+                    },
+                )
+                logger.info(
+                    f"📡 [SSE→stage_error] {stage_key} → duration={duration_ms}s"
+                )
 
                 # 即使失败也继续下一个阶段（用空上下文）
-                stage_results.append({"key": stage_key, "content": "", "duration": duration})
+                stage_results.append(
+                    {"key": stage_key, "content": "", "duration": duration_ms}
+                )
                 previous_output = f"【{stage_label}执行失败】{error_msg}"
 
         # pipeline_complete
         total_duration = round(time.time() - total_start, 1)
         final_status = "failed" if has_failure else "completed"
-        yield self._event("pipeline_complete", {
-            "pipeline_id": pipeline_id,
-            "status": final_status,
-            "total_duration": total_duration,
-            "stage_results": [
-                {"key": r["key"], "duration": r["duration"]}
-                for r in stage_results
-            ],
-        })
-        logger.info(f"📡 [SSE→pipeline_complete] {final_status}, total_duration={total_duration}s")
+        yield self._event(
+            "pipeline_complete",
+            {
+                "pipeline_id": pipeline_id,
+                "status": final_status,
+                "total_duration": total_duration,
+                "stage_results": [
+                    {
+                        "key": r["key"],
+                        "duration": r.get("duration_ms", r.get("duration", 0)),
+                    }
+                    for r in stage_results
+                ],
+            },
+        )
+        logger.info(
+            f"📡 [SSE→pipeline_complete] {final_status}, total_duration={total_duration}s"
+        )
 
         # ── 保存流程记录到 DB（继续执行模式更新原记录，否则新建） ──
         if session is not None:
             try:
                 stage_results_for_db = [
-                    {"key": r["key"],
-                     "label": next((s["label"] for s in STAGES if s["key"] == r["key"]), r["key"]),
-                     "content": r["content"], "duration": r["duration"]}
+                    {
+                        "key": r["key"],
+                        "label": next(
+                            (s["label"] for s in STAGES if s["key"] == r["key"]),
+                            r["key"],
+                        ),
+                        "content": r["content"],
+                        "duration": r.get("duration_ms", r.get("duration", 0)),
+                    }
                     for r in stage_results
                 ]
                 if existing_record:
@@ -826,10 +952,12 @@ class PipelineService:
                     existing_record.status = final_status
                     # 累加总耗时（原记录耗时 + 本次续跑耗时）
                     existing_record.total_duration = (
-                        (existing_record.total_duration or 0) + total_duration
-                    )
+                        existing_record.total_duration or 0
+                    ) + total_duration
                     await session.commit()
-                    logger.info(f"💾 [DB→pipeline_records] 原记录已更新 ID={existing_record.id} (status={final_status})")
+                    logger.info(
+                        f"💾 [DB→pipeline_records] 原记录已更新 ID={existing_record.id} (status={final_status})"
+                    )
                 else:
                     # 新建模式：创建新记录
                     record = PipelineRecord(
@@ -847,19 +975,23 @@ class PipelineService:
                     session.add(record)
                     await session.commit()
                     await session.refresh(record)
-                    logger.info(f"💾 [DB→pipeline_records] 流程记录已保存 ID={record.id}")
+                    logger.info(
+                        f"💾 [DB→pipeline_records] 流程记录已保存 ID={record.id}"
+                    )
             except Exception as e:
                 logger.error(f"❌ [DB→pipeline_records] 保存失败: {e}")
                 await session.rollback()
 
         logger.info(f"")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
         logger.info(f"  ✅ Pipeline [{pipeline_id}] 全流程完成!")
         logger.info(f"  ⏱  总耗时: {total_duration}s")
-        stage_summary = " → ".join([f"{r['key']}({r['duration']}s)" for r in stage_results])
+        stage_summary = " → ".join(
+            [f"{r['key']}({r['duration']}s)" for r in stage_results]
+        )
         logger.info(f"  📊 各阶段: {stage_summary}")
         logger.info(f"  📝 结果已保存到 DB")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
         logger.info(f"")
 
     def _parse_cases_from_markdown(self, content: str) -> list:
@@ -868,14 +1000,17 @@ class PipelineService:
         返回 [{title, description, priority, test_type, preconditions, steps, expected_result, test_point_ref}, ...]
         """
         import re
+
         if not content:
             return [{"title": "AI生成-测试用例", "description": "", "steps": []}]
         # 匹配 ### TC-001: 标题（支持中英文冒号、空格）
-        pattern = re.compile(r'^###\s+(TC[-_]?\d+)\s*[:：\-—]?\s*(.*)$', re.MULTILINE)
+        pattern = re.compile(r"^###\s+(TC[-_]?\d+)\s*[:：\-—]?\s*(.*)$", re.MULTILINE)
         matches = list(pattern.finditer(content))
         if not matches:
             logger.info(f"  📝 [parse_cases] 未匹配到 TC-xxx 模式，fallback 单条")
-            return [{"title": "AI生成-测试用例", "description": content[:5000], "steps": []}]
+            return [
+                {"title": "AI生成-测试用例", "description": content[:5000], "steps": []}
+            ]
 
         cases = []
         for i, m in enumerate(matches):
@@ -888,38 +1023,40 @@ class PipelineService:
 
             # 解析优先级
             priority = "P2"
-            pri_match = re.search(r'\*\*优先级\*\*\s*[:：]\s*(P[012])', section)
+            pri_match = re.search(r"\*\*优先级\*\*\s*[:：]\s*(P[012])", section)
             if pri_match:
                 priority = pri_match.group(1)
 
             # 解析测试类型
             test_type = None
-            type_match = re.search(r'\*\*测试类型\*\*\s*[:：]\s*(.+)', section)
+            type_match = re.search(r"\*\*测试类型\*\*\s*[:：]\s*(.+)", section)
             if type_match:
                 test_type = type_match.group(1).strip()
 
             # 解析前置条件
             preconditions = None
-            pre_match = re.search(r'\*\*前置条件\*\*\s*[:：]\s*(.+)', section)
+            pre_match = re.search(r"\*\*前置条件\*\*\s*[:：]\s*(.+)", section)
             if pre_match:
                 preconditions = pre_match.group(1).strip()
 
             # 解析操作步骤（编号列表）
             steps = []
-            steps_match = re.search(r'\*\*操作步骤\*\*\s*[:：]?\s*\n((?:\s*\d+\..+\n?)+)', section)
+            steps_match = re.search(
+                r"\*\*操作步骤\*\*\s*[:：]?\s*\n((?:\s*\d+\..+\n?)+)", section
+            )
             if steps_match:
-                step_lines = re.findall(r'\d+\.\s*(.+)', steps_match.group(1))
+                step_lines = re.findall(r"\d+\.\s*(.+)", steps_match.group(1))
                 steps = [{"action": s.strip()} for s in step_lines if s.strip()]
 
             # 解析预期结果
             expected_result = ""
-            exp_match = re.search(r'\*\*预期结果\*\*\s*[:：]\s*(.+)', section)
+            exp_match = re.search(r"\*\*预期结果\*\*\s*[:：]\s*(.+)", section)
             if exp_match:
                 expected_result = exp_match.group(1).strip()
 
             # 解析对应测试点
             test_point_ref = None
-            tp_match = re.search(r'\*\*对应测试点\*\*\s*[:：]\s*(TP[-_]?\d+)', section)
+            tp_match = re.search(r"\*\*对应测试点\*\*\s*[:：]\s*(TP[-_]?\d+)", section)
             if tp_match:
                 test_point_ref = tp_match.group(1).upper()
 
@@ -928,16 +1065,18 @@ class PipelineService:
             if len(section) > 3000:
                 desc = section[:3000] + "\n...（内容过长已截断）"
 
-            cases.append({
-                "title": f"{case_id}: {case_title}",
-                "description": desc,
-                "priority": priority,
-                "test_type": test_type,
-                "preconditions": preconditions,
-                "steps": steps,
-                "expected_result": expected_result,
-                "test_point_ref": test_point_ref,
-            })
+            cases.append(
+                {
+                    "title": f"{case_id}: {case_title}",
+                    "description": desc,
+                    "priority": priority,
+                    "test_type": test_type,
+                    "preconditions": preconditions,
+                    "steps": steps,
+                    "expected_result": expected_result,
+                    "test_point_ref": test_point_ref,
+                }
+            )
         logger.info(f"  📝 [parse_cases] 解析出 {len(cases)} 条测试用例 (含完整字段)")
         return cases
 
@@ -948,14 +1087,15 @@ class PipelineService:
         未识别到补充用例时返回 []
         """
         import re
+
         if not content:
             return []
 
         # 策略1：匹配带「补充」「新增」「追加」标记的 TC-xxx 标题
         # 如 ### TC-006 (补充): xxx / ### TC-006 补充 xxx
         sup_pattern = re.compile(
-            r'^###\s+(TC[-_]?\d+)\s*[\(（]?(?:补充|新增|追加)[\)）]?\s*[:：\-—]?\s*(.*)$',
-            re.MULTILINE
+            r"^###\s+(TC[-_]?\d+)\s*[\(（]?(?:补充|新增|追加)[\)）]?\s*[:：\-—]?\s*(.*)$",
+            re.MULTILINE,
         )
         matches = list(sup_pattern.finditer(content))
 
@@ -963,8 +1103,8 @@ class PipelineService:
         if not matches:
             # 查找"建议新增""遗漏场景""补充用例"等关键字所在区域后的 TC-xxx
             keyword_pattern = re.compile(
-                r'(?:建议新增|遗漏场景|补充用例|新增用例|建议补充)[^\n]*\n',
-                re.IGNORECASE
+                r"(?:建议新增|遗漏场景|补充用例|新增用例|建议补充)[^\n]*\n",
+                re.IGNORECASE,
             )
             kw_matches = list(keyword_pattern.finditer(content))
             if kw_matches:
@@ -972,8 +1112,10 @@ class PipelineService:
                 for kw in kw_matches:
                     search_start = kw.end()
                     # 查找后续 500 字符内的 TC-xxx
-                    region = content[search_start:search_start + 2000]
-                    table_pattern = re.compile(r'\|\s*(TC[-_]?\d+)\s*\|\s*([^\|]+)\s*\|')
+                    region = content[search_start : search_start + 2000]
+                    table_pattern = re.compile(
+                        r"\|\s*(TC[-_]?\d+)\s*\|\s*([^\|]+)\s*\|"
+                    )
                     for tm in table_pattern.finditer(region):
                         matches.append(tm)
 
@@ -991,50 +1133,64 @@ class PipelineService:
             case_title = m.group(2).strip() if m.lastindex >= 2 else ""
             # 截取该用例段落用于解析完整字段
             start = m.end()
-            end = matches[matches.index(m) + 1].start() if matches.index(m) + 1 < len(matches) else len(content)
+            end = (
+                matches[matches.index(m) + 1].start()
+                if matches.index(m) + 1 < len(matches)
+                else len(content)
+            )
             section = content[start:end].strip()
 
             # 解析优先级
             priority = "P2"
-            pri_match = re.search(r'\*\*优先级\*\*\s*[:：]\s*(P[012])', section)
+            pri_match = re.search(r"\*\*优先级\*\*\s*[:：]\s*(P[012])", section)
             if pri_match:
                 priority = pri_match.group(1)
 
             # 解析测试类型
             test_type = None
-            type_match = re.search(r'\*\*测试类型\*\*\s*[:：]\s*(.+)', section)
+            type_match = re.search(r"\*\*测试类型\*\*\s*[:：]\s*(.+)", section)
             if type_match:
                 test_type = type_match.group(1).strip()
 
             # 解析前置条件
             preconditions = None
-            pre_match = re.search(r'\*\*前置条件\*\*\s*[:：]\s*(.+)', section)
+            pre_match = re.search(r"\*\*前置条件\*\*\s*[:：]\s*(.+)", section)
             if pre_match:
                 preconditions = pre_match.group(1).strip()
 
             # 解析操作步骤
             steps = []
-            steps_match = re.search(r'\*\*操作步骤\*\*\s*[:：]?\s*\n((?:\s*\d+\..+\n?)+)', section)
+            steps_match = re.search(
+                r"\*\*操作步骤\*\*\s*[:：]?\s*\n((?:\s*\d+\..+\n?)+)", section
+            )
             if steps_match:
-                step_lines = re.findall(r'\d+\.\s*(.+)', steps_match.group(1))
+                step_lines = re.findall(r"\d+\.\s*(.+)", steps_match.group(1))
                 steps = [{"action": s.strip()} for s in step_lines if s.strip()]
 
             # 解析预期结果
             expected_result = ""
-            exp_match = re.search(r'\*\*预期结果\*\*\s*[:：]\s*(.+)', section)
+            exp_match = re.search(r"\*\*预期结果\*\*\s*[:：]\s*(.+)", section)
             if exp_match:
                 expected_result = exp_match.group(1).strip()
 
-            supplemented.append({
-                "title": f"{case_id}(补充): {case_title}" if case_title else f"{case_id}(补充)",
-                "description": section[:3000] if section else f"[AI评审补充] {case_title}",
-                "priority": priority,
-                "test_type": test_type,
-                "preconditions": preconditions,
-                "steps": steps,
-                "expected_result": expected_result,
-            })
-        logger.info(f"  📝 [parse_supplemented] 识别到 {len(supplemented)} 条补充用例 (含完整字段)")
+            supplemented.append(
+                {
+                    "title": f"{case_id}(补充): {case_title}"
+                    if case_title
+                    else f"{case_id}(补充)",
+                    "description": section[:3000]
+                    if section
+                    else f"[AI评审补充] {case_title}",
+                    "priority": priority,
+                    "test_type": test_type,
+                    "preconditions": preconditions,
+                    "steps": steps,
+                    "expected_result": expected_result,
+                }
+            )
+        logger.info(
+            f"  📝 [parse_supplemented] 识别到 {len(supplemented)} 条补充用例 (含完整字段)"
+        )
         return supplemented
 
     def _parse_points_from_markdown(self, content: str) -> list:
@@ -1044,15 +1200,18 @@ class PipelineService:
         解析失败时 fallback 返回单条
         """
         import re
+
         if not content:
             return [{"title": "AI生成-测试点", "description": ""}]
         # 策略1：### TP-001 标题
-        pattern = re.compile(r'^###\s+(TP[-_]?\d+)\s*[:：\-—]?\s*(.*)$', re.MULTILINE)
+        pattern = re.compile(r"^###\s+(TP[-_]?\d+)\s*[:：\-—]?\s*(.*)$", re.MULTILINE)
         matches = list(pattern.finditer(content))
 
         # 策略2：表格行 | TP-001 | 测试点 | ... |
         if not matches:
-            table_pattern = re.compile(r'^\|\s*(TP[-_]?\d+)\s*\|\s*([^\|]+)\s*\|', re.MULTILINE)
+            table_pattern = re.compile(
+                r"^\|\s*(TP[-_]?\d+)\s*\|\s*([^\|]+)\s*\|", re.MULTILINE
+            )
             matches = list(table_pattern.finditer(content))
 
         if not matches:
@@ -1073,18 +1232,27 @@ class PipelineService:
             section = content[start:end].strip()
             if len(section) > 3000:
                 section = section[:3000] + "\n...（内容过长已截断）"
-            points.append({
-                "title": f"{point_id}: {point_title}" if point_title else f"测试点 {point_id}",
-                "description": section,
-            })
+            points.append(
+                {
+                    "title": f"{point_id}: {point_title}"
+                    if point_title
+                    else f"测试点 {point_id}",
+                    "description": section,
+                }
+            )
         logger.info(f"  📝 [parse_points] 解析出 {len(points)} 条测试点")
         return points
 
-    async def _persist_stage_to_module(self, stage_key: str, stage_label: str,
-                                       content: str, db: AsyncSession,
-                                       project_id: Optional[int] = None,
-                                       version_id: Optional[int] = None,
-                                       requirement_name: str = ""):
+    async def _persist_stage_to_module(
+        self,
+        stage_key: str,
+        stage_label: str,
+        content: str,
+        db: AsyncSession,
+        project_id: Optional[int] = None,
+        version_id: Optional[int] = None,
+        requirement_name: str = "",
+    ):
         """将阶段结果持久化到对应的业务模块
         - test-cases: 按 TC-xxx 拆分多条 TestCase
         - test-points: 按 TP-xxx 拆分多条 TestPoint
@@ -1112,7 +1280,7 @@ class PipelineService:
                     name=requirement_name or f"AI生成-测试方案",
                     description=content[:5000],
                     status="draft",
-                    source="ai_generated",
+                    priority="P2",
                     project_id=project_id,
                     version_id=version_id,
                 )
@@ -1139,7 +1307,9 @@ class PipelineService:
                     await db.flush()  # 获取 id
                     saved_ids.append(point.id)
                 await db.commit()
-                logger.info(f"💾 [DB→test_points] 测试点已保存 {len(saved_ids)} 条 IDs={saved_ids}")
+                logger.info(
+                    f"💾 [DB→test_points] 测试点已保存 {len(saved_ids)} 条 IDs={saved_ids}"
+                )
 
             elif stage_key == "test-cases":
                 # 按 TC-xxx 拆分多条 TestCase（含完整字段）
@@ -1164,7 +1334,9 @@ class PipelineService:
                     await db.flush()
                     saved_ids.append(case.id)
                 await db.commit()
-                logger.info(f"💾 [DB→lifecycle_test_cases] 测试用例已保存 {len(saved_ids)} 条 IDs={saved_ids} (含完整字段)")
+                logger.info(
+                    f"💾 [DB→lifecycle_test_cases] 测试用例已保存 {len(saved_ids)} 条 IDs={saved_ids} (含完整字段)"
+                )
 
             elif stage_key == "test-review":
                 # 1. 整体评审内容存入 Review 表
@@ -1204,7 +1376,9 @@ class PipelineService:
                         await db.flush()
                         sup_ids.append(case.id)
                     await db.commit()
-                    logger.info(f"💾 [DB→lifecycle_test_cases] 评审补充用例已保存 {len(sup_ids)} 条 IDs={sup_ids}")
+                    logger.info(
+                        f"💾 [DB→lifecycle_test_cases] 评审补充用例已保存 {len(sup_ids)} 条 IDs={sup_ids}"
+                    )
 
             else:
                 logger.warning(f"⚠️ [DB] 未知阶段类型: {stage_key}，跳过业务模块持久化")

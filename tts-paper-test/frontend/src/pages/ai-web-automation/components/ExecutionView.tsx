@@ -20,7 +20,8 @@ import { Button } from "@/components/ui/button"
 
 interface ExecutionRecord {
   id: number; project_id: number; status: string; started_at: string; completed_at?: string;
-  duration_ms?: number; screenshots?: string[]; error_message?: string
+  duration_ms?: number; screenshots?: string[]; error_message?: string;
+  execution_case_ids?: number[]; case_titles?: string[]
 }
 
 interface ExecutionEvent {
@@ -29,15 +30,13 @@ interface ExecutionEvent {
   passed?: number; failed?: number;
 }
 
-/** 模拟截图数据（真实数据不足时展示） */
-const DEMO_SCREENSHOTS = [
-  "https://placehold.co/800x600/1a1a2e/e94560?text=Login+Page",
-  "https://placehold.co/800x600/16213e/0f3460?text=Dashboard",
-  "https://placehold.co/800x600/0f3460/533483?text=Form+Fill",
-  "https://placehold.co/800x600/533483/e94560?text=Submission",
-  "https://placehold.co/800x600/1a1a2e/16c79a?text=Result+Page",
-  "https://placehold.co/800x600/16213e/f5a623?text=Error+State",
-]
+/** 截图URL归一化：后端只存文件名时拼接 /uploads/screenshots/ 前缀 */
+const shotUrl = (name: string): string => {
+  if (!name) return ""
+  if (name.startsWith("/uploads/")) return name
+  if (name.includes("/") || name.includes("\\")) return name // 旧数据绝对路径，原样返回
+  return `/uploads/screenshots/${name}`
+}
 
 export default function ExecutionView() {
   const [executions, setExecutions] = useState<ExecutionRecord[]>([])
@@ -47,6 +46,8 @@ export default function ExecutionView() {
   const [logs, setLogs] = useState<Array<{ time: string; message: string; type: string }>>([])
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
   const [projects, setProjects] = useState<any[]>([])
+  const [approvedCases, setApprovedCases] = useState<Array<{ id: number; title: string }>>([])
+  const [selectedCaseIds, setSelectedCaseIds] = useState<Set<number>>(new Set())
   const [previewExec, setPreviewExec] = useState<any>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const logsRef = useRef<HTMLDivElement>(null)
@@ -98,14 +99,45 @@ export default function ExecutionView() {
     }
   }, [selectedProjectId])
 
+  // 加载已审批用例
+  const fetchApprovedCases = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      const res: any = await webApi.listTestCases(selectedProjectId, "approved")
+      const items = res?.data?.items || []
+      setApprovedCases(items.map((c: any) => ({ id: c.id, title: c.title || `测试用例 ${c.id}` })))
+      // 切换项目后清理旧选择
+      setSelectedCaseIds(prev => {
+        const valid = new Set(items.map((c: any) => c.id))
+        return new Set([...prev].filter(id => valid.has(id)))
+      })
+    } catch {
+      setApprovedCases([])
+      setSelectedCaseIds(new Set())
+    }
+  }, [selectedProjectId])
+
   useEffect(() => { fetchProjects() }, [fetchProjects])
   useEffect(() => { fetchExecutions() }, [fetchExecutions])
+  useEffect(() => { fetchApprovedCases() }, [fetchApprovedCases])
 
-  // 获取执行的截图（真实 + 演示混合）
-  const getScreenshots = (exec: any): string[] => {
-    const real = exec.screenshots || []
-    // 如果真实截图不足，补充演示截图
-    return real.length >= 2 ? real : [...real, ...DEMO_SCREENSHOTS].slice(0, 8)
+  // 切换用例勾选
+  const toggleCase = (id: number) => {
+    setSelectedCaseIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // 获取执行的截图（仅真实截图）
+  const getScreenshots = (exec: ExecutionRecord): string[] => {
+    const raw = exec.screenshots || []
+    // 过滤空值与无法访问的 /tmp 旧数据路径
+    return raw
+      .map(shotUrl)
+      .filter((s) => s && !s.startsWith("/tmp/") && !s.startsWith("https://placehold.co"))
   }
 
   // === 播放控制 ===
@@ -172,7 +204,10 @@ export default function ExecutionView() {
 
       wsRef.current.onerror = () => { addLog("WebSocket连接错误", "error") }
 
-      const res: any = await webApi.execute(selectedProjectId)
+      const payload = selectedCaseIds.size > 0
+        ? { case_ids: [...selectedCaseIds] }
+        : {}
+      const res: any = await webApi.execute(selectedProjectId, payload)
       if (res?.data) {
         addLog(`执行已启动，共 ${res.data.cases_count || 0} 条用例`, "success")
         setProgress({ current: 0, total: res.data.cases_count || 0, status: "running" })
@@ -184,7 +219,7 @@ export default function ExecutionView() {
       addLog(`执行启动失败: ${e.message}`, "error")
       setRunning(false)
     }
-  }, [selectedProjectId, addLog])
+  }, [selectedProjectId, selectedCaseIds, addLog])
 
   const handleExecutionEvent = useCallback((event: ExecutionEvent) => {
     switch (event.type) {
@@ -263,6 +298,36 @@ export default function ExecutionView() {
           )}
         </div>
 
+        {/* 用例选择（已审批） */}
+        {approvedCases.length > 0 && (
+          <div className="mt-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-ink-light mr-1">执行用例:</span>
+              <button
+                onClick={() => setSelectedCaseIds(selectedCaseIds.size === approvedCases.length ? new Set() : new Set(approvedCases.map(c => c.id)))}
+                className="px-2 py-1 rounded-lg text-[10px] font-medium border border-border text-muted hover:bg-cream transition-colors">
+                {selectedCaseIds.size === approvedCases.length ? "全不选" : "全选"}
+              </button>
+              {approvedCases.map((c) => (
+                <button key={c.id}
+                  onClick={() => toggleCase(c.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
+                    selectedCaseIds.has(c.id)
+                      ? "bg-amber/10 text-amber border-amber/40"
+                      : "border-border text-ink-light hover:bg-cream"
+                  }`}>
+                  {c.title}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-[10px] text-muted">
+              {selectedCaseIds.size === 0
+                ? `未选择时执行全部 ${approvedCases.length} 条已审批用例`
+                : `已选择 ${selectedCaseIds.size} 条用例执行`}
+            </p>
+          </div>
+        )}
+
         {progress.total > 0 && (
           <div className="mt-3">
             <div className="flex items-center justify-between mb-1">
@@ -334,6 +399,19 @@ export default function ExecutionView() {
                       <Eye className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                  {/* 用例列表 */}
+                  {exec.case_titles && exec.case_titles.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {exec.case_titles.slice(0, 4).map((t, i) => (
+                        <span key={i} className="px-1.5 py-0.5 rounded-md bg-amber/10 text-amber text-[10px] font-medium truncate max-w-[220px]">
+                          {t}
+                        </span>
+                      ))}
+                      {exec.case_titles.length > 4 && (
+                        <span className="px-1.5 py-0.5 text-[10px] text-muted">+{exec.case_titles.length - 4}</span>
+                      )}
+                    </div>
+                  )}
                   <div className="mt-2 text-[11px] text-muted space-y-0.5">
                     <p>开始: {exec.started_at ? new Date(exec.started_at).toLocaleString("zh-CN") : "-"}</p>
                     {exec.completed_at && <p>完成: {new Date(exec.completed_at).toLocaleString("zh-CN")}</p>}
@@ -419,6 +497,24 @@ export default function ExecutionView() {
                     <p className="text-sm font-semibold text-ink mt-0.5">{screenshots.length} 张</p>
                   </div>
                 </div>
+
+                {/* 用例清单 */}
+                {previewExec.case_titles && previewExec.case_titles.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-ink mb-2 flex items-center gap-1.5">
+                      <List className="w-4 h-4 text-amber" />
+                      关联用例
+                      <span className="text-[10px] text-muted font-normal">({previewExec.case_titles.length} 条)</span>
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {previewExec.case_titles.map((t: string, i: number) => (
+                        <span key={i} className="px-2 py-1 rounded-lg bg-amber/10 text-amber text-[11px] font-medium">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 错误信息 */}
                 {previewExec.error_message && (

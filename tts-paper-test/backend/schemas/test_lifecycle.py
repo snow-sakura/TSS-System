@@ -1,4 +1,5 @@
 """测试生命周期 Schema"""
+
 from typing import Optional, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
@@ -64,15 +65,16 @@ class RequirementResponse(BaseModel):
     @classmethod
     def from_orm(cls, obj, **kwargs):
         data = cls.model_validate(obj)
-        if hasattr(obj, 'project') and obj.project:
+        if hasattr(obj, "project") and obj.project:
             data.project_name = obj.project.name
-        if hasattr(obj, 'version') and obj.version:
+        if hasattr(obj, "version") and obj.version:
             data.version_name = obj.version.name
         return data
 
 
 class RequirementListParams(BaseModel):
     """需求列表查询参数"""
+
     page: int = 1
     page_size: int = 20
     status: Optional[str] = None
@@ -134,12 +136,14 @@ class TestPlanResponse(BaseModel):
     def from_orm(cls, obj, **kwargs):
         data = cls.model_validate(obj)
         # Manually set computed names from ORM relationships
-        if hasattr(obj, 'project') and obj.project:
+        if hasattr(obj, "project") and obj.project:
             data.project_name = obj.project.name
-        if hasattr(obj, 'version') and obj.version:
+        if hasattr(obj, "version") and obj.version:
             data.version_name = obj.version.name
-        if hasattr(obj, 'user') and obj.user:
-            data.owner_name = getattr(obj.user, 'username', None) or getattr(obj.user, 'display_name', None)
+        if hasattr(obj, "user") and obj.user:
+            data.owner_name = getattr(obj.user, "username", None) or getattr(
+                obj.user, "display_name", None
+            )
         return data
 
 
@@ -191,9 +195,9 @@ class TestPointResponse(BaseModel):
     @classmethod
     def from_orm(cls, obj, **kwargs):
         data = cls.model_validate(obj)
-        if hasattr(obj, 'project') and obj.project:
+        if hasattr(obj, "project") and obj.project:
             data.project_name = obj.project.name
-        if hasattr(obj, 'version') and obj.version:
+        if hasattr(obj, "version") and obj.version:
             data.version_name = obj.version.name
         return data
 
@@ -207,6 +211,7 @@ class TestCaseCreate(BaseModel):
     expected_result: Optional[str] = None
     priority: str = "P2"
     test_type: Optional[str] = None
+    tags: Optional[list[str]] = None
     requirement_id: Optional[int] = None
     test_point_id: Optional[int] = None
     plan_id: Optional[int] = None
@@ -222,6 +227,7 @@ class TestCaseUpdate(BaseModel):
     expected_result: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
+    tags: Optional[list[str]] = None
     project_id: Optional[int] = None
     version_id: Optional[int] = None
 
@@ -240,6 +246,7 @@ class ReviewCreate(BaseModel):
     rejected_count: int = 0
     summary: Optional[str] = None
     comments: Optional[str] = None
+    checklist: Optional[list] = None
     project_id: Optional[int] = None
     version_id: Optional[int] = None
 
@@ -257,6 +264,7 @@ class ReviewUpdate(BaseModel):
     rejected_count: Optional[int] = None
     summary: Optional[str] = None
     comments: Optional[str] = None
+    checklist: Optional[list] = None
     completed_at: Optional[datetime] = None
     project_id: Optional[int] = None
     version_id: Optional[int] = None
@@ -276,6 +284,7 @@ class ReviewResponse(BaseModel):
     rejected_count: int = 0
     summary: Optional[str] = None
     comments: Optional[str] = None
+    checklist: Optional[list] = None
     completed_at: Optional[datetime] = None
     pipeline_id: Optional[str] = None
     stage_key: Optional[str] = None
@@ -295,16 +304,19 @@ class ReviewResponse(BaseModel):
     @classmethod
     def from_orm(cls, obj, **kwargs):
         data = cls.model_validate(obj)
-        if hasattr(obj, 'project') and obj.project:
+        if hasattr(obj, "project") and obj.project:
             data.project_name = obj.project.name
-        if hasattr(obj, 'version') and obj.version:
+        if hasattr(obj, "version") and obj.version:
             data.version_name = obj.version.name
         return data
 
 
 class TestCaseReviewCreate(BaseModel):
     """用例评审"""
-    action: str = Field(..., description="评审动作: approved / rejected / needs_modification")
+
+    action: str = Field(
+        ..., description="评审动作: approved / rejected / needs_modification"
+    )
     review_comment: Optional[str] = None
 
 
@@ -318,6 +330,7 @@ class TestCaseResponse(BaseModel):
     status: str
     priority: str
     test_type: Optional[str] = None
+    tags: Optional[list] = None
     requirement_id: Optional[int] = None
     test_point_id: Optional[int] = None
     plan_id: Optional[int] = None
@@ -339,9 +352,9 @@ class TestCaseResponse(BaseModel):
     @classmethod
     def from_orm(cls, obj, **kwargs):
         data = cls.model_validate(obj)
-        if hasattr(obj, 'project') and obj.project:
+        if hasattr(obj, "project") and obj.project:
             data.project_name = obj.project.name
-        if hasattr(obj, 'version') and obj.version:
+        if hasattr(obj, "version") and obj.version:
             data.version_name = obj.version.name
         return data
 
@@ -404,6 +417,8 @@ class DefectCreate(BaseModel):
     module: Optional[str] = None
     execution_id: Optional[int] = None
     test_case_id: Optional[int] = None
+    project_id: Optional[int] = None
+    version_id: Optional[int] = None
 
 
 class DefectUpdate(BaseModel):
@@ -414,6 +429,10 @@ class DefectUpdate(BaseModel):
     severity: Optional[str] = None
     assigned_to: Optional[int] = None
     root_cause: Optional[str] = None
+    execution_id: Optional[int] = None
+    test_case_id: Optional[int] = None
+    project_id: Optional[int] = None
+    version_id: Optional[int] = None
 
 
 class DefectResponse(BaseModel):
@@ -432,6 +451,10 @@ class DefectResponse(BaseModel):
     root_cause_ai: Optional[dict] = None
     execution_id: Optional[int] = None
     test_case_id: Optional[int] = None
+    project_id: Optional[int] = None
+    version_id: Optional[int] = None
+    project_name: Optional[str] = None
+    version_name: Optional[str] = None
     assigned_to: Optional[int] = None
     resolved_by: Optional[int] = None
     resolved_at: Optional[datetime] = None

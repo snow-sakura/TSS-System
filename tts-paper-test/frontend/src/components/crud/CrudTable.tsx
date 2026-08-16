@@ -45,6 +45,8 @@ export interface CrudTableProps {
   onEdit?: (row: any) => void
   onView?: (row: any) => void
   onDelete?: (row: any) => void
+  /** 行点击回调（跳转详情页等；点击 checkbox/操作按钮/链接时不触发） */
+  onRowClick?: (row: any) => void
   onBatchDelete?: (ids: (string | number)[]) => void
   onSelectionChange?: (ids: Set<string | number>) => void
   onSort?: (key: string, direction: "asc" | "desc") => void
@@ -75,6 +77,7 @@ export default function CrudTable({
   onEdit,
   onView,
   onDelete,
+  onRowClick,
   onBatchDelete,
   onSelectionChange,
   onSort,
@@ -315,9 +318,16 @@ export default function CrudTable({
                 {data.map((row) => (
                   <tr
                     key={row.id}
+                    onClick={(e) => {
+                      // 点击行跳转详情；checkbox / 按钮 / 链接等交互元素不触发行点击
+                      if (!onRowClick) return
+                      const target = e.target as HTMLElement
+                      if (target.closest("button, input, a, select")) return
+                      onRowClick(row)
+                    }}
                     className={`border-b border-border/50 last:border-0 transition-colors ${
                       selectedIds.has(row.id) ? "bg-amber-light/50" : "hover:bg-cream/50"
-                    }`}
+                    } ${onRowClick ? "cursor-pointer" : ""}`}
                   >
                     <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                       <input

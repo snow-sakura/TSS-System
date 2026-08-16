@@ -9,6 +9,7 @@ import {
   X, Search as SearchIcon, Zap,
 } from "lucide-react"
 import { toast } from "sonner"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 export default function AIKnowledgeAnalyzer() {
   const [tab, setTab] = useState<"extract" | "suggest" | "ai-search">("ai-search")
@@ -131,8 +132,8 @@ export default function AIKnowledgeAnalyzer() {
                       <span className="text-[10px] text-muted">改写: "{aiSearchResult.rewritten_query}"</span>
                     )}
                   </div>
-                  <div className="text-sm text-ink/80 whitespace-pre-wrap leading-relaxed">
-                    {aiSearchResult.answer}
+                  <div className="text-sm text-ink/80 leading-relaxed">
+                    <MarkdownPreview content={aiSearchResult.answer} />
                   </div>
                   {aiSearchResult.key_insights?.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-amber-200/30">

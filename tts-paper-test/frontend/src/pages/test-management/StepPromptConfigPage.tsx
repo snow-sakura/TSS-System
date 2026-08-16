@@ -5,7 +5,7 @@ import {
   Target, FlaskConical, CheckCircle, Code, Eye as EyeIcon,
   Layers, Wand2, Zap
 } from "lucide-react"
-import ReactMarkdown from "react-markdown"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 import { configApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
 import { useConfirmStore } from "@/stores/confirmStore"
@@ -264,9 +264,7 @@ export default function StepPromptConfigPage() {
 
   // 渲染Markdown预览
   const renderMarkdown = (content: string) => (
-    <div className="prose prose-sm max-w-none">
-      <ReactMarkdown>{content}</ReactMarkdown>
-    </div>
+    <MarkdownPreview content={content} />
   )
 
   if (loading) {

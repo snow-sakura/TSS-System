@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { knowledgeApi } from "@/lib/api"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { useConfirmStore } from "@/stores/confirmStore"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface TestPattern {
   id: number
@@ -189,11 +190,11 @@ export default function TestPatterns() {
             </div>
             <div className="px-6 py-5 space-y-3 overflow-y-auto">
               <div className="flex items-center gap-2"><span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-cream text-muted">{selectedPattern.category}</span>{selectedPattern.ai_score > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-light text-amber-hover">AI {selectedPattern.ai_score}分</span>}</div>
-              <div className="text-sm text-ink-light leading-relaxed">{selectedPattern.description}</div>
-              {selectedPattern.steps && <div><p className="text-xs font-medium text-ink mb-1">执行步骤</p><pre className="text-xs text-ink-light bg-cream/30 rounded-lg p-3 whitespace-pre-wrap">{selectedPattern.steps}</pre></div>}
-              {selectedPattern.expected_result && <div><p className="text-xs font-medium text-ink mb-1">预期结果</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{selectedPattern.expected_result}</p></div>}
-              {selectedPattern.applicable_scenarios && <div><p className="text-xs font-medium text-ink mb-1">适用场景</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{selectedPattern.applicable_scenarios}</p></div>}
-              {selectedPattern.examples && <div><p className="text-xs font-medium text-ink mb-1">示例</p><pre className="text-xs text-ink-light bg-cream/30 rounded-lg p-3 whitespace-pre-wrap">{selectedPattern.examples}</pre></div>}
+              <div className="text-sm text-ink-light leading-relaxed"><MarkdownPreview content={selectedPattern.description} /></div>
+              {selectedPattern.steps && <div><p className="text-xs font-medium text-ink mb-1">执行步骤</p><MarkdownPreview content={selectedPattern.steps} /></div>}
+              {selectedPattern.expected_result && <div><p className="text-xs font-medium text-ink mb-1">预期结果</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2"><MarkdownPreview content={selectedPattern.expected_result} /></p></div>}
+              {selectedPattern.applicable_scenarios && <div><p className="text-xs font-medium text-ink mb-1">适用场景</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2"><MarkdownPreview content={selectedPattern.applicable_scenarios} /></p></div>}
+              {selectedPattern.examples && <div><p className="text-xs font-medium text-ink mb-1">示例</p><MarkdownPreview content={selectedPattern.examples} /></div>}
               <div><p className="text-xs font-medium text-ink mb-1">标签</p><div className="flex flex-wrap gap-1">{parseTags(selectedPattern.tags).map((t) => <span key={t} className="px-2 py-0.5 rounded bg-cream text-[11px] text-muted">{t}</span>)}</div></div>
             </div>
           </div>

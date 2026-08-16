@@ -5,6 +5,7 @@ import { useState } from "react"
 import { Sparkles, Play, Loader2, FileText, Check, ChevronRight, Download, Eye, X, Bot, Zap, BarChart3, Brain } from "lucide-react"
 import { toast } from "sonner"
 import { lifecycleApi } from "@/lib/api"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 const REPORT_TYPES = [
   { key: "version", label: "版本报告", desc: "自动生成当前版本的完整测试报告", icon: FileText, color: "from-sky-500 to-blue-600" },
@@ -223,7 +224,7 @@ export default function AiReport() {
             <button className="p-2 rounded-lg hover:bg-cream"><X className="w-4 h-4 text-muted" /></button>
           </div>
           <div className="h-[calc(100vh-56px)] overflow-y-auto p-8 max-w-3xl mx-auto">
-            <div className="text-sm text-ink whitespace-pre-wrap leading-relaxed">{reportContent}</div>
+            <MarkdownPreview content={reportContent} />
           </div>
         </div>
       )}

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react"
 import { X } from "lucide-react"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 export interface CrudField {
   key: string
   label: string
-  type: "text" | "textarea" | "select" | "date" | "number" | "email" | "password"
+  type: "text" | "textarea" | "select" | "date" | "number" | "email" | "password" | "checklist"
   required?: boolean
   placeholder?: string
   options?: { label: string; value: string }[]
@@ -12,6 +13,10 @@ export interface CrudField {
   disabled?: boolean
   helpText?: string
   validation?: (value: any) => string | null
+  /** 数组字段：编辑回显时逗号拼接，提交时按逗号拆分数组 */
+  array?: boolean
+  /** 检查清单字段：默认检查项模板 [{id,label,required}] */
+  checklistTemplate?: { id: string; label: string; required?: boolean }[]
 }
 
 export interface CrudDialogProps {
@@ -43,12 +48,37 @@ export default function CrudDialog({
       const defaults: Record<string, any> = {}
       fields.forEach((f) => {
         let value = initialData[f.key] ?? f.default ?? ""
+        // 数组字段（如标签列表）：编辑时用逗号拼接，便于文本输入
+        if (f.array && Array.isArray(value)) {
+          value = value.join(", ")
+        }
         // 日期字段：将 ISO 格式字符串转换为 YYYY-MM-DD 格式
         if (f.type === "date" && value && typeof value === "string") {
           // 处理 "2026-07-29T00:00:00" 或 "2026-07-29T00:00:00.000000" 格式
           const dateMatch = value.match(/^(\d{4}-\d{2}-\d{2})/)
           if (dateMatch) {
             value = dateMatch[1]
+          }
+        }
+        // 检查清单字段：无数据时用模板初始化（保留已存的状态）
+        if (f.type === "checklist") {
+          const template = f.checklistTemplate || []
+          if (!Array.isArray(value) || value.length === 0) {
+            value = template.map((t) => ({
+              id: t.id,
+              label: t.label,
+              required: !!t.required,
+              passed: null,
+              comment: "",
+            }))
+          } else {
+            // 合并模板与已存数据：补齐新增项，保留已勾选状态
+            value = template.map((t) => {
+              const saved = (value as any[]).find((v) => v.id === t.id)
+              return saved
+                ? { id: t.id, label: t.label, required: !!t.required, passed: saved.passed ?? null, comment: saved.comment || "" }
+                : { id: t.id, label: t.label, required: !!t.required, passed: null, comment: "" }
+            })
           }
         }
         defaults[f.key] = value
@@ -100,7 +130,30 @@ export default function CrudDialog({
       return
     }
     if (!validate()) return
-    onSubmit?.(formData)
+    // 数组字段：提交时将逗号分隔字符串拆分为数组
+    let payload = formData
+    const arrayFields = fields.filter((f) => f.array)
+    if (arrayFields.length > 0) {
+      payload = { ...formData }
+      arrayFields.forEach((f) => {
+        const v = formData[f.key]
+        if (typeof v === "string") {
+          payload[f.key] = v
+            .split(/[,，]/)
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        }
+      })
+    }
+    // 空字符串转为 null：避免未选中的可选字段（项目/版本等）以 "" 提交导致后端 int 校验 422
+    const hasBlank = Object.values(payload).some((v) => v === "")
+    if (hasBlank) {
+      payload = { ...payload }
+      Object.keys(payload).forEach((k) => {
+        if (payload[k] === "") payload[k] = null
+      })
+    }
+    onSubmit?.(payload)
   }
 
   const renderField = (field: CrudField) => {
@@ -113,6 +166,14 @@ export default function CrudDialog({
 
     switch (field.type) {
       case "textarea":
+        // 查看模式下以 Markdown 格式渲染内容（表格/标题/列表等），编辑/新建保持 textarea
+        if (isView) {
+          return (
+            <div className="rounded-xl border border-border bg-cream/40 px-3 py-2.5">
+              <MarkdownPreview content={String(value || "")} emptyText="暂无内容" />
+            </div>
+          )
+        }
         return (
           <textarea
             value={value}
@@ -182,6 +243,102 @@ export default function CrudDialog({
             className={`${commonClass} ${errorClass}`}
           />
         )
+      case "checklist": {
+        const items: { id: string; label: string; required?: boolean; passed: boolean | null; comment?: string }[] =
+          Array.isArray(value) ? value : []
+        const done = items.filter((it) => it.passed !== null).length
+        const passed = items.filter((it) => it.passed === true).length
+        return (
+          <div className="rounded-xl border border-border bg-cream/40 px-3 py-2.5 space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span>共 {items.length} 项 · 已评审 {done} 项 · 通过 {passed} 项</span>
+              {items.length > 0 && (
+                <span className={passed === items.length ? "text-pass font-medium" : ""}>
+                  {Math.round((done / items.length) * 100)}%
+                </span>
+              )}
+            </div>
+            {items.length === 0 && <p className="text-xs text-muted">暂无检查项</p>}
+            {items.map((it, idx) => (
+              <div key={it.id} className="rounded-lg bg-white border border-border p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-ink flex items-center gap-1.5">
+                    <span className="text-xs text-muted font-mono">{idx + 1}</span>
+                    {it.label}
+                    {it.required && !isView && <span className="text-fail text-xs">必</span>}
+                    {it.required && isView && (
+                      <span className="text-fail/70 text-xs border border-fail/30 rounded px-1">必查</span>
+                    )}
+                  </span>
+                  {!isView && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = [...items]
+                          next[idx] = { ...it, passed: it.passed === true ? null : true }
+                          handleChange(field.key, next)
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-xs border transition-colors ${
+                          it.passed === true
+                            ? "bg-pass/15 text-pass border-pass/40"
+                            : "text-muted border-border hover:bg-cream"
+                        }`}
+                      >
+                        通过
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = [...items]
+                          next[idx] = { ...it, passed: it.passed === false ? null : false }
+                          handleChange(field.key, next)
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-xs border transition-colors ${
+                          it.passed === false
+                            ? "bg-fail/15 text-fail border-fail/40"
+                            : "text-muted border-border hover:bg-cream"
+                        }`}
+                      >
+                        不通过
+                      </button>
+                    </div>
+                  )}
+                  {isView && (
+                    <span
+                      className={`shrink-0 px-2 py-0.5 rounded-md text-xs border ${
+                        it.passed === true
+                          ? "bg-pass/15 text-pass border-pass/40"
+                          : it.passed === false
+                            ? "bg-fail/15 text-fail border-fail/40"
+                            : "text-muted border-border"
+                      }`}
+                    >
+                      {it.passed === true ? "通过" : it.passed === false ? "不通过" : "未评审"}
+                    </span>
+                  )}
+                </div>
+                {!isView && (
+                  <input
+                    type="text"
+                    value={it.comment || ""}
+                    onChange={(e) => {
+                      const next = [...items]
+                      next[idx] = { ...it, comment: e.target.value }
+                      handleChange(field.key, next)
+                    }}
+                    placeholder="备注（可选）"
+                    className="w-full h-7 px-2 text-xs bg-cream border border-border rounded-lg input-focus"
+                  />
+                )}
+                {isView && it.comment && (
+                  <p className="text-xs text-muted pl-4">备注：{it.comment}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      }
       case "text":
       default:
         return (

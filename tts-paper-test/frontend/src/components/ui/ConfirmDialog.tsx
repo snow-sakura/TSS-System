@@ -2,18 +2,22 @@ import { X, AlertTriangle } from "lucide-react"
 import { useConfirmStore } from "@/stores/confirmStore"
 
 export default function ConfirmDialog() {
-  const { open, title, message, itemName, confirmText, cancelText, danger, resolver } = useConfirmStore()
+  const { open, title, message, itemName, confirmText, cancelText, danger } = useConfirmStore()
+  const { _resolve } = useConfirmStore.getState()
 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => resolver?.(false)}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={() => _resolve(false)}
+    >
       <div className="bg-white rounded-2xl shadow-elevated w-[400px] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <h3 className="text-sm font-bold text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
             {title}
           </h3>
-          <button onClick={() => resolver?.(false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-cream border border-border/60 text-ink-light hover:text-ink transition-all group">
+          <button onClick={() => _resolve(false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-cream border border-border/60 text-ink-light hover:text-ink transition-all group">
             <X className="w-4 h-4 group-hover:text-ink" />
           </button>
         </div>
@@ -31,9 +35,9 @@ export default function ConfirmDialog() {
           </div>
         </div>
         <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
-          <button onClick={() => resolver?.(false)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">{cancelText}</button>
+          <button onClick={() => _resolve(false)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">{cancelText}</button>
           <button
-            onClick={() => resolver?.(true)}
+            onClick={() => _resolve(true)}
             className={`h-9 px-5 rounded-xl text-sm font-medium shadow-sm hover:shadow-md hover:opacity-90 text-white ${danger ? "bg-fail" : "bg-amber"}`}
           >
             {confirmText}

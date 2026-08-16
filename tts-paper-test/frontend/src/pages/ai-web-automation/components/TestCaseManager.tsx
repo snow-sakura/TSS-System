@@ -8,12 +8,15 @@ import { toast } from "sonner"
 import { webApi } from "@/lib/api"
 import TestSkillLibrary from "./TestSkillLibrary"
 import { useConfirmStore } from "@/stores/confirmStore"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface TestCase {
   id: number; project_id: number; title: string; description?: string; preconditions?: string;
   steps: Array<{ action: string; target?: string; value?: string }>;
   expected_result: string; priority: string; status: string; ai_generated: boolean; page_url?: string
 }
+
+interface StepForm { action: string; target: string; value: string }
 
 const statusLabels: Record<string, string> = { draft: "草稿", pending: "待审批", approved: "已通过", rejected: "已驳回" }
 const statusColors: Record<string, string> = {
@@ -38,7 +41,9 @@ export default function TestCaseManager() {
   const [showDialog, setShowDialog] = useState(false)
   const [editingCase, setEditingCase] = useState<TestCase | null>(null)
   const [form, setForm] = useState({ title: "", description: "", expected_result: "", priority: "P1", preconditions: "" })
+  const [steps, setSteps] = useState<StepForm[]>([])
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
   const pageSize = 10
 
   // 加载项目列表
@@ -175,6 +180,7 @@ export default function TestCaseManager() {
   const openCreate = () => {
     setEditingCase(null)
     setForm({ title: "", description: "", expected_result: "", priority: "P1", preconditions: "" })
+    setSteps([{ action: "打开页面", target: "", value: "" }])
     setFormErrors({})
     setShowDialog(true)
   }
@@ -182,8 +188,50 @@ export default function TestCaseManager() {
   const openEdit = (c: TestCase) => {
     setEditingCase(c)
     setForm({ title: c.title, description: c.description || "", expected_result: c.expected_result, priority: c.priority, preconditions: c.preconditions || "" })
+    setSteps((c.steps && c.steps.length ? c.steps : [{}]).map((s: any) => ({ action: s.action || "", target: s.target || "", value: s.value || "" })))
     setFormErrors({})
     setShowDialog(true)
+  }
+
+  const addStep = () => setSteps([...steps, { action: "点击", target: "", value: "" }])
+  const removeStep = (idx: number) => setSteps(steps.filter((_, i) => i !== idx))
+  const updateStep = (idx: number, field: keyof StepForm, value: string) => {
+    setSteps(steps.map((s, i) => (i === idx ? { ...s, [field]: value } : s)))
+  }
+
+  const handleSave = async () => {
+    const errs: Record<string, string> = {}
+    if (!form.title.trim()) errs.title = "标题不能为空"
+    if (!form.expected_result.trim()) errs.expected_result = "预期结果不能为空"
+    if (steps.some((s) => !s.action.trim())) errs.steps = "每个步骤需填写操作类型"
+    setFormErrors(errs)
+    if (Object.keys(errs).length > 0) return
+
+    if (!selectedProjectId) { toast.error("请先选择项目"); return }
+    setSaving(true)
+    try {
+      const payload = {
+        title: form.title.trim(),
+        description: form.description || undefined,
+        preconditions: form.preconditions || undefined,
+        expected_result: form.expected_result,
+        priority: form.priority,
+        steps: steps.map((s) => ({ action: s.action, target: s.target || undefined, value: s.value || undefined })).filter((s) => s.action),
+      }
+      if (editingCase) {
+        await webApi.updateTestCase(editingCase.id, payload)
+        toast.success("更新成功")
+      } else {
+        await webApi.createTestCase(selectedProjectId, payload)
+        toast.success("创建成功")
+      }
+      setShowDialog(false)
+      fetchCases()
+    } catch {
+      toast.error(editingCase ? "更新失败" : "创建失败")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -290,8 +338,8 @@ export default function TestCaseManager() {
                 <span className={`text-xs font-semibold ${priorityColors[previewCase.priority]}`}>{previewCase.priority}</span>
                 {previewCase.ai_generated && <span className="px-1.5 py-0.5 rounded bg-amber-light text-[10px] font-medium text-amber">AI生成</span>}
               </div>
-              {previewCase.description && <div><p className="text-xs font-medium text-ink mb-1">描述</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{previewCase.description}</p></div>}
-              {previewCase.preconditions && <div><p className="text-xs font-medium text-ink mb-1">前置条件</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{previewCase.preconditions}</p></div>}
+              {previewCase.description && <div><p className="text-xs font-medium text-ink mb-1">描述</p><MarkdownPreview content={previewCase.description} /></div>}
+              {previewCase.preconditions && <div><p className="text-xs font-medium text-ink mb-1">前置条件</p><MarkdownPreview content={previewCase.preconditions} /></div>}
               <div><p className="text-xs font-medium text-ink mb-1">测试步骤</p>
                 <div className="space-y-1">{previewCase.steps.map((s, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs p-2 bg-cream/30 rounded-lg">
@@ -300,7 +348,7 @@ export default function TestCaseManager() {
                   </div>
                 ))}</div>
               </div>
-              <div><p className="text-xs font-medium text-ink mb-1">预期结果</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{previewCase.expected_result}</p></div>
+              <div><p className="text-xs font-medium text-ink mb-1">预期结果</p><MarkdownPreview content={previewCase.expected_result} /></div>
             </div>
           </div>
         </div>
@@ -309,7 +357,7 @@ export default function TestCaseManager() {
       {/* 新建/编辑弹窗 */}
       {showDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowDialog(false)}>
-          <div className="bg-white rounded-2xl shadow-elevated w-[480px] max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-elevated w-[560px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-sm font-bold text-ink">{editingCase ? "编辑用例" : "新建用例"}</h3>
               <button onClick={() => setShowDialog(false)} className="p-1.5 rounded-lg hover:bg-cream"><X className="w-4 h-4 text-muted" /></button>
@@ -317,12 +365,44 @@ export default function TestCaseManager() {
             <div className="px-6 py-5 space-y-3 overflow-y-auto flex-1">
               <div><label className="block text-xs font-medium text-ink-light mb-1">标题 *</label><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className={`w-full h-9 px-3 rounded-xl border text-sm text-ink focus:border-amber outline-none ${formErrors.title ? "border-fail" : "border-border"}`} />{formErrors.title && <p className="text-[11px] text-fail mt-1">{formErrors.title}</p>}</div>
               <div><label className="block text-xs font-medium text-ink-light mb-1">描述</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="w-full px-3 py-2 rounded-xl border border-border text-sm text-ink focus:border-amber outline-none resize-none" /></div>
+              <div><label className="block text-xs font-medium text-ink-light mb-1">前置条件</label><textarea value={form.preconditions} onChange={(e) => setForm({ ...form, preconditions: e.target.value })} rows={2} className="w-full px-3 py-2 rounded-xl border border-border text-sm text-ink focus:border-amber outline-none resize-none" /></div>
+
+              {/* 测试步骤编辑 */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-ink-light">测试步骤 *</label>
+                  <button onClick={addStep} className="h-6 px-2 rounded-lg border border-border text-[11px] text-ink-light hover:bg-cream flex items-center gap-1"><Plus className="w-3 h-3" /> 添加步骤</button>
+                </div>
+                {formErrors.steps && <p className="text-[11px] text-fail mb-1">{formErrors.steps}</p>}
+                <div className="space-y-1.5">
+                  {steps.map((s, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <span className="w-5 text-center text-[11px] text-muted font-mono flex-shrink-0">{i + 1}</span>
+                      <select value={s.action} onChange={(e) => updateStep(i, "action", e.target.value)} className={`h-8 px-2 rounded-lg border text-xs text-ink bg-white focus:border-amber outline-none w-24 flex-shrink-0 ${!s.action.trim() && formErrors.steps ? "border-fail" : "border-border"}`}>
+                        <option value="">操作</option>
+                        <option value="打开页面">打开页面</option>
+                        <option value="点击">点击</option>
+                        <option value="输入">输入</option>
+                        <option value="选择">选择</option>
+                        <option value="等待">等待</option>
+                        <option value="断言">断言</option>
+                      </select>
+                      <input value={s.target} onChange={(e) => updateStep(i, "target", e.target.value)} placeholder="目标元素（按钮文字/选择器）" className="flex-1 h-8 px-2 rounded-lg border border-border text-xs text-ink focus:border-amber outline-none min-w-0" />
+                      <input value={s.value} onChange={(e) => updateStep(i, "value", e.target.value)} placeholder="值（可选）" className="w-28 h-8 px-2 rounded-lg border border-border text-xs text-ink focus:border-amber outline-none" />
+                      <button onClick={() => removeStep(i)} disabled={steps.length <= 1} className="p-1 rounded hover:bg-fail/10 text-muted hover:text-fail disabled:opacity-30 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div><label className="block text-xs font-medium text-ink-light mb-1">预期结果 *</label><textarea value={form.expected_result} onChange={(e) => setForm({ ...form, expected_result: e.target.value })} rows={2} className={`w-full px-3 py-2 rounded-xl border text-sm text-ink focus:border-amber outline-none resize-none ${formErrors.expected_result ? "border-fail" : "border-border"}`} />{formErrors.expected_result && <p className="text-[11px] text-fail mt-1">{formErrors.expected_result}</p>}</div>
               <div><label className="block text-xs font-medium text-ink-light mb-1">优先级</label><select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink outline-none"><option value="P0">P0 核心</option><option value="P1">P1 重要</option><option value="P2">P2 一般</option><option value="P3">P3 低优先</option></select></div>
             </div>
             <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
               <button onClick={() => setShowDialog(false)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">取消</button>
-              <button onClick={() => { if (!form.title.trim()) { setFormErrors({ title: "标题不能为空" }); return } if (!form.expected_result.trim()) { setFormErrors({ expected_result: "预期结果不能为空" }); return } setShowDialog(false); toast.success(editingCase ? "更新成功" : "创建成功") }} className="h-9 px-5 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md">保存</button>
+              <button onClick={handleSave} disabled={saving} className="h-9 px-5 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md flex items-center gap-1.5 disabled:opacity-50">
+                {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 保存中...</> : "保存"}
+              </button>
             </div>
           </div>
         </div>

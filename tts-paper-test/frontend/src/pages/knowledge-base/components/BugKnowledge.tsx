@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { knowledgeApi } from "@/lib/api"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { useConfirmStore } from "@/stores/confirmStore"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface BugKnowledgeItem {
   id: number
@@ -198,9 +199,9 @@ export default function BugKnowledge() {
             <div className="px-6 py-5 space-y-3 overflow-y-auto">
               <div className="flex items-center gap-2"><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${severityColor(selectedBug.severity)}`}>{selectedBug.severity}</span><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(selectedBug.status)}`}>{selectedBug.status}</span></div>
               {selectedBug.module && <div><p className="text-xs font-medium text-ink mb-1">所属模块</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{selectedBug.module}</p></div>}
-              <div><p className="text-xs font-medium text-ink mb-1">根本原因</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{selectedBug.root_cause}</p></div>
-              {selectedBug.solution && <div><p className="text-xs font-medium text-ink mb-1">解决方案</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{selectedBug.solution}</p></div>}
-              {selectedBug.symptoms && <div><p className="text-xs font-medium text-ink mb-1">症状描述</p><p className="text-xs text-ink-light bg-cream/30 rounded-lg p-2">{selectedBug.symptoms}</p></div>}
+              <div><p className="text-xs font-medium text-ink mb-1">根本原因</p><MarkdownPreview content={selectedBug.root_cause} /></div>
+              {selectedBug.solution && <div><p className="text-xs font-medium text-ink mb-1">解决方案</p><MarkdownPreview content={selectedBug.solution} /></div>}
+              {selectedBug.symptoms && <div><p className="text-xs font-medium text-ink mb-1">症状描述</p><MarkdownPreview content={selectedBug.symptoms} /></div>}
               <div><p className="text-xs font-medium text-ink mb-1">标签</p><div className="flex flex-wrap gap-1">{parseTags(selectedBug.tags).map((t) => <span key={t} className="px-2 py-0.5 rounded bg-cream text-[11px] text-muted">{t}</span>)}</div></div>
             </div>
           </div>

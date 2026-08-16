@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "react-router-dom"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
@@ -127,6 +128,33 @@ export default function DefectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
   const [editingDefect, setEditingDefect] = useState<Defect | null>(null)
+  /** 一键提交缺陷的预填数据（来自用例详情页跳转） */
+  const [prefill, setPrefill] = useState<Record<string, any> | null>(null)
+
+  // 支持从用例详情页「提交缺陷」跳转预填（?new=1&case_id=xx&case_title=xx&project_id=xx）
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return
+    const caseId = searchParams.get("case_id")
+    const caseTitle = searchParams.get("case_title")
+    const next: Record<string, any> = {}
+    if (caseTitle) next.title = `[用例] ${caseTitle}`
+    if (caseId) {
+      next.test_case_id = Number(caseId)
+      next.description = `关联用例 #${caseId}（${caseTitle || ""}）发现的缺陷`
+    }
+    const pid = searchParams.get("project_id")
+    if (pid) next.project_id = Number(pid)
+    const vid = searchParams.get("version_id")
+    if (vid) next.version_id = Number(vid)
+    setPrefill(next)
+    setDialogMode("create")
+    setEditingDefect(null)
+    setDialogOpen(true)
+    // 清理 URL 参数，避免刷新后重复弹出
+    setSearchParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     projectApi
@@ -169,6 +197,18 @@ export default function DefectsPage() {
     { key: "status", label: "状态", type: "select", options: statusOptions, default: "new" },
     { key: "severity", label: "严重度", type: "select", options: severityOptions, default: "medium" },
     { key: "assignee", label: "责任人", type: "text", placeholder: "请输入责任人姓名" },
+    // 一键提交缺陷：关联用例 ID 隐藏展示（禁用输入）
+    ...(prefill?.test_case_id
+      ? ([
+          {
+            key: "test_case_id",
+            label: "关联用例ID",
+            type: "text" as const,
+            disabled: true,
+            helpText: "该缺陷由用例一键提交，自动关联",
+          },
+        ] as CrudField[])
+      : []),
   ]
 
   const loadData = useCallback(async () => {
@@ -325,7 +365,7 @@ export default function DefectsPage() {
         mode={dialogMode}
         title={dialogTitle}
         fields={fields}
-        initialData={editingDefect || {}}
+        initialData={editingDefect || prefill || {}}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
         onViewEdit={handleViewEdit}
