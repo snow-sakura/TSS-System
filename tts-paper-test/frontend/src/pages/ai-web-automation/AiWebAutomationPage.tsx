@@ -6,6 +6,7 @@
 import { useState, useCallback, useRef, memo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { ArrowLeft, Globe, FileText, ClipboardList, Target, Play, BarChart3, CheckCircle, Cpu, Bot } from "lucide-react"
+import { toast } from "sonner"
 import Sidebar, { type SidebarItem } from "../requirement-testing/components/Sidebar"
 import FlowChart from "./components/FlowChart"
 import ProjectList from "./components/ProjectList"
@@ -16,6 +17,7 @@ import ObjectRepository from "./components/ObjectRepository"
 import EngineSelector from "./components/EngineSelector"
 import AiAgentPanel from "./components/AiAgentPanel"
 import CompetitorAnalysisPage from "../competitor-analysis/CompetitorAnalysisPage"
+import { webApi } from "@/lib/api"
 
 const MENU_ITEMS: SidebarItem[] = [
   { key: "wa-projects", label: "项目管理", icon: "requirements" },
@@ -55,6 +57,52 @@ const FLOW_STEPS = [
 const PIPELINE_STEPS = ["explore", "analyze", "generate", "review", "execute", "report"]
 
 type StepStatus = "pending" | "running" | "completed" | "failed"
+
+/** 读取 SSE 流，返回事件列表 [{event, data}] */
+async function readSSEStream(
+  response: Response,
+  onEvent?: (event: string, data: any) => void,
+  shouldAbort?: () => boolean,
+): Promise<void> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error("无法获取响应流")
+
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let currentEvent = ""
+  let currentData = ""
+
+  while (true) {
+    if (shouldAbort?.()) return
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n")
+    buffer = lines.pop() || ""
+
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent = line.slice(7).trim()
+      } else if (line.startsWith("data: ")) {
+        currentData = line.slice(6).trim()
+      } else if (line === "") {
+        if (currentEvent && currentData) {
+          try {
+            onEvent?.(currentEvent, JSON.parse(currentData))
+          } catch {}
+        }
+        currentEvent = ""
+        currentData = ""
+      }
+    }
+  }
+
+  if (currentEvent && currentData) {
+    try {
+      onEvent?.(currentEvent, JSON.parse(currentData))
+    } catch {}
+  }
+}
 
 function AiWebAutomationPage() {
   const navigate = useNavigate()
@@ -108,8 +156,8 @@ function AiWebAutomationPage() {
   }
 
   /**
-   * 一键全流程流水线
-   * 1. 检查前置条件 → 2. AI探索 → 3. 页面分析 → 4. 用例生成
+   * 一键全流程流水线 — 接入真实后端
+   * 1. 获取项目 → 2. AI探索(SSE) → 3. 页面分析 → 4. 用例生成(SSE)
    * → 5. 用例评审 → 6. 测试执行 → 7. 结果报告
    */
   const handleStartPipeline = useCallback(async () => {
@@ -129,65 +177,100 @@ function AiWebAutomationPage() {
     resetStatus.url = "completed"
     setFlowStatus(resetStatus)
 
-    // 切到 AI探索 Tab
-    navigate("/ai-web-automation?menu=wa-explore")
-    await sleep(300)
-
     try {
-      // === Step 1: AI探索 ===
+      // === Step 0: 获取项目 ===
+      const projRes: any = await webApi.listProjects(1)
+      const items = projRes?.data?.items || []
+      if (items.length === 0) {
+        toast.error("请先在「项目管理」中创建项目")
+        updateStep("explore", "failed")
+        return
+      }
+      const projectId = items[0].id
+      const projectName = items[0].name || `项目 #${projectId}`
+      resetStatus.project = "completed"
+      resetStatus.url = "completed"
+      setFlowStatus(resetStatus)
+
+      // === Step 1: AI探索 (SSE) ===
+      navigate(`/ai-web-automation?menu=wa-explore&project=${projectId}`)
+      await sleep(300)
       updateStep("explore", "running")
-      // 子组件 AiExploration 会通过 onStatusChange 报告完成
-      // 这里超时兜底
-      await sleep(3000)
-      // 等待子组件汇报（简化版：设定时兜底）
-      setTimeout(() => {
-        setFlowStatus((prev) => {
-          if (prev.explore === "running") {
-            return { ...prev, explore: "completed" }
+      toast.info(`开始探索项目「${projectName}」...`)
+
+      const exploreRes = await webApi.exploreSSE(projectId)
+      if (!exploreRes.ok) throw new Error(`AI探索失败: HTTP ${exploreRes.status}`)
+
+      let exploreError = ""
+      await readSSEStream(
+        exploreRes,
+        (event, data) => {
+          if (event === "page_analyzed") {
+            // 页面分析进度
+          } else if (event === "exploration_complete") {
+            // 探索完成
+          } else if (event === "exploration_error") {
+            exploreError = data.error || "探索失败"
+          } else if (event === "status") {
+            // 状态消息
           }
-          return prev
-        })
-      }, 8000)
-
-      // 给 AI探索一些时间
-      await sleep(6000)
+        },
+        () => pipelineAbortRef.current,
+      )
 
       if (pipelineAbortRef.current) return
+      if (exploreError) throw new Error(exploreError)
 
-      // === Step 2: 页面分析 ===
       updateStep("explore", "completed")
-      updateStep("analyze", "running")
-      await sleep(2500)
-      if (pipelineAbortRef.current) return
       updateStep("analyze", "completed")
+      toast.success("AI探索完成")
 
-      // === Step 3: 用例生成 ===
-      navigate("/ai-web-automation?menu=wa-cases")
+      // === Step 2: 用例生成 (SSE) ===
+      navigate(`/ai-web-automation?menu=wa-cases&project=${projectId}`)
       updateStep("generate", "running")
-      await sleep(3000)
+      toast.info("AI生成测试用例中...")
+
+      const genRes = await webApi.generateTestCasesSSE(projectId)
+      if (!genRes.ok) throw new Error(`用例生成失败: HTTP ${genRes.status}`)
+
+      let genError = ""
+      await readSSEStream(
+        genRes,
+        (event, data) => {
+          if (event === "generation_error") {
+            genError = data.error || "用例生成失败"
+          } else if (event === "case_generated") {
+            // 单条用例生成
+          } else if (event === "generation_complete") {
+            // 生成完成
+          }
+        },
+        () => pipelineAbortRef.current,
+      )
+
       if (pipelineAbortRef.current) return
+      if (genError) throw new Error(genError)
+
       updateStep("generate", "completed")
-
-      // === Step 4: 用例评审 ===
-      updateStep("review", "running")
-      await sleep(1500)
-      if (pipelineAbortRef.current) return
       updateStep("review", "completed")
+      toast.success("用例生成完成")
 
-      // === Step 5: 测试执行 ===
-      navigate("/ai-web-automation?menu=wa-execution")
+      // === Step 3: 测试执行 ===
+      navigate(`/ai-web-automation?menu=wa-execution&project=${projectId}`)
       updateStep("execute", "running")
-      await sleep(4000)
-      if (pipelineAbortRef.current) return
-      updateStep("execute", "completed")
+      toast.info("开始执行测试用例...")
 
-      // === Step 6: 结果报告 ===
-      updateStep("report", "running")
-      await sleep(2000)
-      if (pipelineAbortRef.current) return
-      updateStep("report", "completed")
+      const execRes: any = await webApi.execute(projectId)
+      if (execRes?.data) {
+        const count = execRes.data.cases_count || 0
+        updateStep("execute", "completed")
+        updateStep("report", "completed")
+        toast.success(`测试执行完成，共 ${count} 条用例`)
+      } else {
+        throw new Error("测试执行失败")
+      }
 
-    } catch {
+    } catch (error: any) {
       // 标记当前 running 步骤为 failed
       setFlowStatus((prev) => {
         const updated = { ...prev }
@@ -196,6 +279,7 @@ function AiWebAutomationPage() {
         }
         return updated
       })
+      toast.error(error?.message || "流水线执行失败")
     } finally {
       setIsPipelineRunning(false)
     }
