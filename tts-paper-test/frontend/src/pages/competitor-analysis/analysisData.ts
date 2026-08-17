@@ -71,14 +71,14 @@ export const CAPABILITY_MATRIX: CapabilityRow[] = [
   {
     id: "locator", module: "web", dimension: "元素定位策略",
     competitor: "Selenium 11 种 + Playwright 5 种定位；备用定位器链（backup_locators）；wait_timeout(5s)；force_action；AI 生成定位建议",
-    local: "单一自由文本 locator，无策略选择、无备用链、无等待参数",
-    gap: "gap", note: "定位体系是本次差距最大的单项",
+    local: "locator_type（css/xpath/text/id/name）+ backup_locators 备用链 + wait_timeout + force_action；AI 探索自动推断",
+    gap: "partial", note: "定位策略已补齐，缺 AI 生成定位建议",
   },
   {
     id: "steps", module: "web", dimension: "用例步骤与断言",
     competitor: "10+ 动作（open/click/input/select/assert…）+ 5 种断言，结构化步骤编辑器",
-    local: "steps 存自由 JSON，执行时不校验 expected_result，无断言体系",
-    gap: "gap",
+    local: "结构化步骤（action/target/value/locator/assertions）+ 8 种断言类型，执行时逐条校验",
+    gap: "partial", note: "结构化步骤与断言已补齐，动作类型待扩展",
   },
   {
     id: "review", module: "web", dimension: "用例审批流",
@@ -178,12 +178,14 @@ export const ACTION_PLAN: ActionItem[] = [
     title: "元素定位策略体系",
     description: "WebUIElement 增加 locator_type（css/xpath/text/…）+ backup_locators 备用链 + wait_timeout + force_action；执行引擎按策略解析并逐级回退，AI 探索时自动生成定位建议",
     effort: "后端模型+执行器改造，约 2~3 天",
+    done: true,
   },
   {
     id: "a2", priority: "P0", module: "web",
     title: "结构化用例步骤与断言",
     description: "steps 改为结构化 [{action, element, params, assertion}]：支持 10+ 动作（open/click/input/select/assert_text/assert_visible…），执行时实际校验 expected_result 与断言并落库",
     effort: "模型 + 执行引擎，约 2 天",
+    done: true,
   },
   {
     id: "a3", priority: "P0", module: "web",
