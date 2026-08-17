@@ -81,6 +81,10 @@ async def _patch_legacy_columns():
         ("defects", "version_id", "INTEGER"),
         ("test_reviews", "checklist", "JSON"),
         ("web_test_executions", "execution_case_ids", "JSON"),
+        ("web_ui_elements", "locator_type", "VARCHAR(50)"),
+        ("web_ui_elements", "backup_locators", "JSON"),
+        ("web_ui_elements", "wait_timeout", "INTEGER"),
+        ("web_ui_elements", "force_action", "BOOLEAN"),
     ]
     async with AsyncSessionLocal() as db:
         for table, column, col_type in patches:

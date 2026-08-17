@@ -102,6 +102,11 @@ class WebUIElement(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     element_type: Mapped[str] = mapped_column(String(50), nullable=True)
     locator: Mapped[str] = mapped_column(Text, nullable=True)
+    # 定位策略（对标 TestHub：Selenium/Playwright 多策略 + 备用链）
+    locator_type: Mapped[str] = mapped_column(String(50), default="css", nullable=True)
+    backup_locators: Mapped[dict] = mapped_column(JSON, nullable=True)
+    wait_timeout: Mapped[int] = mapped_column(Integer, default=5, nullable=True)
+    force_action: Mapped[bool] = mapped_column(Boolean, default=False, nullable=True)
     attributes: Mapped[dict] = mapped_column(JSON, nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -170,6 +175,9 @@ class WebTestExecution(Base):
     completed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=True)
     screenshots: Mapped[dict] = mapped_column(JSON, nullable=True)
+    # 步骤级明细：[{case_id, case_title, status, duration_ms,
+    #   steps: [{step, action, target, locator, locator_type, status, error, duration_ms, assertion_results}]}]
+    step_results: Mapped[dict] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str] = mapped_column(Text, nullable=True)
     ai_analysis: Mapped[str] = mapped_column(Text, nullable=True)
     executed_by: Mapped[int] = mapped_column(

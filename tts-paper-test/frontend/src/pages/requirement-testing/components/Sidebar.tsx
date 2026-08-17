@@ -22,6 +22,7 @@ const iconPaths: Record<string, string> = {
   reviews: "M9 12l2 2 4-4 M7.835 4.697a3.42 3.42 0 0 1 1.946-.806 3.42 3.42 0 0 1 4.438 2.063 3.42 3.42 0 0 1 .806 1.946 3.42 3.42 0 0 0 2.063 4.438A3.42 3.42 0 0 1 16 14.5v.5a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-.5a3.42 3.42 0 0 0-2.063-4.438A3.42 3.42 0 0 1 5 9.5a3.42 3.42 0 0 1 2.835-4.803",
   pipeline: "M5 3l14 9-14 9V3z",
   records: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M8 13H16 M8 17H16 M8 9H16",
+  analysis: "M21 12a9 9 0 1 1-9-9 M21 3l-9 9 M15 3h6v6",
 }
 
 function Sidebar({ items, activeKey, onSelect }: SidebarProps) {

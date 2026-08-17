@@ -18,7 +18,19 @@ interface RepoPage {
 
 interface UIElement {
   id: number; project_id: number; page_id?: number; name: string;
-  element_type?: string; locator?: string; attributes?: Record<string, any>; description?: string
+  element_type?: string; locator?: string;
+  locator_type?: string; backup_locators?: string[]; wait_timeout?: number; force_action?: boolean;
+  attributes?: Record<string, any>; description?: string
+}
+
+/** 定位类型配色 */
+const LOCATOR_TYPE_COLORS: Record<string, string> = {
+  css: "bg-sky-50 text-sky-600",
+  xpath: "bg-violet-50 text-violet-600",
+  text: "bg-emerald-50 text-emerald-600",
+  id: "bg-amber/10 text-amber",
+  name: "bg-cyan-50 text-cyan-600",
+  placeholder: "bg-indigo-50 text-indigo-600",
 }
 
 /** 截图URL归一化：文件名拼接 /uploads/screenshots/ 前缀 */
@@ -51,7 +63,11 @@ export default function ObjectRepository() {
   // 元素编辑弹窗状态
   const [showEditor, setShowEditor] = useState(false)
   const [editing, setEditing] = useState<{ pageId: number; element?: UIElement } | null>(null)
-  const [form, setForm] = useState({ name: "", element_type: "element", locator: "", description: "" })
+  const [form, setForm] = useState({
+    name: "", element_type: "element", locator: "",
+    locator_type: "css", backup_locators: "", wait_timeout: 5, force_action: false,
+    description: "",
+  })
   const [saving, setSaving] = useState(false)
 
   const fetchProjects = useCallback(async () => {
@@ -114,7 +130,7 @@ export default function ObjectRepository() {
   // 打开添加/编辑弹窗
   const openCreate = (pageId: number) => {
     setEditing({ pageId })
-    setForm({ name: "", element_type: "element", locator: "", description: "" })
+    setForm({ name: "", element_type: "element", locator: "", locator_type: "css", backup_locators: "", wait_timeout: 5, force_action: false, description: "" })
     setShowEditor(true)
   }
   const openEdit = (pageId: number, element: UIElement) => {
@@ -123,6 +139,10 @@ export default function ObjectRepository() {
       name: element.name,
       element_type: element.element_type || "element",
       locator: element.locator || "",
+      locator_type: element.locator_type || "css",
+      backup_locators: Array.isArray(element.backup_locators) ? element.backup_locators.join("\n") : "",
+      wait_timeout: element.wait_timeout ?? 5,
+      force_action: element.force_action ?? false,
       description: element.description || "",
     })
     setShowEditor(true)
@@ -132,10 +152,16 @@ export default function ObjectRepository() {
   const handleSave = async () => {
     if (!editing) return
     if (!form.name.trim()) { toast.error("请输入元素名称"); return }
+    const backupLocators = form.backup_locators
+      .split("\n").map((s) => s.trim()).filter(Boolean)
     const payload = {
       name: form.name.trim(),
       element_type: form.element_type || "element",
       locator: form.locator.trim() || null,
+      locator_type: form.locator_type || "css",
+      backup_locators: backupLocators.length > 0 ? backupLocators : null,
+      wait_timeout: form.wait_timeout || 5,
+      force_action: form.force_action,
       description: form.description.trim() || null,
     }
     setSaving(true)
@@ -270,6 +296,28 @@ export default function ObjectRepository() {
                             </span>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-ink truncate">{el.name}</p>
+                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                {el.locator_type && (
+                                  <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${LOCATOR_TYPE_COLORS[el.locator_type] || "bg-cream text-muted"}`}>
+                                    {el.locator_type}
+                                  </span>
+                                )}
+                                {Array.isArray(el.backup_locators) && el.backup_locators.length > 0 && (
+                                  <span className="px-1 py-0.5 rounded bg-cream text-muted text-[9px] font-medium">
+                                    备用×{el.backup_locators.length}
+                                  </span>
+                                )}
+                                {el.wait_timeout != null && el.wait_timeout !== 5 && (
+                                  <span className="px-1 py-0.5 rounded bg-cream text-muted text-[9px] font-medium">
+                                    超时{el.wait_timeout}s
+                                  </span>
+                                )}
+                                {el.force_action && (
+                                  <span className="px-1 py-0.5 rounded bg-fail/10 text-fail text-[9px] font-medium">
+                                    强制
+                                  </span>
+                                )}
+                              </div>
                               {el.locator && (
                                 <p className="text-[10px] text-muted font-mono truncate flex items-center gap-1 mt-0.5">
                                   <Link2 className="w-2.5 h-2.5 flex-shrink-0" />{el.locator}
@@ -339,6 +387,35 @@ export default function ObjectRepository() {
                   placeholder="如：#login-btn 或 button.login"
                   className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink font-mono focus:border-amber outline-none" />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-ink-light mb-1 block">定位策略</label>
+                  <select value={form.locator_type} onChange={(e) => setForm({ ...form, locator_type: e.target.value })}
+                    className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink focus:border-amber outline-none bg-white">
+                    {["css", "xpath", "text", "id", "name", "placeholder"].map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-ink-light mb-1 block">等待超时 (秒)</label>
+                  <input type="number" min={1} max={60} value={form.wait_timeout}
+                    onChange={(e) => setForm({ ...form, wait_timeout: Number(e.target.value) || 5 })}
+                    className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink focus:border-amber outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-ink-light mb-1 block">备用定位器 (每行一个，主定位器失效时依次回退)</label>
+                <textarea value={form.backup_locators} onChange={(e) => setForm({ ...form, backup_locators: e.target.value })}
+                  placeholder={"如：//input[@id='username']\n[name='user-name']"}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-xl border border-border text-sm text-ink font-mono focus:border-amber outline-none resize-none" />
+              </div>
+              <label className="flex items-center gap-2 text-xs text-ink-light cursor-pointer select-none">
+                <input type="checkbox" checked={form.force_action} onChange={(e) => setForm({ ...form, force_action: e.target.checked })}
+                  className="w-4 h-4 rounded border-border accent-amber" />
+                强制操作（元素被遮挡/不可交互时强制点击/输入）
+              </label>
               <div>
                 <label className="text-xs text-ink-light mb-1 block">描述</label>
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}

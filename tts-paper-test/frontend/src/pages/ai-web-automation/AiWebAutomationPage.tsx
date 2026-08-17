@@ -15,6 +15,7 @@ import ExecutionView from "./components/ExecutionView"
 import ObjectRepository from "./components/ObjectRepository"
 import EngineSelector from "./components/EngineSelector"
 import AiAgentPanel from "./components/AiAgentPanel"
+import CompetitorAnalysisPage from "../competitor-analysis/CompetitorAnalysisPage"
 
 const MENU_ITEMS: SidebarItem[] = [
   { key: "wa-projects", label: "项目管理", icon: "requirements" },
@@ -23,6 +24,7 @@ const MENU_ITEMS: SidebarItem[] = [
   { key: "wa-cases", label: "测试用例", icon: "cases" },
   { key: "wa-objects", label: "对象库", icon: "records" },
   { key: "wa-execution", label: "测试执行", icon: "pipeline" },
+  { key: "wa-analysis", label: "对标分析", icon: "analysis" },
 ]
 
 /** 步骤 → Tab 菜单映射 */
@@ -220,6 +222,8 @@ function AiWebAutomationPage() {
         return <ObjectRepository />
       case "wa-execution":
         return <ExecutionView />
+      case "wa-analysis":
+        return <CompetitorAnalysisPage scope={["web"]} embedded />
       default:
         return <ProjectList />
     }

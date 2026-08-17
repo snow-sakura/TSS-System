@@ -177,12 +177,71 @@ async def upsert_page(db: AsyncSession, project_id: int, page_data: dict) -> Web
 # ============ 对象库（页面元素） ============
 
 
+def infer_locator_type(selector: str, attributes: dict) -> str:
+    """从原始 selector 推断定位策略类型（对标 TestHub 多策略定位）
+
+    规则:
+      - xpath: // 开头 或 xpath= 前缀
+      - text: 以文本定位（text= 前缀）
+      - id / name / placeholder: attributes 中有明确 id/name 且 selector 以 #/name= 开头
+      - 默认 css
+    """
+    if not selector:
+        return "css"
+    s = selector.strip()
+    if s.startswith("//") or s.lower().startswith("xpath="):
+        return "xpath"
+    if s.lower().startswith("text="):
+        return "text"
+    if s.lower().startswith("id="):
+        return "id"
+    if s.lower().startswith("name=") or s.lower().startswith("name:"):
+        return "name"
+    if s.startswith("#") or s.startswith(".") or s.startswith("["):
+        return "css"
+    if s.startswith("button") or s.startswith("input") or s.startswith("a"):
+        # 纯标签选择器也可视为 css
+        return "css"
+    return "css"
+
+
+def build_backup_locators(selector: str, attributes: dict) -> list[str]:
+    """根据主定位器 + 元素属性生成备用定位链（backup_locators）
+
+    当主定位器失效时，执行引擎依次尝试备用定位器。
+    """
+    backups: list[str] = []
+    seen: set[str] = set()
+
+    def add(item):
+        if item and item not in seen and item != selector:
+            seen.add(item)
+            backups.append(item)
+
+    attrs = attributes or {}
+    if attrs.get("id"):
+        add(f"#{attrs['id']}")
+        add(f"//*[@id='{attrs['id']}']")
+    if attrs.get("name"):
+        add(f"[name='{attrs['name']}']")
+        add(f"//*[@name='{attrs['name']}']")
+    if attrs.get("placeholder"):
+        add(f"[placeholder='{attrs['placeholder']}']")
+    if attrs.get("href"):
+        add(f"a[href='{attrs['href']}']")
+    if attrs.get("text") and isinstance(attrs["text"], str) and attrs["text"].strip():
+        add(f"text={attrs['text'].strip()[:50]}")
+    # 保持上限，避免过长的备用链
+    return backups[:5]
+
+
 async def sync_page_elements(
     db: AsyncSession, page_id: int, project_id: int, raw_elements
 ) -> list:
     """将页面 elements JSON 同步为独立的元素对象记录（按 page_id+name 幂等）
 
     通过显式参数传入数据，避免访问会话中可能过期的 ORM 实例。
+    同步时会自动推断定位策略（locator_type）并生成备用定位链（backup_locators）。
     """
     if not isinstance(raw_elements, list):
         raw_elements = []
@@ -225,11 +284,26 @@ async def sync_page_elements(
                 continue
         name = str(name)[:200]
         locator = raw.get("selector") or raw.get("href") or ""
+        locator_type = raw.get("locator_type") or infer_locator_type(
+            locator, attributes
+        )
+        backup_locators = raw.get("backup_locators") or build_backup_locators(
+            locator, attributes
+        )
+        wait_timeout = raw.get("wait_timeout")
+        force_action = raw.get("force_action")
 
         elem = existing.get(name)
         if elem:
             elem.element_type = element_type
             elem.locator = locator or elem.locator
+            elem.locator_type = locator_type or elem.locator_type or "css"
+            if backup_locators:
+                elem.backup_locators = backup_locators
+            if wait_timeout:
+                elem.wait_timeout = wait_timeout
+            if force_action is not None:
+                elem.force_action = force_action
             elem.attributes = attributes
         else:
             elem = WebUIElement(
@@ -238,6 +312,10 @@ async def sync_page_elements(
                 name=name,
                 element_type=element_type,
                 locator=locator,
+                locator_type=locator_type or "css",
+                backup_locators=backup_locators or None,
+                wait_timeout=wait_timeout or 5,
+                force_action=force_action or False,
                 attributes=attributes,
             )
             db.add(elem)
@@ -287,13 +365,17 @@ async def list_page_elements(db: AsyncSession, page_id: int) -> list:
 async def create_ui_element(
     db: AsyncSession, project_id: int, page_id: int, data: dict
 ) -> WebUIElement:
-    """手动添加元素对象"""
+    """手动添加元素对象（支持定位策略: locator_type/backup_locators/wait_timeout/force_action）"""
     elem = WebUIElement(
         project_id=project_id,
         page_id=page_id,
         name=data.get("name", ""),
         element_type=data.get("element_type") or "element",
         locator=data.get("locator"),
+        locator_type=data.get("locator_type") or "css",
+        backup_locators=data.get("backup_locators") or None,
+        wait_timeout=data.get("wait_timeout") or 5,
+        force_action=data.get("force_action") or False,
         attributes=data.get("attributes") or {},
         description=data.get("description"),
     )

@@ -52,6 +52,7 @@ const TestUserManagementPage = lazy(() => import("@/pages/test-management/UserMa
 const TestRoleManagementPage = lazy(() => import("@/pages/test-management/RoleManagementPage"))
 const ProjectManagementPage = lazy(() => import("@/pages/test-management/ProjectManagementPage"))
 const VersionManagementPage = lazy(() => import("@/pages/test-management/VersionManagementPage"))
+const CompetitorAnalysisPage = lazy(() => import("@/pages/competitor-analysis/CompetitorAnalysisPage"))
 
 const queryClient = new QueryClient()
 
@@ -111,6 +112,8 @@ export default function App() {
               <Route path="reports" element={<ReportsPage />} />
               <Route path="ai-report" element={<AIReportPage />} />
               <Route path="quality" element={<QualityPage />} />
+              {/* 平台对标分析 */}
+              <Route path="comparison" element={<CompetitorAnalysisPage />} />
               {/* AI全流程 */}
               <Route path="pipeline" element={<AIPipeline />} />
               <Route path="records" element={<PipelineRecordsPage />} />

@@ -46,9 +46,10 @@ class PageResponse(BaseModel):
 
 # 测试用例
 class ExecuteRequest(BaseModel):
-    """执行请求：可选指定用例ID列表，不传则执行全部已审批用例"""
+    """执行请求：可选指定用例ID列表与引擎类型，不传则执行全部已审批用例"""
 
     case_ids: Optional[list[int]] = None
+    engine: Optional[str] = None
 
 
 # 对象库（页面元素）
@@ -56,6 +57,10 @@ class UIElementCreate(BaseModel):
     name: str = Field(..., max_length=200)
     element_type: Optional[str] = None
     locator: Optional[str] = None
+    locator_type: Optional[str] = "css"
+    backup_locators: Optional[list[str]] = None
+    wait_timeout: Optional[int] = Field(default=5, ge=1, le=60)
+    force_action: Optional[bool] = False
     attributes: Optional[dict] = None
     description: Optional[str] = None
 
@@ -64,6 +69,10 @@ class UIElementUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=200)
     element_type: Optional[str] = None
     locator: Optional[str] = None
+    locator_type: Optional[str] = None
+    backup_locators: Optional[list[str]] = None
+    wait_timeout: Optional[int] = Field(None, ge=1, le=60)
+    force_action: Optional[bool] = None
     attributes: Optional[dict] = None
     description: Optional[str] = None
 
@@ -75,6 +84,10 @@ class UIElementResponse(BaseModel):
     name: str
     element_type: Optional[str]
     locator: Optional[str]
+    locator_type: Optional[str] = "css"
+    backup_locators: Optional[list[str]] = None
+    wait_timeout: Optional[int] = 5
+    force_action: Optional[bool] = False
     attributes: Optional[dict]
     description: Optional[str]
     created_at: Optional[datetime]
@@ -151,6 +164,7 @@ class ExecutionResponse(BaseModel):
     completed_at: Optional[datetime]
     duration_ms: Optional[int]
     screenshots: Optional[list]
+    step_results: Optional[list] = None
     error_message: Optional[str]
     ai_analysis: Optional[str]
     executed_by: Optional[int]

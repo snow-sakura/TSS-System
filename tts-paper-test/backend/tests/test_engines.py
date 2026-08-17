@@ -4,7 +4,9 @@
 - MockEngine: 探索 / 用例执行 / 用例生成 / 健康检查
 - EngineRegistry: 注册与实例化
 """
+
 import asyncio
+from unittest.mock import patch
 
 import pytest
 
@@ -60,8 +62,10 @@ class TestMockEngine:
         """探索过程中应回调进度事件"""
         engine = MockEngine()
         events = []
+
         async def on_event(ev: dict):
             events.append(ev)
+
         result = await engine.explore("https://example.com", callback=on_event)
         assert result.url == "https://example.com"
         assert len(events) >= 1
@@ -72,10 +76,14 @@ class TestMockEngine:
         engine = MockEngine()
         engine.pass_rate = 1.0  # 100% 通过
         result = await engine.execute_test_case(
-            {"id": 1, "title": "登录成功", "steps": [
-                {"action": "click", "target": "登录按钮"},
-                {"action": "type", "target": "用户名输入框", "value": "test_user"},
-            ]},
+            {
+                "id": 1,
+                "title": "登录成功",
+                "steps": [
+                    {"action": "click", "target": "登录按钮"},
+                    {"action": "type", "target": "用户名输入框", "value": "test_user"},
+                ],
+            },
         )
         assert isinstance(result, TestCaseResult)
         assert result.status == "passed"
@@ -86,7 +94,11 @@ class TestMockEngine:
         engine = MockEngine()
         engine.pass_rate = 0.0  # 100% 失败
         result = await engine.execute_test_case(
-            {"id": 2, "title": "登录失败", "steps": [{"action": "click", "target": "登录按钮"}]},
+            {
+                "id": 2,
+                "title": "登录失败",
+                "steps": [{"action": "click", "target": "登录按钮"}],
+            },
         )
         assert isinstance(result, TestCaseResult)
         assert result.status == "failed"
@@ -113,9 +125,15 @@ class TestMockEngine:
         """MockEngine 可以并发执行"""
         engine = MockEngine()
         results = await asyncio.gather(
-            engine.execute_test_case({"id": 1, "title": "a", "steps": [{"action": "click", "target": "x"}]}),
-            engine.execute_test_case({"id": 2, "title": "b", "steps": [{"action": "click", "target": "y"}]}),
-            engine.execute_test_case({"id": 3, "title": "c", "steps": [{"action": "click", "target": "z"}]}),
+            engine.execute_test_case(
+                {"id": 1, "title": "a", "steps": [{"action": "click", "target": "x"}]}
+            ),
+            engine.execute_test_case(
+                {"id": 2, "title": "b", "steps": [{"action": "click", "target": "y"}]}
+            ),
+            engine.execute_test_case(
+                {"id": 3, "title": "c", "steps": [{"action": "click", "target": "z"}]}
+            ),
         )
         assert len(results) == 3
         for r in results:
@@ -165,7 +183,72 @@ class TestEngineRegistry:
         from engines.playwright_mcp_engine import PlaywrightMCPEngine
         from engines.browser_use_engine import BrowserUseEngine
         from engines.ui_tars_engine import UITarsEngine
+
         assert issubclass(MidsceneEngine, BaseEngine)
         assert issubclass(PlaywrightMCPEngine, BaseEngine)
         assert issubclass(BrowserUseEngine, BaseEngine)
         assert issubclass(UITarsEngine, BaseEngine)
+
+
+class TestListEnginesApi:
+    """/api/v1/engines 列表：并行健康检查 + 超时隔离"""
+
+    @pytest.mark.asyncio
+    async def test_list_engines_parallel_and_timeout(self):
+        """单个引擎卡死/超时不影响其他引擎；整体并行执行"""
+        import time
+
+        from api.engines import EngineInfo, list_engines
+
+        class SlowEngine:
+            async def health_check(self):
+                await asyncio.sleep(10)  # 模拟慢服务，远超 2s 超时
+
+            async def cleanup(self):
+                pass
+
+        class FastEngine:
+            async def health_check(self):
+                return {"available": True, "error": ""}
+
+            async def cleanup(self):
+                pass
+
+        with (
+            patch(
+                "api.engines.EngineRegistry.list_types", return_value=["slow", "fast"]
+            ),
+            patch(
+                "api.engines.get_engine",
+                side_effect=lambda t: SlowEngine() if t == "slow" else FastEngine(),
+            ),
+            patch("api.engines.get_default_engine", return_value="fast"),
+        ):
+            # 慢引擎 2s 超时、快引擎即时返回：总耗时应接近 2s 而非 10s（并行+超时）
+            start = time.monotonic()
+            result = await list_engines()
+            elapsed = time.monotonic() - start
+
+        assert elapsed < 5, f"应超时隔离并行执行，实际耗时 {elapsed:.1f}s"
+        assert isinstance(result, list)
+        assert len(result) == 2
+        by_type = {e.type: e for e in result}
+        assert by_type["slow"].available is False
+        assert by_type["slow"].error == "健康检查超时"
+        assert by_type["fast"].available is True
+        assert by_type["fast"].is_default is True
+        assert isinstance(by_type["slow"], EngineInfo)
+
+    @pytest.mark.asyncio
+    async def test_list_engines_unavailable_flags(self):
+        """available 与 error 独立取值：available=False + error 有值"""
+        from api.engines import EngineInfo
+
+        health = {"available": False, "error": "无法连接 UI-TARS 服务"}
+        info = EngineInfo(
+            type="ui_tars",
+            available=health.get("available", False),
+            error=health.get("error", ""),
+        )
+        assert info.available is False
+        assert info.error == "无法连接 UI-TARS 服务"

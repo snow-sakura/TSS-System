@@ -12,11 +12,30 @@ import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface TestCase {
   id: number; project_id: number; title: string; description?: string; preconditions?: string;
-  steps: Array<{ action: string; target?: string; value?: string }>;
+  steps: Array<Record<string, any>>;
   expected_result: string; priority: string; status: string; ai_generated: boolean; page_url?: string
 }
 
-interface StepForm { action: string; target: string; value: string }
+interface AssertionForm { type: string; expected: string; attribute: string }
+interface StepForm {
+  action: string; target: string; value: string;
+  locator: string; locator_type: string; wait_timeout: number; force_action: boolean;
+  assertions: AssertionForm[]
+}
+
+/** 结构化操作（需要元素定位器） */
+const LOCATOR_ACTIONS = ["点击", "输入", "选择", "悬浮", "滚动", "断言", "AI点击", "AI输入", "AI断言"]
+/** 需要输入值的操作 */
+const VALUE_ACTIONS = ["输入", "选择", "AI输入", "AI查询", "等待"]
+
+const ACTION_OPTIONS = ["打开页面", "点击", "输入", "选择", "悬浮", "断言", "等待", "滚动", "AI点击", "AI输入", "AI断言", "AI查询"]
+const ASSERTION_TYPES = [
+  { v: "visible", label: "可见" }, { v: "hidden", label: "隐藏" },
+  { v: "text", label: "文本包含" }, { v: "attribute", label: "属性" },
+  { v: "value", label: "值" }, { v: "url", label: "URL包含" },
+  { v: "enabled", label: "可用" }, { v: "disabled", label: "禁用" },
+]
+const LOCATOR_TYPES = ["css", "xpath", "text", "id", "name", "placeholder"]
 
 const statusLabels: Record<string, string> = { draft: "草稿", pending: "待审批", approved: "已通过", rejected: "已驳回" }
 const statusColors: Record<string, string> = {
@@ -177,10 +196,12 @@ export default function TestCaseManager() {
     } catch { toast.error("删除失败") }
   }
 
+  const newStep = (): StepForm => ({ action: "", target: "", value: "", locator: "", locator_type: "css", wait_timeout: 5, force_action: false, assertions: [] })
+
   const openCreate = () => {
     setEditingCase(null)
     setForm({ title: "", description: "", expected_result: "", priority: "P1", preconditions: "" })
-    setSteps([{ action: "打开页面", target: "", value: "" }])
+    setSteps([{ ...newStep(), action: "打开页面" }])
     setFormErrors({})
     setShowDialog(true)
   }
@@ -188,16 +209,40 @@ export default function TestCaseManager() {
   const openEdit = (c: TestCase) => {
     setEditingCase(c)
     setForm({ title: c.title, description: c.description || "", expected_result: c.expected_result, priority: c.priority, preconditions: c.preconditions || "" })
-    setSteps((c.steps && c.steps.length ? c.steps : [{}]).map((s: any) => ({ action: s.action || "", target: s.target || "", value: s.value || "" })))
+    setSteps((c.steps && c.steps.length ? c.steps : [{}]).map((s: any) => ({
+      action: s.action || "",
+      target: s.target || "",
+      value: s.value || "",
+      locator: s.locator || "",
+      locator_type: s.locator_type || "css",
+      wait_timeout: s.wait_timeout ?? 5,
+      force_action: s.force_action ?? false,
+      assertions: Array.isArray(s.assertions) && s.assertions.length
+        ? s.assertions.map((a: any) => ({ type: a.type || "visible", expected: a.expected || "", attribute: a.attribute || "" }))
+        : [],
+    })))
     setFormErrors({})
     setShowDialog(true)
   }
 
-  const addStep = () => setSteps([...steps, { action: "点击", target: "", value: "" }])
+  const addStep = () => setSteps([...steps, newStep()])
   const removeStep = (idx: number) => setSteps(steps.filter((_, i) => i !== idx))
-  const updateStep = (idx: number, field: keyof StepForm, value: string) => {
+  const updateStep = (idx: number, field: keyof StepForm, value: any) => {
     setSteps(steps.map((s, i) => (i === idx ? { ...s, [field]: value } : s)))
   }
+  const addAssertion = (idx: number) => {
+    setSteps(steps.map((s, i) => (i === idx ? { ...s, assertions: [...s.assertions, { type: "text", expected: "", attribute: "" }] } : s)))
+  }
+  const removeAssertion = (idx: number, ai: number) => {
+    setSteps(steps.map((s, i) => (i === idx ? { ...s, assertions: s.assertions.filter((_, x) => x !== ai) } : s)))
+  }
+  const updateAssertion = (idx: number, ai: number, field: keyof AssertionForm, value: string) => {
+    setSteps(steps.map((s, i) => (i === idx ? { ...s, assertions: s.assertions.map((a, x) => (x === ai ? { ...a, [field]: value } : a)) } : s)))
+  }
+  // 历史遗留的未知动作并入下拉选项，避免编辑时选项丢失
+  const actionOptions = ACTION_OPTIONS.concat(
+    steps.map((s) => s.action).filter((a) => a && !ACTION_OPTIONS.includes(a))
+  )
 
   const handleSave = async () => {
     const errs: Record<string, string> = {}
@@ -216,7 +261,16 @@ export default function TestCaseManager() {
         preconditions: form.preconditions || undefined,
         expected_result: form.expected_result,
         priority: form.priority,
-        steps: steps.map((s) => ({ action: s.action, target: s.target || undefined, value: s.value || undefined })).filter((s) => s.action),
+        steps: steps.map((s) => ({
+          action: s.action,
+          target: s.target || undefined,
+          value: s.value || undefined,
+          locator: s.locator || undefined,
+          locator_type: s.locator_type || undefined,
+          wait_timeout: s.wait_timeout || undefined,
+          force_action: s.force_action || undefined,
+          assertions: s.assertions.filter((a) => a.type).map((a) => ({ type: a.type, expected: a.expected || undefined, attribute: a.attribute || undefined })),
+        })).filter((s) => s.action),
       }
       if (editingCase) {
         await webApi.updateTestCase(editingCase.id, payload)
@@ -344,7 +398,11 @@ export default function TestCaseManager() {
                 <div className="space-y-1">{previewCase.steps.map((s, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs p-2 bg-cream/30 rounded-lg">
                     <span className="px-1.5 py-0.5 rounded bg-amber-light text-[10px] font-medium text-amber">{s.action}</span>
-                    <span className="text-ink-light">{s.target}{s.value ? ` → "${s.value}"` : ""}</span>
+                    <span className="text-ink-light truncate">{s.target}{s.value ? ` → "${s.value}"` : ""}</span>
+                    {s.locator && <span className="px-1.5 py-0.5 rounded bg-info/10 text-[10px] font-mono text-info truncate max-w-[140px]">{s.locator}</span>}
+                    {Array.isArray(s.assertions) && s.assertions.length > 0 && (
+                      <span className="px-1.5 py-0.5 rounded bg-pass/10 text-[10px] font-medium text-pass flex-shrink-0">断言×{s.assertions.length}</span>
+                    )}
                   </div>
                 ))}</div>
               </div>
@@ -376,20 +434,53 @@ export default function TestCaseManager() {
                 {formErrors.steps && <p className="text-[11px] text-fail mb-1">{formErrors.steps}</p>}
                 <div className="space-y-1.5">
                   {steps.map((s, i) => (
-                    <div key={i} className="flex items-center gap-1.5">
-                      <span className="w-5 text-center text-[11px] text-muted font-mono flex-shrink-0">{i + 1}</span>
-                      <select value={s.action} onChange={(e) => updateStep(i, "action", e.target.value)} className={`h-8 px-2 rounded-lg border text-xs text-ink bg-white focus:border-amber outline-none w-24 flex-shrink-0 ${!s.action.trim() && formErrors.steps ? "border-fail" : "border-border"}`}>
-                        <option value="">操作</option>
-                        <option value="打开页面">打开页面</option>
-                        <option value="点击">点击</option>
-                        <option value="输入">输入</option>
-                        <option value="选择">选择</option>
-                        <option value="等待">等待</option>
-                        <option value="断言">断言</option>
-                      </select>
-                      <input value={s.target} onChange={(e) => updateStep(i, "target", e.target.value)} placeholder="目标元素（按钮文字/选择器）" className="flex-1 h-8 px-2 rounded-lg border border-border text-xs text-ink focus:border-amber outline-none min-w-0" />
-                      <input value={s.value} onChange={(e) => updateStep(i, "value", e.target.value)} placeholder="值（可选）" className="w-28 h-8 px-2 rounded-lg border border-border text-xs text-ink focus:border-amber outline-none" />
-                      <button onClick={() => removeStep(i)} disabled={steps.length <= 1} className="p-1 rounded hover:bg-fail/10 text-muted hover:text-fail disabled:opacity-30 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <div key={i} className="rounded-lg bg-cream/40 border border-border/60 p-2 space-y-1.5">
+                      {/* 主行：序号 + 操作 + 目标 + 值 + 删除 */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-5 text-center text-[11px] text-muted font-mono flex-shrink-0">{i + 1}</span>
+                        <select value={s.action} onChange={(e) => updateStep(i, "action", e.target.value)} className={`h-8 px-2 rounded-lg border text-xs text-ink bg-white focus:border-amber outline-none w-24 flex-shrink-0 ${!s.action.trim() && formErrors.steps ? "border-fail" : "border-border"}`}>
+                          <option value="">操作</option>
+                          {actionOptions.map((a) => <option key={a} value={a}>{a}</option>)}
+                        </select>
+                        <input value={s.target} onChange={(e) => updateStep(i, "target", e.target.value)} placeholder={LOCATOR_ACTIONS.includes(s.action) ? "目标（可留空，执行时自动跳转）" : "目标（URL或元素）"} className="flex-1 h-8 px-2 rounded-lg border border-border text-xs text-ink focus:border-amber outline-none min-w-0" />
+                        {VALUE_ACTIONS.includes(s.action) && (
+                          <input value={s.value} onChange={(e) => updateStep(i, "value", e.target.value)} placeholder={s.action === "等待" ? "秒数" : "值"} className="w-28 h-8 px-2 rounded-lg border border-border text-xs text-ink focus:border-amber outline-none flex-shrink-0" />
+                        )}
+                        <button onClick={() => removeStep(i)} disabled={steps.length <= 1} className="p-1 rounded hover:bg-fail/10 text-muted hover:text-fail disabled:opacity-30 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                      {/* 定位策略行 */}
+                      {LOCATOR_ACTIONS.includes(s.action) && (
+                        <div className="flex items-center gap-1.5 pl-7">
+                          <input value={s.locator} onChange={(e) => updateStep(i, "locator", e.target.value)} placeholder="结构化定位器（如 #btn-login / //button[1]，留空自动推断）" className="flex-1 h-7 px-2 rounded-lg border border-border text-[11px] font-mono text-ink focus:border-amber outline-none min-w-0" />
+                          <select value={s.locator_type} onChange={(e) => updateStep(i, "locator_type", e.target.value)} className="h-7 px-1.5 rounded-lg border border-border text-[11px] text-ink bg-white outline-none w-20 flex-shrink-0">
+                            {LOCATOR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <input type="number" min={1} value={s.wait_timeout} onChange={(e) => updateStep(i, "wait_timeout", Number(e.target.value) || 5)} title="超时（秒）" className="h-7 w-14 px-1.5 rounded-lg border border-border text-[11px] text-ink outline-none flex-shrink-0" />
+                          <label className="flex items-center gap-1 text-[11px] text-ink-light flex-shrink-0 cursor-pointer select-none">
+                            <input type="checkbox" checked={s.force_action} onChange={(e) => updateStep(i, "force_action", e.target.checked)} className="accent-amber" /> 强制
+                          </label>
+                        </div>
+                      )}
+                      {/* 断言行 */}
+                      {(s.action === "断言" || s.action === "AI断言") && (
+                        <div className="pl-7 space-y-1">
+                          {s.assertions.map((a, ai) => (
+                            <div key={ai} className="flex items-center gap-1.5">
+                              <select value={a.type} onChange={(e) => updateAssertion(i, ai, "type", e.target.value)} className="h-7 px-1.5 rounded-lg border border-border text-[11px] text-ink bg-white outline-none w-24 flex-shrink-0">
+                                {ASSERTION_TYPES.map((t) => <option key={t.v} value={t.v}>{t.label}</option>)}
+                              </select>
+                              {a.type === "attribute" && (
+                                <input value={a.attribute} onChange={(e) => updateAssertion(i, ai, "attribute", e.target.value)} placeholder="属性名" className="h-7 w-20 px-2 rounded-lg border border-border text-[11px] text-ink outline-none flex-shrink-0" />
+                              )}
+                              {!["visible", "hidden", "enabled", "disabled"].includes(a.type) && (
+                                <input value={a.expected} onChange={(e) => updateAssertion(i, ai, "expected", e.target.value)} placeholder="期望值" className="flex-1 h-7 px-2 rounded-lg border border-border text-[11px] text-ink outline-none min-w-0" />
+                              )}
+                              <button onClick={() => removeAssertion(i, ai)} className="p-0.5 rounded hover:bg-fail/10 text-muted hover:text-fail flex-shrink-0"><X className="w-3 h-3" /></button>
+                            </div>
+                          ))}
+                          <button onClick={() => addAssertion(i)} className="h-6 px-2 rounded-lg border border-dashed border-border text-[11px] text-amber hover:bg-amber-light flex items-center gap-1"><Plus className="w-3 h-3" /> 添加断言</button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

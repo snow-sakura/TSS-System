@@ -12,22 +12,61 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import {
   Play, Square, Loader2, CheckCircle, XCircle, Clock, Eye, RefreshCw, AlertTriangle,
   ChevronDown, ChevronRight, Image, Maximize2, Minimize2, SkipBack, SkipForward,
-  Film, Columns3, List, PanelRightClose, X, ZoomIn,
+  Film, Columns3, List, PanelRightClose, X, ZoomIn, Check,
 } from "lucide-react"
 import { toast } from "sonner"
-import { webApi } from "@/lib/api"
+import { lifecycleApi, webApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 
 interface ExecutionRecord {
   id: number; project_id: number; status: string; started_at: string; completed_at?: string;
   duration_ms?: number; screenshots?: string[]; error_message?: string;
   execution_case_ids?: number[]; case_titles?: string[]
+  step_results?: Array<{
+    case_id: number; case_title: string; status: string; duration_ms?: number;
+    steps?: Array<{
+      step: number; action: string; target: string; status: string; error?: string;
+      duration_ms?: number; locator?: string; locator_type?: string;
+      assertion_results?: Array<{ type: string; expected?: string; attribute?: string; actual?: string; passed: boolean }>
+    }>
+  }>
 }
 
 interface ExecutionEvent {
   type: string; case_id?: number; case_title?: string; status?: string;
   duration_ms?: number; error?: string; screenshot?: string; index?: number; total?: number;
   passed?: number; failed?: number;
+  // 步骤级事件（实时）
+  step?: number; action?: string; target?: string; locator?: string; locator_type?: string;
+  assertion_results?: Array<{ type: string; expected?: string; attribute?: string; actual?: string; passed: boolean }>
+}
+
+/** 标准动作 → 中文标签 */
+const ACTION_LABELS: Record<string, string> = {
+  navigate: "打开页面", tap: "点击", click: "点击", input: "输入", select: "选择",
+  hover: "悬浮", scroll: "滚动", wait: "等待", assert: "断言", query: "查询",
+  aiTap: "AI点击", aiInput: "AI输入", aiAssert: "AI断言", aiQuery: "AI查询",
+  "打开页面": "打开页面", "点击": "点击", "输入": "输入", "选择": "选择", "悬浮": "悬浮",
+  "断言": "断言", "滚动": "滚动", "等待": "等待",
+  "AI点击": "AI点击", "AI输入": "AI输入", "AI断言": "AI断言", "AI查询": "AI查询",
+}
+
+/** 断言类型 → 中文标签 */
+const ASSERT_LABELS: Record<string, string> = {
+  visible: "可见", hidden: "隐藏", text: "文本包含", attribute: "属性",
+  value: "值", url: "URL包含", enabled: "可用", disabled: "禁用",
+}
+
+/** 步骤明细统计（总步骤/失败步骤/断言数/失败断言数） */
+const stepStats = (sr: ExecutionRecord["step_results"] = []) => {
+  let steps = 0, failedSteps = 0, asserts = 0, failedAsserts = 0
+  sr.forEach((g) => (g.steps || []).forEach((s) => {
+    steps++
+    if (s.status === "failed") failedSteps++
+    asserts += (s.assertion_results || []).length
+    failedAsserts += (s.assertion_results || []).filter((a) => !a.passed).length
+  }))
+  return { steps, failedSteps, asserts, failedAsserts }
 }
 
 /** 截图URL归一化：后端只存文件名时拼接 /uploads/screenshots/ 前缀 */
@@ -204,9 +243,16 @@ export default function ExecutionView() {
 
       wsRef.current.onerror = () => { addLog("WebSocket连接错误", "error") }
 
-      const payload = selectedCaseIds.size > 0
-        ? { case_ids: [...selectedCaseIds] }
-        : {}
+      const payload: Record<string, any> = { case_ids: [...selectedCaseIds] }
+      if (selectedCaseIds.size === 0) delete payload.case_ids
+
+      // 携带当前默认引擎，确保执行走用户在引擎选择器中选中的引擎
+      try {
+        const cur: any = await lifecycleApi.getCurrentEngine()
+        const engineType = cur?.engine || cur?.type || cur?.engine_type || (cur?.data?.type)
+        if (engineType) payload.engine = engineType
+      } catch { /* 取不到引擎时后端回退默认引擎 */ }
+
       const res: any = await webApi.execute(selectedProjectId, payload)
       if (res?.data) {
         addLog(`执行已启动，共 ${res.data.cases_count || 0} 条用例`, "success")
@@ -227,6 +273,26 @@ export default function ExecutionView() {
         addLog(`[${event.index}/${event.total}] 开始执行: ${event.case_title}`, "info")
         setProgress({ current: event.index || 0, total: event.total || 0, status: "running" })
         break
+      case "step": {
+        const stepOk = event.status === "passed"
+        const stepFail = event.status === "failed"
+        const actionLabel = ACTION_LABELS[event.action || ""] || event.action || ""
+        let msg = `  ${stepOk ? "✓" : stepFail ? "✗" : "•"} [步骤${event.step}] ${actionLabel} ${event.target || ""}`
+        if (event.locator) msg += ` (${event.locator_type || "css"}:${event.locator})`
+        if (event.duration_ms) msg += ` · ${event.duration_ms}ms`
+        addLog(msg, stepFail ? "error" : stepOk ? "success" : "info")
+        if (event.error) addLog(`     错误: ${event.error}`, "error")
+        if (event.assertion_results && event.assertion_results.length > 0) {
+          event.assertion_results.forEach((a) => {
+            const aOk = a.passed
+            addLog(
+              `     ${aOk ? "✓" : "✗"} ${ASSERT_LABELS[a.type] || a.type}${a.attribute ? `:${a.attribute}` : ""} 期望: ${a.expected || "-"} 实际: ${a.actual || "-"}`,
+              aOk ? "success" : "error"
+            )
+          })
+        }
+        break
+      }
       case "case_complete":
         const statusType = event.status === "passed" ? "success" : "error"
         addLog(`${event.status === "passed" ? "✓" : "✗"} ${event.case_title} - ${event.status} (${event.duration_ms || 0}ms)`, statusType)
@@ -412,6 +478,24 @@ export default function ExecutionView() {
                       )}
                     </div>
                   )}
+                  {/* 步骤级汇总徽标 */}
+                  {exec.step_results && exec.step_results.length > 0 && (() => {
+                    const st = stepStats(exec.step_results)
+                    if (st.steps === 0) return null
+                    return (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded-md bg-info/10 text-info text-[10px] font-medium">步骤 {st.steps}</span>
+                        {st.failedSteps > 0
+                          ? <span className="px-1.5 py-0.5 rounded-md bg-fail/10 text-fail text-[10px] font-medium">失败 {st.failedSteps}</span>
+                          : <span className="px-1.5 py-0.5 rounded-md bg-pass/10 text-pass text-[10px] font-medium">全部通过</span>}
+                        {st.asserts > 0 && (
+                          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${st.failedAsserts > 0 ? "bg-fail/10 text-fail" : "bg-pass/10 text-pass"}`}>
+                            断言 {st.asserts}{st.failedAsserts > 0 ? `（失败 ${st.failedAsserts}）` : ""}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })()}
                   <div className="mt-2 text-[11px] text-muted space-y-0.5">
                     <p>开始: {exec.started_at ? new Date(exec.started_at).toLocaleString("zh-CN") : "-"}</p>
                     {exec.completed_at && <p>完成: {new Date(exec.completed_at).toLocaleString("zh-CN")}</p>}
@@ -515,6 +599,94 @@ export default function ExecutionView() {
                     </div>
                   </div>
                 )}
+
+                {/* ====== 步骤明细 ====== */}
+                {previewExec.step_results && previewExec.step_results.length > 0 && (() => {
+                  const groups = previewExec.step_results as NonNullable<ExecutionRecord["step_results"]>
+                  const st = stepStats(groups)
+                  return (
+                    <div>
+                      <h4 className="text-xs font-semibold text-ink mb-2 flex items-center gap-1.5">
+                        <List className="w-4 h-4 text-amber" />
+                        步骤明细
+                        <span className="text-[10px] text-muted font-normal">
+                          ({st.steps} 步{st.asserts > 0 ? ` · ${st.asserts} 条断言` : ""}
+                          {st.failedSteps > 0 ? ` · ${st.failedSteps} 步失败` : ""}
+                          {st.failedAsserts > 0 ? ` · ${st.failedAsserts} 条断言失败` : ""})
+                        </span>
+                      </h4>
+                      <div className="space-y-3">
+                        {groups.map((g, gi) => (
+                          <div key={gi} className="border border-cream rounded-xl overflow-hidden">
+                            {/* 用例头 */}
+                            <div className="flex items-center justify-between px-3 py-2 bg-cream/40">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${g.status === "completed" || g.status === "passed" ? "bg-pass" : "bg-fail"}`} />
+                                <span className="text-[11px] font-semibold text-ink truncate">{g.case_title}</span>
+                              </div>
+                              <span className="text-[10px] text-muted shrink-0">
+                                {g.status === "completed" || g.status === "passed" ? "通过" : "失败"}
+                                {g.duration_ms ? ` · ${(g.duration_ms / 1000).toFixed(1)}s` : ""}
+                              </span>
+                            </div>
+                            {/* 步骤列表 */}
+                            <div className="divide-y divide-cream/60">
+                              {(g.steps || []).map((s, si) => {
+                                const ok = s.status === "passed" || s.status === "running"
+                                const asserts = s.assertion_results || []
+                                return (
+                                  <div key={si} className="px-3 py-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {ok
+                                        ? <Check className="w-3.5 h-3.5 text-pass shrink-0" />
+                                        : <X className="w-3.5 h-3.5 text-fail shrink-0" />}
+                                      <span className="text-[10px] text-muted w-8 shrink-0">#{s.step}</span>
+                                      <span className="text-[11px] font-medium text-ink shrink-0">
+                                        {ACTION_LABELS[s.action] || s.action}
+                                      </span>
+                                      {s.target && (
+                                        <span className="text-[11px] text-ink-light truncate" title={s.target}>{s.target}</span>
+                                      )}
+                                      <span className="ml-auto flex items-center gap-1.5 shrink-0">
+                                        {s.locator && (
+                                          <span className="px-1.5 py-0.5 rounded bg-cream text-muted text-[9px] font-mono" title={s.locator}>
+                                            {s.locator_type || "css"}:{s.locator}
+                                          </span>
+                                        )}
+                                        {s.duration_ms ? (
+                                          <span className="text-[10px] text-muted">{s.duration_ms}ms</span>
+                                        ) : null}
+                                      </span>
+                                    </div>
+                                    {s.error && (
+                                      <p className="mt-1 ml-5 text-[10px] text-fail/80 break-all">{s.error}</p>
+                                    )}
+                                    {/* 断言明细 */}
+                                    {asserts.length > 0 && (
+                                      <div className="mt-1.5 ml-5 space-y-1">
+                                        {asserts.map((a, ai) => (
+                                          <div key={ai} className="flex items-center gap-1.5 text-[10px]">
+                                            {a.passed
+                                              ? <Check className="w-3 h-3 text-pass shrink-0" />
+                                              : <X className="w-3 h-3 text-fail shrink-0" />}
+                                            <span className="font-medium text-ink-light">{ASSERT_LABELS[a.type] || a.type}</span>
+                                            {a.attribute && <span className="text-muted font-mono">{a.attribute}</span>}
+                                            <span className="text-muted">期望: {a.expected || "-"}</span>
+                                            <span className="text-muted">实际: {a.actual || "-"}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* 错误信息 */}
                 {previewExec.error_message && (

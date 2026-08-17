@@ -589,8 +589,11 @@ async def start_execution(
             }
         )
 
-    # 异步启动执行引擎
-    asyncio.create_task(_run_execution(project_id, execution.id, test_cases, user.id))
+    # 异步启动执行引擎（按请求指定引擎或默认引擎）
+    engine_type = (body or ExecuteRequest()).engine
+    asyncio.create_task(
+        _run_execution(project_id, execution.id, test_cases, user.id, engine_type)
+    )
 
     return ResponseModel(
         message="测试执行已启动",
@@ -603,20 +606,60 @@ async def start_execution(
     )
 
 
+def _case_result_to_dict(result) -> dict:
+    """将引擎返回的 TestCaseResult（dataclass）转为统一 dict 结构（含步骤与断言明细）"""
+    return {
+        "case_id": result.case_id,
+        "case_title": result.case_title or f"用例 #{result.case_id}",
+        "status": result.status,
+        "duration_ms": result.duration_ms,
+        "error": result.error,
+        "screenshot": result.screenshot,
+        "steps": [
+            {
+                "step": s.step,
+                "action": s.action,
+                "target": s.target,
+                "status": s.status,
+                "error": s.error,
+                "duration_ms": s.duration_ms,
+                "screenshot": s.screenshot,
+                "locator": (s.data or {}).get("locator", ""),
+                "locator_type": (s.data or {}).get("locator_type", ""),
+                "assertion_results": s.assertion_results or [],
+            }
+            for s in result.steps
+        ],
+    }
+
+
 async def _run_execution(
-    project_id: int, execution_id: int, test_cases: list[dict], user_id: int
+    project_id: int,
+    execution_id: int,
+    test_cases: list[dict],
+    user_id: int,
+    engine_type: Optional[str] = None,
 ):
-    """后台执行测试（异步任务）"""
-    from agents.execution_agent import ExecutionAgent
+    """后台执行测试（异步任务）— 按引擎注册表路由执行器
+
+    Args:
+        engine_type: 指定引擎类型；不传则使用当前默认引擎
+    """
     from config import get_settings
+    from engines import EngineConfig, TestCaseResult, get_engine
+    from services.execution_engine import get_default_engine
 
     settings = get_settings()
-    agent = ExecutionAgent(
+
+    # 解析引擎：请求指定 > 默认引擎
+    resolved_engine = engine_type or get_default_engine()
+    engine_cfg = EngineConfig(
         model_name=settings.MIDSCENE_MODEL_NAME,
         api_key=settings.MIDSCENE_MODEL_API_KEY,
         base_url=settings.MIDSCENE_MODEL_BASE_URL,
         model_family=settings.MIDSCENE_MODEL_FAMILY,
     )
+    engine = get_engine(resolved_engine, config=engine_cfg)
 
     # WebSocket回调
     async def ws_callback(event: dict):
@@ -632,8 +675,9 @@ async def _run_execution(
         async with AsyncSessionLocal() as db:
             await was.update_execution(db, execution_id, {"status": "running"})
 
-        # 执行测试
-        results = await agent.run(project_id, test_cases, callback=ws_callback)
+        # 执行测试（统一走引擎接口，返回 TestCaseResult 列表）
+        raw_results = await engine.execute_test_suite(test_cases, callback=ws_callback)
+        results = [_case_result_to_dict(r) for r in raw_results]
 
         # 统计结果
         passed = sum(1 for r in results if r.get("status") == "passed")
@@ -645,6 +689,18 @@ async def _run_execution(
             if r.get("screenshot")
         ]
         errors = [r.get("error", "") for r in results if r.get("error")]
+
+        # 汇总步骤级明细（含断言结果），持久化到执行记录
+        step_results = [
+            {
+                "case_id": r.get("case_id"),
+                "case_title": r.get("case_title", f"用例 #{r.get('case_id')}"),
+                "status": r.get("status", "failed"),
+                "duration_ms": r.get("duration_ms", 0),
+                "steps": r.get("steps") or [],
+            }
+            for r in results
+        ]
 
         final_status = "completed" if failed == 0 else "failed"
 
@@ -660,6 +716,7 @@ async def _run_execution(
                     "completed_at": datetime.now(timezone.utc),
                     "duration_ms": total_duration,
                     "screenshots": screenshots,
+                    "step_results": step_results,
                     "error_message": "\n".join(errors) if errors else None,
                 },
             )
@@ -679,13 +736,14 @@ async def _run_execution(
                 "failed": failed,
                 "total": len(test_cases),
                 "duration_ms": total_duration,
+                "engine": resolved_engine,
             },
         )
 
     except Exception as e:
         from loguru import logger
 
-        logger.error(f"执行失败: {e}")
+        logger.error(f"执行失败 ({resolved_engine}): {e}")
         from database import AsyncSessionLocal
         from datetime import datetime, timezone
 
@@ -707,8 +765,15 @@ async def _run_execution(
                 "type": "execution_error",
                 "execution_id": execution_id,
                 "error": str(e),
+                "engine": resolved_engine,
             },
         )
+    finally:
+        # 释放引擎资源
+        try:
+            await engine.cleanup()
+        except Exception:
+            pass
 
 
 # ============ WebSocket实时推送 ============

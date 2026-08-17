@@ -10,16 +10,18 @@ from core.logging_config import get_logger
 
 class EngineType(str, Enum):
     """支持的引擎类型"""
+
     MIDSCENE = "midscene"
     PLAYWRIGHT_MCP = "playwright_mcp"
     BROWSER_USE = "browser_use"  # 预留
-    UI_TARS = "ui_tars"          # 预留
-    MOCK = "mock"                # 模拟引擎（测试用）
+    UI_TARS = "ui_tars"  # 预留
+    MOCK = "mock"  # 模拟引擎（测试用）
 
 
 @dataclass
 class EngineConfig:
     """引擎通用配置"""
+
     model_name: str = "qwen3.7-plus"
     api_key: str = ""
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -34,22 +36,26 @@ class EngineConfig:
 @dataclass
 class StepResult:
     """单步执行结果"""
+
     step: int
-    action: str               # tap / input / assert / query
+    action: str  # tap / input / assert / query
     target: str
-    status: str               # passed / failed / skipped
+    status: str  # passed / failed / skipped
     error: str = ""
     duration_ms: int = 0
     screenshot: str = ""
     data: dict = field(default_factory=dict)
+    # 结构化断言明细：[{type, expected, attribute, actual, passed}]
+    assertion_results: list[dict] = field(default_factory=list)
 
 
 @dataclass
 class TestCaseResult:
     """测试用例执行结果"""
+
     case_id: Any
     case_title: str = ""
-    status: str = "pending"   # passed / failed / error / skipped
+    status: str = "pending"  # passed / failed / error / skipped
     duration_ms: int = 0
     error: str = ""
     screenshot: str = ""
@@ -59,6 +65,7 @@ class TestCaseResult:
 @dataclass
 class ExploreResult:
     """网页探索结果"""
+
     url: str
     title: str = ""
     description: str = ""
@@ -104,22 +111,26 @@ class BaseEngine(ABC):
         results: list[TestCaseResult] = []
         for idx, case in enumerate(cases):
             if callback:
-                await callback({
-                    "type": "case_start",
-                    "case_id": case.get("id", idx),
-                    "index": idx + 1,
-                    "total": len(cases),
-                })
+                await callback(
+                    {
+                        "type": "case_start",
+                        "case_id": case.get("id", idx),
+                        "index": idx + 1,
+                        "total": len(cases),
+                    }
+                )
             result = await self.execute_test_case(case, callback)
             results.append(result)
             if callback:
-                await callback({
-                    "type": "case_complete",
-                    "case_id": result.case_id,
-                    "status": result.status,
-                    "duration_ms": result.duration_ms,
-                    "error": result.error,
-                })
+                await callback(
+                    {
+                        "type": "case_complete",
+                        "case_id": result.case_id,
+                        "status": result.status,
+                        "duration_ms": result.duration_ms,
+                        "error": result.error,
+                    }
+                )
         return results
 
     @abstractmethod

@@ -36,12 +36,14 @@ class MockEngine(BaseEngine):
             url=url,
             title=f"模拟页面 - {url}",
             description="这是模拟引擎生成的页面描述",
-            pages=[{
-                "url": url,
-                "title": f"模拟页面 - {url}",
-                "status": "completed",
-                "elements_count": 5,
-            }],
+            pages=[
+                {
+                    "url": url,
+                    "title": f"模拟页面 - {url}",
+                    "status": "completed",
+                    "elements_count": 5,
+                }
+            ],
             interactive_elements=[
                 {"text": "登录按钮", "type": "button"},
                 {"text": "用户名输入框", "type": "input"},
@@ -67,29 +69,85 @@ class MockEngine(BaseEngine):
 
         for i, step in enumerate(steps_data):
             await asyncio.sleep(0.3 + random.random() * 0.5)
-            passed = random.random() < self.pass_rate
+
+            # 模拟定位策略: 结构化定位器命中率高于 AI 视觉定位
+            has_locator = bool(step.get("locator"))
+            backup_count = len(step.get("backup_locators") or [])
+            # 主定位 90% 命中，其余概率触发备用链回退
+            effective_pass_rate = self.pass_rate
+            if has_locator and not step.get("force_action"):
+                effective_pass_rate = min(0.98, effective_pass_rate + 0.1)
+            passed = random.random() < effective_pass_rate
             if not passed:
                 all_passed = False
+
+            # 模拟备用链回退：主定位器失败 → 依次尝试 backup_locators
+            fallback_used = 0
+            if not passed and backup_count > 0:
+                fallback_used = random.randint(1, backup_count)
+                passed = random.random() < 0.85  # 备用定位器 85% 成功率
+                if not passed:
+                    all_passed = False
+
+            error_msg = ""
+            if not passed:
+                error_msg = (
+                    f"元素定位失败（主定位器失效，尝试 {fallback_used} 个备用定位器后仍未找到）"
+                    if fallback_used > 0
+                    else "模拟执行失败"
+                )
+
+            # 模拟结构化断言逐条执行（断言失败则步骤失败）
+            assertions = step.get("assertions") or []
+            assertion_results: list[dict] = []
+            if passed and assertions:
+                for a in assertions:
+                    await asyncio.sleep(0.1)
+                    a_pass = random.random() < max(0.8, self.pass_rate)
+                    assertion_results.append(
+                        {
+                            "type": a.get("type", "visible"),
+                            "expected": a.get("expected", ""),
+                            "attribute": a.get("attribute", ""),
+                            "actual": "<模拟值>" if a_pass else "<不匹配>",
+                            "passed": a_pass,
+                        }
+                    )
+                    if not a_pass:
+                        passed = False
+                        all_passed = False
+                        error_msg = (
+                            f"断言失败: {a.get('type', 'visible')} "
+                            f"期望值 '{a.get('expected', '')}'"
+                        )
+                        break
 
             sr = StepResult(
                 step=i + 1,
                 action=step.get("action", ""),
                 target=step.get("target", ""),
                 status="passed" if passed else "failed",
-                error="" if passed else "模拟执行失败",
+                error=error_msg,
                 duration_ms=int((0.3 + random.random() * 0.5) * 1000),
+                assertion_results=assertion_results,
             )
             step_results.append(sr)
 
             if callback:
-                await callback({
-                    "type": "step",
-                    "step": i + 1,
-                    "action": step.get("action", ""),
-                    "target": step.get("target", ""),
-                    "status": sr.status,
-                    "error": sr.error,
-                })
+                await callback(
+                    {
+                        "type": "step",
+                        "step": i + 1,
+                        "action": step.get("action", ""),
+                        "target": step.get("target", ""),
+                        "locator": step.get("locator"),
+                        "locator_type": step.get("locator_type"),
+                        "assertions": assertions,
+                        "assertion_results": assertion_results,
+                        "status": sr.status,
+                        "error": sr.error,
+                    }
+                )
 
         return TestCaseResult(
             case_id=case_id,

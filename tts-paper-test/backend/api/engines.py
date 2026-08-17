@@ -1,5 +1,7 @@
 """引擎管理 API — 查询引擎列表、切换引擎、健康检查"""
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -8,9 +10,13 @@ from services.execution_engine import set_default_engine, get_default_engine
 
 router = APIRouter(prefix="/api/v1/engines", tags=["引擎管理"])
 
+# 单引擎健康检查超时（秒）：组件服务不可达时快速降级，避免拖慢列表
+HEALTH_CHECK_TIMEOUT_S = 2.0
+
 
 class EngineInfo(BaseModel):
     """引擎信息"""
+
     type: str
     available: bool
     is_default: bool = False
@@ -19,30 +25,39 @@ class EngineInfo(BaseModel):
 
 class SwitchEngineRequest(BaseModel):
     """切换引擎请求"""
+
     engine_type: str
 
 
 @router.get("", summary="列出所有可用引擎")
 async def list_engines() -> list[EngineInfo]:
-    """列出所有已注册引擎及其健康状态"""
-    engines = []
-    for engine_type in EngineRegistry.list_types():
-        # 创建轻量实例做健康检查
+    """列出所有已注册引擎及其健康状态（并行检查，单引擎超时隔离）"""
+    engine_types = EngineRegistry.list_types()
+    default_engine = get_default_engine()
+
+    async def check_one(engine_type: str) -> EngineInfo:
         try:
             engine = get_engine(engine_type)
-            health = await engine.health_check()
+            health = await asyncio.wait_for(
+                engine.health_check(), timeout=HEALTH_CHECK_TIMEOUT_S
+            )
             await engine.cleanup()
+            available = health.get("available", False)
+            error = health.get("error", "")
+        except asyncio.TimeoutError:
+            available = False
+            error = "健康检查超时"
         except Exception:
-            health = {"available": False, "error": "实例化失败"}
-
-        engines.append(EngineInfo(
+            available = False
+            error = "实例化失败"
+        return EngineInfo(
             type=engine_type,
-            available=health.get("available", False),
-            is_default=(engine_type == get_default_engine()),
-            error=health.get("error", ""),
-        ))
+            available=available,
+            is_default=(engine_type == default_engine),
+            error=error,
+        )
 
-    return engines
+    return await asyncio.gather(*(check_one(t) for t in engine_types))
 
 
 @router.post("/switch", summary="切换默认引擎")

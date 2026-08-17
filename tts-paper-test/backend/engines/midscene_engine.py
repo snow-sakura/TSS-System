@@ -97,6 +97,12 @@ class MidsceneEngine(BaseEngine):
                     target=s.get("target", ""),
                     status=s.get("status", "skipped"),
                     error=s.get("error", ""),
+                    duration_ms=s.get("duration_ms", 0),
+                    data={
+                        "locator": s.get("locator", ""),
+                        "locator_type": s.get("locator_type", ""),
+                    },
+                    assertion_results=s.get("assertion_results", []) or [],
                 )
                 for i, s in enumerate(raw.get("steps", []))
             ],
@@ -118,14 +124,32 @@ class MidsceneEngine(BaseEngine):
 
         results: list[TestCaseResult] = []
         for raw in raw_results:
-            results.append(TestCaseResult(
-                case_id=raw.get("case_id", "unknown"),
-                case_title=raw.get("case_title", ""),
-                status=raw.get("status", "error"),
-                duration_ms=raw.get("duration_ms", 0),
-                error=raw.get("error", ""),
-                screenshot=raw.get("screenshot", ""),
-            ))
+            results.append(
+                TestCaseResult(
+                    case_id=raw.get("case_id", "unknown"),
+                    case_title=raw.get("case_title", ""),
+                    status=raw.get("status", "error"),
+                    duration_ms=raw.get("duration_ms", 0),
+                    error=raw.get("error", ""),
+                    screenshot=raw.get("screenshot", ""),
+                    steps=[
+                        StepResult(
+                            step=s.get("step", i),
+                            action=s.get("action", ""),
+                            target=s.get("target", ""),
+                            status=s.get("status", "skipped"),
+                            error=s.get("error", ""),
+                            duration_ms=s.get("duration_ms", 0),
+                            data={
+                                "locator": s.get("locator", ""),
+                                "locator_type": s.get("locator_type", ""),
+                            },
+                            assertion_results=s.get("assertion_results", []) or [],
+                        )
+                        for i, s in enumerate(raw.get("steps", []))
+                    ],
+                )
+            )
         return results
 
     async def generate_test_cases(
@@ -145,13 +169,11 @@ class MidsceneEngine(BaseEngine):
 
         context_str = ""
         if context:
-            context_str = f"\n额外上下文:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
+            context_str = (
+                f"\n额外上下文:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
+            )
 
-        prompt = (
-            f"需求规格:\n{spec}\n"
-            f"{context_str}\n"
-            f"请生成测试用例的 JSON 数组。"
-        )
+        prompt = f"需求规格:\n{spec}\n{context_str}\n请生成测试用例的 JSON 数组。"
 
         content = await self._executor.call_llm(prompt, system_prompt)
 
@@ -173,9 +195,12 @@ class MidsceneEngine(BaseEngine):
         """健康检查 — 验证 midscene.js 是否可用"""
         try:
             import subprocess
+
             result = subprocess.run(
                 ["node", "--eval", "require('@midscene/web')"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             available = result.returncode == 0
             return {

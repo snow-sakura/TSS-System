@@ -228,6 +228,24 @@ AI Agent 功能默认以**模拟模式**运行（无需 CrewAI）。如需使用
    DATABASE_URL=mysql+pymysql://user:password@localhost:3306/tss_prod?charset=utf8mb4
    ```
 
+### 5.4 多测试引擎启用
+
+系统内置 5 种引擎（引擎列表页实时展示健康状态，可在前端引擎选择器中切换默认引擎）：
+
+| 引擎 | 启用方式 | 说明 |
+|------|----------|------|
+| Mock | 无需配置，默认可用 | 随机通过/失败，用于开发测试与 UI 验证 |
+| Midscene.js | 安装 MCP 服务并配置 `MIDSCENE_*` 环境变量 | 视觉驱动，截图识别 |
+| Playwright MCP | 启动 Playwright MCP 服务（stdio/sse） | Accessibility Tree 驱动 |
+| Browser Use | `pip install browser-use` | Python AI Agent，懒加载依赖，未安装时引擎自动标记不可用 |
+| UI-TARS | 启动 UI-TARS Desktop（Tarko Agent Server，默认 `http://127.0.0.1:3000`） | 多模态桌面 Agent，通过 `POST /api/v1/oneshot/query` 接入 |
+
+说明：
+
+- 引擎选择器中的选择会通过 `POST /api/v1/engines/switch` 写入默认引擎；执行接口也支持请求级覆盖（`ExecuteRequest.engine`）。
+- Browser Use / UI-TARS 引擎在依赖未安装或服务未启动时自动降级为不可用，不影响其他引擎使用。
+- UI-TARS 服务地址可在引擎配置的 `extra.base_url` 中覆盖（默认 `http://127.0.0.1:3000`）。
+
 ---
 
 > **快速回顾**：只需要两个终端窗口：

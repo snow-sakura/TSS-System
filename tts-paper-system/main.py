@@ -73,6 +73,10 @@ def init_database():
                 ('4M2', '东站', 12.00, 20)
             ''')
 
+        # BUG-002 修复: 清理数据库中已存在的 NULL price 记录
+        cursor.execute("UPDATE destinations SET price = 0 WHERE price IS NULL")
+        cursor.execute("UPDATE destinations SET stock = 0 WHERE stock IS NULL")
+
         conn.commit()
         cursor.close()
         conn.close()
@@ -80,6 +84,14 @@ def init_database():
     except Exception as e:
         print(f"数据库初始化失败: {e}")
         raise
+
+def row_to_dict(row):
+    """Safely convert sqlite3.Row to dict. Returns None for None input."""
+    return dict(row) if row is not None else None
+
+def rows_to_list(rows):
+    """Convert list of sqlite3.Row objects to list of dicts."""
+    return [dict(row) for row in rows]
 
 def login_required(f):
     @functools.wraps(f)
@@ -117,8 +129,9 @@ class TicketSellSys:
             for row in cursor.fetchall():
                 self.destinations[row['code']] = {
                     'name': row['name'],
-                    'price': float(row['price']),
-                    'stock': row['stock']
+                    # BUG-002 修复: 处理 price 为 NULL 的情况，避免 float(None) 崩溃
+                    'price': float(row['price']) if row['price'] is not None else 0.0,
+                    'stock': row['stock'] if row['stock'] is not None else 0
                 }
             cursor.close()
             conn.close()
@@ -431,6 +444,12 @@ def delete_ticket(ticket_id):
     flash('订单删除成功', 'success')
     return redirect(url_for('tickets'))
 
+@app.route('/orders')
+@login_required
+def orders():
+    """订单页面别名 - 兼容 /orders 路径"""
+    return redirect(url_for('tickets'))
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if 'user_id' not in session:
@@ -584,7 +603,7 @@ def api_users():
     cursor.execute('SELECT COUNT(*) as count FROM users')
     total = cursor.fetchone()['count']
     cursor.execute('SELECT id, username, email, role, status, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?', (per_page, offset))
-    users_list = [dict(row) for row in cursor.fetchall()]
+    users_list = rows_to_list(cursor.fetchall())
     cursor.close()
     conn.close()
     return jsonify({'success': True, 'data': users_list, 'total': total})
@@ -595,7 +614,7 @@ def api_destinations():
     cursor = conn.cursor()
     if request.method == 'GET':
         cursor.execute('SELECT * FROM destinations ORDER BY code')
-        dest_list = [dict(row) for row in cursor.fetchall()]
+        dest_list = rows_to_list(cursor.fetchall())
         cursor.close()
         conn.close()
         return jsonify({'success': True, 'data': dest_list})
@@ -614,11 +633,13 @@ def api_destinations():
             cursor.execute('INSERT INTO destinations (code, name, price, stock) VALUES (?, ?, ?, ?)',
                           (code, name, price, stock))
             conn.commit()
-            tss.load_destinations()
             cursor.close()
             conn.close()
+            tss.load_destinations()
             return jsonify({'success': True, 'message': '添加成功'})
         except sqlite3.IntegrityError:
+            cursor.close()
+            conn.close()
             return jsonify({'success': False, 'message': '代码已存在'}), 400
 
 @app.route('/api/destinations/<string:code>', methods=['GET', 'PUT', 'DELETE'])
@@ -632,17 +653,21 @@ def api_destination_detail(code):
         cursor.close()
         conn.close()
         if destination:
-            return jsonify({'success': True, 'data': dict(destination)})
+            return jsonify({'success': True, 'data': row_to_dict(destination)})
         return jsonify({'success': False, 'message': '目的地不存在'}), 404
 
     elif request.method == 'PUT':
         data = request.json
         if not data:
+            cursor.close()
+            conn.close()
             return jsonify({'success': False, 'message': '请求体不能为空'}), 400
         name = data.get('name')
         price = data.get('price')
         stock = data.get('stock')
         if not name or price is None or stock is None:
+            cursor.close()
+            conn.close()
             return jsonify({'success': False, 'message': 'name、price、stock 不能为空'}), 400
         cursor.execute('SELECT * FROM destinations WHERE code = ?', (code,))
         if not cursor.fetchone():
@@ -652,9 +677,9 @@ def api_destination_detail(code):
         cursor.execute('UPDATE destinations SET name=?, price=?, stock=? WHERE code=?',
                       (name, price, stock, code))
         conn.commit()
-        tss.load_destinations()
         cursor.close()
         conn.close()
+        tss.load_destinations()
         return jsonify({'success': True, 'message': '更新成功'})
 
     elif request.method == 'DELETE':
@@ -665,9 +690,9 @@ def api_destination_detail(code):
             return jsonify({'success': False, 'message': '目的地不存在'}), 404
         cursor.execute('DELETE FROM destinations WHERE code = ?', (code,))
         conn.commit()
-        tss.load_destinations()
         cursor.close()
         conn.close()
+        tss.load_destinations()
         return jsonify({'success': True, 'message': '删除成功'})
 
 @app.route('/api/purchase/price', methods=['POST'])
@@ -758,7 +783,7 @@ def api_ticket_detail(ticket_id):
         cursor.close()
         conn.close()
         if ticket:
-            return jsonify({'success': True, 'data': dict(ticket)})
+            return jsonify({'success': True, 'data': row_to_dict(ticket)})
         return jsonify({'success': False, 'message': '订单不存在'}), 404
 
     elif request.method == 'DELETE':
@@ -790,7 +815,7 @@ def api_tickets():
         LEFT JOIN destinations d ON t.destination_code = d.code
         ORDER BY t.purchase_time DESC LIMIT ? OFFSET ?
     ''', (per_page, offset))
-    tickets_list = [dict(row) for row in cursor.fetchall()]
+    tickets_list = rows_to_list(cursor.fetchall())
     cursor.close()
     conn.close()
     return jsonify({'success': True, 'data': tickets_list, 'total': total})
@@ -806,7 +831,7 @@ def api_user_detail(user_id):
         cursor.close()
         conn.close()
         if user:
-            return jsonify({'success': True, 'data': dict(user)})
+            return jsonify({'success': True, 'data': row_to_dict(user)})
         return jsonify({'success': False, 'message': '用户不存在'}), 404
 
     elif request.method == 'PUT':
@@ -865,7 +890,7 @@ def api_dashboard():
         LEFT JOIN destinations d ON t.destination_code = d.code
         ORDER BY t.purchase_time DESC LIMIT 5
     ''')
-    recent_tickets = [dict(row) for row in cursor.fetchall()]
+    recent_tickets = rows_to_list(cursor.fetchall())
     cursor.close()
     conn.close()
     return jsonify({
@@ -878,6 +903,12 @@ def api_dashboard():
             'recent_tickets': recent_tickets
         }
     })
+
+@app.errorhandler(500)
+def internal_error(error):
+    import traceback
+    traceback.print_exc()
+    return jsonify({'success': False, 'message': '服务器内部错误', 'error': str(error)}), 500
 
 if __name__ == "__main__":
     init_database()

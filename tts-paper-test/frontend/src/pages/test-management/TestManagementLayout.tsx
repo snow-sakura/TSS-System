@@ -10,7 +10,7 @@ import {
   Home, FileText, ClipboardList, Target, FlaskConical, CheckCircle,
   Play, Bug, BarChart3, Sparkles, ChevronDown, ChevronRight,
   ArrowLeft, Search, Bell, Settings, Users, History, Zap,
-  FolderKanban, Tags,
+  FolderKanban, Tags, GitCompare,
 } from "lucide-react"
 
 // ── 菜单配置 ──────────────────────────────────────────────
@@ -82,6 +82,7 @@ const menuGroups: MenuGroup[] = [
       { key: "reports", label: "报告列表", path: "reports", icon: BarChart3 },
       { key: "ai-report", label: "AI生成报告", path: "ai-report", icon: Sparkles },
       { key: "quality", label: "质量概览", path: "quality", icon: BarChart3 },
+      { key: "comparison", label: "平台对标分析", path: "comparison", icon: GitCompare },
     ],
   },
 ]
