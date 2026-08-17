@@ -56,6 +56,8 @@ export interface ActionItem {
   title: string
   description: string
   effort: string
+  /** 已完成标记 */
+  done?: boolean
 }
 
 // ── 能力矩阵 ──────────────────────────────────────────────
@@ -157,8 +159,8 @@ export const FEATURE_TRUTH: FeatureTruth[] = [
   { id: "w6", module: "web", feature: "测试执行（REST + WebSocket）", status: "real", evidence: "ExecutionView → execute + ws/automation 实时进度" },
   { id: "w7", module: "web", feature: "引擎切换", status: "real", evidence: "EngineSelector → lifecycleApi.getEngineList / switchEngine" },
   { id: "w8", module: "web", feature: "技能库", status: "real", evidence: "TestSkillLibrary → configApi.listSkills，失败降级内置 PRESET" },
-  { id: "w9", module: "web", feature: "一键全流程流水线", status: "mock", evidence: "FlowChart → handleStartPipeline 全为 sleep(1.5~6s) 定时器串联，无后端调用" },
-  { id: "w10", module: "web", feature: "AI 智能体面板", status: "mock", evidence: "AiAgentPanel import 了 webApi 但零调用，计划/结果硬编码 + Math.random()" },
+  { id: "w9", module: "web", feature: "一键全流程流水线", status: "real", evidence: "FlowChart → handleStartPipeline 真实调用 exploreSSE / generateTestCasesSSE / execute" },
+  { id: "w10", module: "web", feature: "AI 智能体面板", status: "real", evidence: "AiAgentPanel 真实串接：项目选择 → exploreSSE → generateTestCasesSSE → execute → 报告" },
   // 流程编排
   { id: "wf1", module: "workflow", feature: "工作流 / 画布 CRUD", status: "real", evidence: "workflowApi：workflows、canvas、nodes、edges 全量真实" },
   { id: "wf2", module: "workflow", feature: "拓扑排序执行 + 执行记录", status: "real", evidence: "workflow_engine：_topological_sort + WorkflowNodeExecution" },
@@ -188,6 +190,7 @@ export const ACTION_PLAN: ActionItem[] = [
     title: "一键流水线接入真实后端",
     description: "参照 test-management 的 PipelinePage SSE 机制（startPipelineSSE），将 FlowChart 的 sleep 串联替换为真实探索→生成→执行事件流",
     effort: "前端为主，约 1 天",
+    done: true,
   },
   {
     id: "a4", priority: "P1", module: "web",
@@ -206,6 +209,7 @@ export const ACTION_PLAN: ActionItem[] = [
     title: "AI 智能体面板接通后端",
     description: "AiAgentPanel 从静态演示改为真实串接：意图解析 → 探索 → 生成 → 执行（复用 webApi），移除硬编码与随机数",
     effort: "前端为主，约 1 天",
+    done: true,
   },
   {
     id: "a7", priority: "P2", module: "web",

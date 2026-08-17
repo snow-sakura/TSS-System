@@ -1,7 +1,7 @@
 /**
  * 行动建议 — 按优先级 P0 / P1 / P2 排列
  */
-import { Lightbulb, Clock } from "lucide-react"
+import { Lightbulb, Clock, CheckCircle2 } from "lucide-react"
 import { MODULE_META, type ActionItem, type ModuleKey } from "../analysisData"
 
 interface Props {
@@ -42,9 +42,18 @@ export default function ActionPlan({ items, scope }: Props) {
               </div>
               <div className="flex-1 min-w-0 space-y-2">
                 {g.items.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-border/60 px-3 py-2.5 hover:bg-cream/30 transition-colors">
+                  <div key={item.id} className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                    item.done
+                      ? "border-pass/30 bg-pass/5 hover:bg-pass/10"
+                      : "border-border/60 hover:bg-cream/30"
+                  }`}>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-xs font-medium text-ink">{item.title}</p>
+                      <p className={`text-xs font-medium ${item.done ? "text-pass line-through decoration-pass/50" : "text-ink"}`}>{item.title}</p>
+                      {item.done && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-pass/10 text-pass text-[10px] font-medium">
+                          <CheckCircle2 className="w-3 h-3" /> 已完成
+                        </span>
+                      )}
                       <span className="px-1.5 py-0.5 rounded-md bg-cream text-muted text-[10px]">
                         {MODULE_META[item.module].label}
                       </span>
