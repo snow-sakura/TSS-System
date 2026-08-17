@@ -1,16 +1,13 @@
 /**
  * AiAgentPanel — AI 智能体面板
  *
- * 自然语言 → 自动规划 → 全流程执行
+ * 自然语言 → 自动规划 → 全流程执行（真实后端）
  *
  * 核心能力：
  * 1. 用户用自然语言描述测试意图
  * 2. AI 自动拆解为多步测试计划
- * 3. 依次执行：URL 探索 → 页面分析 → 用例生成 → 用例评审 → 测试执行
+ * 3. 依次执行：URL 探索(SSE) → 用例生成(SSE) → 测试执行(REST)
  * 4. 实时展示进度 + 最终测试报告
- *
- * 与一键全流程的区别：支持更复杂的场景描述
- * 如 "测试登录页，分别用有效和无效账号登录，检查错误提示"
  */
 import { useState, useRef, useCallback, useEffect } from "react"
 import {
@@ -68,6 +65,52 @@ const STAGE_ICONS: Record<string, any> = {
   report: BarChart3,
 }
 
+/** 读取 SSE 流 */
+async function readSSEStream(
+  response: Response,
+  onEvent?: (event: string, data: any) => void,
+  shouldAbort?: () => boolean,
+): Promise<void> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error("无法获取响应流")
+
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let currentEvent = ""
+  let currentData = ""
+
+  while (true) {
+    if (shouldAbort?.()) return
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n")
+    buffer = lines.pop() || ""
+
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        currentEvent = line.slice(7).trim()
+      } else if (line.startsWith("data: ")) {
+        currentData = line.slice(6).trim()
+      } else if (line === "") {
+        if (currentEvent && currentData) {
+          try {
+            onEvent?.(currentEvent, JSON.parse(currentData))
+          } catch {}
+        }
+        currentEvent = ""
+        currentData = ""
+      }
+    }
+  }
+
+  if (currentEvent && currentData) {
+    try {
+      onEvent?.(currentEvent, JSON.parse(currentData))
+    } catch {}
+  }
+}
+
 export default function AiAgentPanel() {
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<AgentMessage[]>([])
@@ -75,6 +118,8 @@ export default function AiAgentPanel() {
   const [plan, setPlan] = useState<PlanStep[]>([])
   const [activeStepId, setActiveStepId] = useState<string | null>(null)
   const [showIntro, setShowIntro] = useState(true)
+  const [projects, setProjects] = useState<any[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef(false)
@@ -82,6 +127,21 @@ export default function AiAgentPanel() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  // 加载项目列表
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res: any = await webApi.listProjects(1)
+      if (res?.data?.items) {
+        setProjects(res.data.items)
+        if (res.data.items.length > 0 && !selectedProjectId) {
+          setSelectedProjectId(res.data.items[0].id)
+        }
+      }
+    } catch {}
+  }, [selectedProjectId])
+
+  useEffect(() => { fetchProjects() }, [fetchProjects])
 
   /** 添加消息 */
   const addMessage = useCallback((role: AgentMessage["role"], content: string) => {
@@ -95,61 +155,23 @@ export default function AiAgentPanel() {
   /** 延迟工具 */
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-  /** AI 规划阶段 — 将自然语言拆解为可执行步骤 */
-  const generatePlan = async (prompt: string): Promise<PlanStep[]> => {
-    // 模拟 AI 规划过程
-    const steps: PlanStep[] = [
+  /** 更新步骤状态 */
+  const updateStep = useCallback((id: string, status: PlanStep["status"], extra?: Partial<PlanStep>) => {
+    setPlan((prev) => prev.map((s) => s.id === id ? { ...s, status, ...extra } : s))
+  }, [])
+
+  /** 构建执行计划 */
+  const buildPlan = (prompt: string): PlanStep[] => {
+    return [
       { id: "plan", label: "AI 规划", description: "分析测试意图，制定测试策略", status: "pending", icon: Brain },
-      { id: "explore", label: "URL 探索", description: `访问目标网站，使用 AI 视觉探索页面结构`, status: "pending", icon: Target },
+      { id: "explore", label: "URL 探索", description: "使用 AI 视觉探索页面结构", status: "pending", icon: Target },
       { id: "generate", label: "用例生成", description: "根据探索结果自动生成测试用例", status: "pending", icon: FileText },
       { id: "execute", label: "测试执行", description: "使用选中的引擎执行所有测试用例", status: "pending", icon: Play },
       { id: "report", label: "生成报告", description: "汇总测试结果，生成可读测试报告", status: "pending", icon: BarChart3 },
     ]
-
-    // 模拟 AI 解读用户意图
-    addMessage("assistant", `🧠 正在分析测试意图...\n\n**用户目标**: ${prompt}`)
-    await sleep(1200)
-
-    addMessage("assistant", `📋 **AI 测试计划 (${steps.length} 步)**\n\n` +
-      steps.map((s, i) => `${i + 1}. **${s.label}**: ${s.description}`).join("\n") +
-      `\n\n> 系统将自动执行以上流程，实时展示每一步的进度和结果。`)
-
-    return steps
   }
 
-  /** 执行单步 */
-  const executeStep = async (step: PlanStep, idx: number): Promise<PlanStep> => {
-    setActiveStepId(step.id)
-    const updated = { ...step, status: step.status as "running" | "completed" | "skipped" }
-
-    // 汇报进度
-    const stepMessages: Record<string, string> = {
-      plan: "🤖 AI 正在理解您的测试需求...\n- 分析关键词：登录、表单、验证\n- 确定测试范围：功能测试 + 边界测试\n- 选择测试策略：正向 + 反向测试",
-      explore: "🔍 AI 正在探索目标页面...\n- 使用视觉模型分析页面结构\n- 识别交互元素（按钮、表单、链接）\n- 记录页面状态和可操作区域",
-      generate: "📝 AI 正在生成测试用例...\n- 根据页面元素推断测试场景\n- 生成正向用例（正常流程）\n- 生成反向用例（异常输入、边界值）",
-      execute: "⚡ AI 正在执行测试用例...\n- 依次执行每个测试步骤\n- 实时捕获页面截图\n- 验证预期结果与实际结果",
-      report: "📊 AI 正在生成测试报告...\n- 汇总通过/失败/跳过用例\n- 分析失败原因\n- 生成可读性报告",
-    }
-
-    addMessage("system", `**步骤 ${idx + 1}: ${step.label}**\n${stepMessages[step.id] || `执行中...`}`)
-    await sleep(2000 + Math.random() * 2000)
-
-    if (abortRef.current) {
-      return { ...updated, status: "skipped" as const }
-    }
-
-    updated.status = "completed" as const
-    updated.duration = Math.floor(Math.random() * 3000) + 1000
-    updated.result = step.id === "execute"
-      ? `通过 ${Math.floor(Math.random() * 5) + 3} 项 · 失败 ${Math.floor(Math.random() * 2)} 项`
-      : "完成"
-
-    addMessage("system", `✅ **${step.label} 完成**${updated.duration ? ` (${(updated.duration / 1000).toFixed(1)}s)` : ""}`)
-
-    return updated
-  }
-
-  /** 主流程：用户提交 → 规划 → 执行 */
+  /** 主流程：用户提交 → 规划 → 真实执行 */
   const handleSubmit = useCallback(async () => {
     const prompt = input.trim()
     if (!prompt) { toast.error("请输入测试描述"); return }
@@ -157,6 +179,12 @@ export default function AiAgentPanel() {
       abortRef.current = true
       setIsRunning(false)
       addMessage("system", "⛔ 执行已中止")
+      return
+    }
+
+    // 检查项目
+    if (!selectedProjectId) {
+      toast.error("请先在「项目管理」中创建项目")
       return
     }
 
@@ -168,43 +196,165 @@ export default function AiAgentPanel() {
     addMessage("user", prompt)
     setInput("")
 
-    try {
-      // Step 1: AI 规划
-      const steps = await generatePlan(prompt)
-      setPlan(steps)
-      await sleep(500)
+    // 构建计划
+    const steps = buildPlan(prompt)
+    setPlan(steps)
+    setActiveStepId("plan")
 
-      // Step 2~5: 依次执行
-      const finalSteps: PlanStep[] = []
-      for (let i = 0; i < steps.length; i++) {
-        if (abortRef.current) {
-          finalSteps.push({ ...steps[i], status: "skipped" })
-          continue
+    try {
+      // === Step 1: AI 规划 ===
+      updateStep("plan", "running")
+      addMessage("assistant", `🧠 正在分析测试意图...\n\n**用户目标**: ${prompt}`)
+      await sleep(800)
+      addMessage("assistant", `📋 **AI 测试计划 (${steps.length} 步)**\n\n` +
+        steps.map((s, i) => `${i + 1}. **${s.label}**: ${s.description}`).join("\n") +
+        `\n\n> 系统将自动执行以上流程，实时展示每一步的进度和结果。`)
+      updateStep("plan", "completed", { duration: 800 })
+      await sleep(300)
+
+      if (abortRef.current) { updateStep("explore", "skipped"); return }
+
+      // === Step 2: URL 探索 (SSE) ===
+      updateStep("explore", "running")
+      setActiveStepId("explore")
+      addMessage("system", `**步骤 2: URL 探索**\n正在使用 AI 视觉探索项目页面结构...`)
+
+      const exploreRes = await webApi.exploreSSE(selectedProjectId)
+      if (!exploreRes.ok) throw new Error(`AI探索失败: HTTP ${exploreRes.status}`)
+
+      let exploreError = ""
+      let exploredPages = 0
+      await readSSEStream(
+        exploreRes,
+        (event, data) => {
+          if (event === "page_analyzed") {
+            exploredPages++
+            addMessage("system", `🔍 页面分析完成: ${data.title} (${data.elements_count || 0} 个元素)`)
+          } else if (event === "exploration_error") {
+            exploreError = data.error || "探索失败"
+          } else if (event === "status") {
+            addMessage("system", `🔍 ${data.message}`)
+          }
+        },
+        () => abortRef.current,
+      )
+
+      if (abortRef.current) { updateStep("explore", "skipped"); return }
+      if (exploreError) throw new Error(exploreError)
+
+      updateStep("explore", "completed", {
+        duration: 0,
+        result: `发现 ${exploredPages} 个页面`,
+      })
+      addMessage("system", `✅ **URL 探索完成**${exploredPages > 0 ? `，共发现 ${exploredPages} 个页面` : ""}`)
+      await sleep(300)
+
+      if (abortRef.current) { updateStep("generate", "skipped"); return }
+
+      // === Step 3: 用例生成 (SSE) ===
+      updateStep("generate", "running")
+      setActiveStepId("generate")
+      addMessage("system", `**步骤 3: 用例生成**\nAI 正在根据探索结果生成测试用例...`)
+
+      const genRes = await webApi.generateTestCasesSSE(selectedProjectId)
+      if (!genRes.ok) throw new Error(`用例生成失败: HTTP ${genRes.status}`)
+
+      let genError = ""
+      let generatedCount = 0
+      await readSSEStream(
+        genRes,
+        (event, data) => {
+          if (event === "case_generated") {
+            generatedCount++
+            addMessage("system", `📝 用例生成: ${data.title || `用例 #${generatedCount}`}`)
+          } else if (event === "generation_error") {
+            genError = data.error || "用例生成失败"
+          } else if (event === "status") {
+            addMessage("system", `📝 ${data.message}`)
+          }
+        },
+        () => abortRef.current,
+      )
+
+      if (abortRef.current) { updateStep("generate", "skipped"); return }
+      if (genError) throw new Error(genError)
+
+      updateStep("generate", "completed", {
+        duration: 0,
+        result: `生成 ${generatedCount} 条用例`,
+      })
+      addMessage("system", `✅ **用例生成完成**${generatedCount > 0 ? `，共生成 ${generatedCount} 条用例` : ""}`)
+      await sleep(300)
+
+      if (abortRef.current) { updateStep("execute", "skipped"); return }
+
+      // === Step 4: 测试执行 (REST) ===
+      updateStep("execute", "running")
+      setActiveStepId("execute")
+      addMessage("system", `**步骤 4: 测试执行**\n正在执行已审批的测试用例...`)
+
+      const execRes: any = await webApi.execute(selectedProjectId)
+      if (!execRes?.data) throw new Error("测试执行失败")
+
+      const execCount = execRes.data.cases_count || 0
+      const execId = execRes.data.execution_id || execRes.data.id
+      updateStep("execute", "completed", {
+        duration: 0,
+        result: `执行 ${execCount} 条用例${execId ? ` (ID: ${execId})` : ""}`,
+      })
+      addMessage("system", `✅ **测试执行完成**${execCount > 0 ? `，共执行 ${execCount} 条用例` : ""}`)
+      await sleep(300)
+
+      if (abortRef.current) { updateStep("report", "skipped"); return }
+
+      // === Step 5: 生成报告 ===
+      updateStep("report", "running")
+      setActiveStepId("report")
+
+      // 获取执行记录作为报告数据
+      let reportData: any = null
+      try {
+        const execListRes: any = await webApi.getExecutions(selectedProjectId)
+        if (execListRes?.data?.items?.length > 0) {
+          reportData = execListRes.data.items[0]
         }
-        const result = await executeStep(steps[i], i)
-        finalSteps.push(result)
-        setPlan([...finalSteps, ...steps.slice(i + 1)])
+      } catch {}
+
+      const completedCount = plan.filter((s) => s.status === "completed").length + 1
+      let summary = `## 📋 测试执行报告\n\n` +
+        `**测试描述**: ${prompt}\n\n` +
+        `**执行状态**: ${completedCount}/${steps.length} 步完成\n\n` +
+        `**步骤详情**:\n` +
+        `| # | 步骤 | 状态 | 结果 |\n` +
+        `|---|------|------|------|\n` +
+        steps.map((s, i) =>
+          `| ${i + 1} | ${s.label} | ${s.status === "completed" ? "✅ 通过" : s.status === "failed" ? "❌ 失败" : "⏭ 跳过"} | ${s.result || "-"} |`
+        ).join("\n")
+
+      if (reportData) {
+        summary += `\n\n**执行记录**:\n` +
+          `- 状态: ${reportData.status || "-"}\n` +
+          `- 开始时间: ${reportData.started_at ? new Date(reportData.started_at).toLocaleString("zh-CN") : "-"}\n` +
+          `- 耗时: ${reportData.duration_ms ? `${(reportData.duration_ms / 1000).toFixed(1)}s` : "-"}\n` +
+          (reportData.error_message ? `- 错误: ${reportData.error_message}\n` : "")
       }
 
-      // 生成总结报告
-      const completedCount = finalSteps.filter((s) => s.status === "completed").length
-      const summary = `## 📋 测试执行报告\n\n` +
-        `**测试描述**: ${prompt}\n\n` +
-        `**执行状态**: ${completedCount}/${finalSteps.length} 步完成\n\n` +
-        `**步骤详情**:\n` +
-        finalSteps.map((s, i) =>
-          `| ${i + 1} | ${s.label} | ${s.status === "completed" ? "✅ 通过" : s.status === "failed" ? "❌ 失败" : "⏭ 跳过"} | ${s.duration ? `${(s.duration / 1000).toFixed(1)}s` : "-"} |`
-        ).join("\n") +
-        `\n\n**结论**: ${completedCount === finalSteps.length ? "所有测试步骤执行完毕。建议：检查用例覆盖率，对失败项目进行人工验证。" : "部分步骤未完成或跳过。"}`
+      summary += `\n\n**结论**: ${completedCount === steps.length ? "所有测试步骤执行完毕。建议：检查用例覆盖率，对失败项目进行人工验证。" : "部分步骤未完成或跳过。"}`
 
+      updateStep("report", "completed", { duration: 0, result: "报告已生成" })
       addMessage("assistant", summary)
-      toast.success(completedCount === finalSteps.length ? "全流程测试完成" : "部分步骤完成")
+      toast.success(completedCount === steps.length ? "全流程测试完成" : "部分步骤完成")
+
     } catch (err: any) {
+      // 标记当前 running 步骤为 failed
+      setPlan((prev) => prev.map((s) => s.status === "running" ? { ...s, status: "failed" as const } : s))
       addMessage("system", `❌ 执行异常: ${err.message || "未知错误"}`)
+      toast.error(err.message || "执行失败")
     } finally {
       setIsRunning(false)
+      setActiveStepId(null)
     }
-  }, [input, isRunning, addMessage])
+  }, [input, isRunning, addMessage, selectedProjectId, updateStep, plan])
 
   /** 快速应用预设场景 */
   const applyScenario = (prompt: string) => {
@@ -230,6 +380,27 @@ export default function AiAgentPanel() {
         <p className="text-xs text-muted mt-0.5">
           用自然语言描述测试场景，AI 自动规划并执行全流程测试
         </p>
+      </div>
+
+      {/* 项目选择 */}
+      <div className="bg-white rounded-xl border border-border shadow-card p-3 flex flex-wrap items-center gap-3">
+        <span className="text-xs font-medium text-ink-light flex items-center gap-1.5">
+          <Globe className="w-3.5 h-3.5 text-amber" /> 目标项目
+        </span>
+        <select
+          value={selectedProjectId ?? ""}
+          onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+          disabled={isRunning}
+          className="h-8 px-3 rounded-lg border border-border text-xs text-ink bg-white focus:border-amber outline-none disabled:opacity-50"
+        >
+          {projects.length === 0 && <option value="">暂无项目</option>}
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.name} ({p.target_url})</option>
+          ))}
+        </select>
+        {projects.length === 0 && (
+          <span className="text-[10px] text-fail">请先在「项目管理」中创建项目</span>
+        )}
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
@@ -343,7 +514,7 @@ export default function AiAgentPanel() {
                 </div>
                 <button
                   onClick={handleSubmit}
-                  disabled={!isRunning && !input.trim()}
+                  disabled={!isRunning && (!input.trim() || !selectedProjectId)}
                   className={`h-10 px-4 rounded-xl flex items-center gap-1.5 text-sm font-medium transition-all shadow-sm ${
                     isRunning
                       ? "bg-fail text-white hover:bg-fail/90"
