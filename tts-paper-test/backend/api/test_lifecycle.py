@@ -1313,7 +1313,7 @@ async def list_defects(
     return ResponseModel(data=result)
 
 
-@router.get("/defects/{defect_id}", response_model=ResponseModel)
+@router.get("/defects/{defect_id:int}", response_model=ResponseModel)
 async def get_defect(
     defect_id: int,
     db: AsyncSession = Depends(get_db),
@@ -1326,7 +1326,7 @@ async def get_defect(
     return ResponseModel(data=item)
 
 
-@router.put("/defects/{defect_id}", response_model=ResponseModel)
+@router.put("/defects/{defect_id:int}", response_model=ResponseModel)
 async def update_defect(
     defect_id: int,
     body: DefectUpdate,
@@ -1340,7 +1340,7 @@ async def update_defect(
     return ResponseModel(message="更新成功", data=item)
 
 
-@router.delete("/defects/{defect_id}", response_model=ResponseModel)
+@router.delete("/defects/{defect_id:int}", response_model=ResponseModel)
 async def delete_defect(
     defect_id: int,
     db: AsyncSession = Depends(get_db),
@@ -1364,7 +1364,7 @@ async def batch_delete_defects(
     return ResponseModel(message=f"已删除 {count} 个缺陷")
 
 
-@router.post("/defects/{defect_id}/ai-analyze")
+@router.post("/defects/{defect_id:int}/ai-analyze")
 async def ai_analyze_defect(
     defect_id: int,
     db: AsyncSession = Depends(get_db),
