@@ -158,7 +158,7 @@ export const FEATURE_TRUTH: FeatureTruth[] = [
   { id: "w5", module: "web", feature: "对象库（页面/元素 CRUD）", status: "real", evidence: "ObjectRepository → webApi 对象库接口，探索自动同步" },
   { id: "w6", module: "web", feature: "测试执行（REST + WebSocket）", status: "real", evidence: "ExecutionView → execute + ws/automation 实时进度" },
   { id: "w7", module: "web", feature: "引擎切换", status: "real", evidence: "EngineSelector → lifecycleApi.getEngineList / switchEngine" },
-  { id: "w8", module: "web", feature: "技能库", status: "real", evidence: "TestSkillLibrary → configApi.listSkills，失败降级内置 PRESET" },
+  { id: "w8", module: "web", feature: "技能库", status: "real", evidence: "TestSkillLibrary → configApi.listSkills，API 失败明确提示+重试（已移除假数据降级）" },
   { id: "w9", module: "web", feature: "一键全流程流水线", status: "real", evidence: "FlowChart → handleStartPipeline 真实调用 exploreSSE / generateTestCasesSSE / execute" },
   { id: "w10", module: "web", feature: "AI 智能体面板", status: "real", evidence: "AiAgentPanel 真实串接：项目选择 → exploreSSE → generateTestCasesSSE → execute → 报告" },
   // 流程编排

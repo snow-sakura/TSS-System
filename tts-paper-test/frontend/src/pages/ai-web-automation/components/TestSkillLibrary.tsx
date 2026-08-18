@@ -12,13 +12,11 @@
 import { useState, useEffect, useCallback } from "react"
 import { configApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal"
 import {
   Search, Plus, Code, CheckCircle, XCircle, Copy, Play,
-  Sparkles, TestTube, Eye, AlignLeft, Layers, Crosshair,
-  SplitSquareHorizontal, FileJson, Clock, Tag, Filter,
-  Zap, BookOpen, ChevronDown, ChevronUp, Loader2,
+  Layers, Crosshair, FileJson, Filter,
+  Zap, BookOpen, ChevronDown, ChevronUp, Loader2, RefreshCw,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -62,72 +60,11 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: any; color: string;
   },
 }
 
-/** 预设示例技能（当 API 不可用时展示） */
-const PRESET_SKILLS: Skill[] = [
-  {
-    id: -1, name: "CSS 选择器：按钮",
-    description: "精确匹配按钮文本的 CSS 选择器模板",
-    category: "selector", version: "v1.0", status: "已启用",
-    content: { selector: "button:has-text('${text}')", description: "匹配包含指定文本的按钮" },
-    created_at: "", updated_at: "",
-  },
-  {
-    id: -2, name: "XPath：包含文本的元素",
-    description: "通过 XPath 查找包含指定文本的元素",
-    category: "selector", version: "v1.0", status: "已启用",
-    content: { selector: "//*[contains(text(), '${text}')]", description: "查找包含文本的元素" },
-    created_at: "", updated_at: "",
-  },
-  {
-    id: -3, name: "断言：页面标题",
-    description: "验证页面标题是否包含预期文本",
-    category: "assertion", version: "v1.0", status: "已启用",
-    content: { assertion: "page.title()", expected: "${expectedTitle}", description: "页面标题断言" },
-    created_at: "", updated_at: "",
-  },
-  {
-    id: -4, name: "断言：元素可见",
-    description: "验证元素在页面上是否可见",
-    category: "assertion", version: "v1.0", status: "已启用",
-    content: { assertion: "element.isVisible()", expected: "true", description: "元素可见性断言" },
-    created_at: "", updated_at: "",
-  },
-  {
-    id: -5, name: "场景：用户登录",
-    description: "完整的登录流程测试模板",
-    category: "scenario", version: "v1.0", status: "已启用",
-    content: {
-      steps: [
-        { action: "navigate", target: "${loginUrl}", description: "打开登录页" },
-        { action: "fill", target: "#username", value: "${username}", description: "输入用户名" },
-        { action: "fill", target: "#password", value: "${password}", description: "输入密码" },
-        { action: "click", target: "button[type='submit']", description: "点击登录" },
-        { action: "waitFor", target: ".dashboard", description: "等待跳转到仪表盘" },
-      ],
-    },
-    created_at: "", updated_at: "",
-  },
-  {
-    id: -6, name: "场景：表单提交",
-    description: "完整的表单填写+提交测试",
-    category: "scenario", version: "v1.0", status: "已启用",
-    content: {
-      steps: [
-        { action: "navigate", target: "${formUrl}", description: "打开表单页" },
-        { action: "fill", target: "[name='name']", value: "${name}", description: "输入姓名" },
-        { action: "fill", target: "[name='email']", value: "${email}", description: "输入邮箱" },
-        { action: "selectOption", target: "[name='category']", value: "${category}", description: "选择分类" },
-        { action: "click", target: "button[type='submit']", description: "提交表单" },
-        { action: "assertText", target: ".success-message", expected: "提交成功", description: "验证提交成功" },
-      ],
-    },
-    created_at: "", updated_at: "",
-  },
-]
 
 export default function TestSkillLibrary() {
   const [skills, setSkills] = useState<Skill[]>([])
   const [loading, setLoading] = useState(true)
+  const [apiError, setApiError] = useState(false)
   const [search, setSearch] = useState("")
   const [activeCategory, setActiveCategory] = useState<string>("all")
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -142,14 +79,21 @@ export default function TestSkillLibrary() {
     setLoading(true)
     try {
       const res: any = await configApi.listSkills(1, 100)
-      const data = res?.data || res?.items || []
+      const data = res?.data?.items || res?.data || res?.items || []
       if (Array.isArray(data)) {
         setSkills(data)
+        setApiError(false)
       } else {
-        setSkills(PRESET_SKILLS) // fallback
+        // 响应格式异常：明确提示，不降级假数据
+        setSkills([])
+        setApiError(true)
+        toast.error("获取技能数据格式异常，请稍后重试")
       }
     } catch {
-      setSkills(PRESET_SKILLS)
+      // API 失败：明确提示 + 重试，不显示预设假数据
+      setSkills([])
+      setApiError(true)
+      toast.error("无法连接服务器，请检查服务端连接")
     } finally {
       setLoading(false)
     }
@@ -174,13 +118,6 @@ export default function TestSkillLibrary() {
   /** 删除技能 */
   const handleDelete = async () => {
     if (!deleteTarget) return
-    if (deleteTarget.id < 0) {
-      // 预设技能 — 仅本地移除
-      setSkills((prev) => prev.filter((s) => s.id !== deleteTarget.id))
-      toast.success(`已移除 "${deleteTarget.name}"`)
-      setDeleteTarget(null)
-      return
-    }
     try {
       await configApi.deleteSkill(deleteTarget.id)
       toast.success(`已删除 "${deleteTarget.name}"`)
@@ -230,9 +167,8 @@ export default function TestSkillLibrary() {
       const res: any = await configApi.executeSkill(skill.id, { params: {}, input_text: "" })
       toast.success(res?.output || "执行完成", { id: "exec" })
     } catch {
-      // 模拟执行（预设技能用）
-      await new Promise((r) => setTimeout(r, 1500))
-      toast.success(`模拟执行 "${skill.name}" 完成`, { id: "exec" })
+      // API 失败：明确提示，不做模拟执行
+      toast.error(`执行 "${skill.name}" 失败，请检查服务器连接`, { id: "exec" })
     }
   }
 
@@ -308,16 +244,29 @@ export default function TestSkillLibrary() {
         })}
       </div>
 
+      {/* API 失败提示 */}
+      {apiError && !loading && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-fail/5 border border-fail/20 rounded-xl">
+          <div className="flex items-center gap-2 text-sm text-fail">
+            <span className="w-2 h-2 rounded-full bg-fail animate-pulse" />
+            服务连接失败，技能库暂不可用（已停止显示内置示例数据）
+          </div>
+          <button onClick={fetchSkills} className="h-7 px-3 text-xs bg-fail text-white hover:bg-fail/80 rounded-lg flex items-center gap-1">
+            <RefreshCw className="w-3 h-3" /> 重试
+          </button>
+        </div>
+      )}
+
       {/* 技能列表 */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-amber" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : apiError ? null : filtered.length === 0 ? (
         <div className="py-12 text-center">
           <BookOpen className="w-10 h-10 mx-auto mb-3 text-muted opacity-50" />
-          <p className="text-sm text-muted">暂无匹配的技能</p>
-          <p className="text-[11px] text-muted mt-1">试试更换搜索条件或分类</p>
+          <p className="text-sm text-muted">暂无技能</p>
+          <p className="text-[11px] text-muted mt-1">点击「新建技能」创建，或稍后刷新重试</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
