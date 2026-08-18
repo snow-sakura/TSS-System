@@ -207,7 +207,8 @@ class TestCaseCreate(BaseModel):
     name: str = Field(..., max_length=500)
     description: Optional[str] = None
     preconditions: Optional[str] = None
-    steps: list[dict] = []
+    # steps 兼容三种形态：list[dict]（AI 生成 [{action}]）、list[str]、字符串（人工表单换行文本）
+    steps: Optional[list | str] = None
     expected_result: Optional[str] = None
     priority: str = "P2"
     test_type: Optional[str] = None
@@ -223,7 +224,7 @@ class TestCaseUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     preconditions: Optional[str] = None
-    steps: Optional[list[dict]] = None
+    steps: Optional[list | str] = None
     expected_result: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
@@ -325,7 +326,7 @@ class TestCaseResponse(BaseModel):
     name: str
     description: Optional[str] = None
     preconditions: Optional[str] = None
-    steps: list
+    steps: Optional[list | str] = None
     expected_result: Optional[str] = None
     status: str
     priority: str
