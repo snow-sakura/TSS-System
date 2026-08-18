@@ -140,18 +140,17 @@ export default function ProjectList() {
           <button onClick={fetchProjects} className="h-7 px-3 text-xs bg-fail text-white hover:bg-fail/80 rounded-lg flex items-center gap-1"><RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} /> 重试</button>
         </div>
       )}
-      {/* 统计 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      {/* 统计 - 紧凑单行徽章 */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         {[
           { label: "项目总数", value: projects.length, color: "text-ink" },
           { label: "已完成", value: projects.filter((p) => p.status === "已完成").length, color: "text-pass" },
           { label: "总页面数", value: projects.reduce((s, p) => s + (p.page_count || 0), 0), color: "text-info" },
           { label: "总用例数", value: projects.reduce((s, p) => s + (p.test_case_count || 0), 0), color: "text-warn" },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-border shadow-card p-3 text-center">
-            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5">{s.label}</p>
-          </div>
+          <span key={s.label} className="h-7 px-2.5 rounded-full bg-white border border-border text-[11px] text-ink-light flex items-center gap-1">
+            {s.label} <b className={s.color}>{s.value}</b>
+          </span>
         ))}
       </div>
       {/* 筛选 */}

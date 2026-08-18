@@ -33,25 +33,23 @@ export default function OverviewCards({ stats }: Props) {
   ]
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+    <div className="flex flex-wrap gap-2">
       {cards.map((c) => {
         const Icon = c.icon
         return (
-          <div key={c.key} className="bg-white rounded-2xl border border-border shadow-card p-4 flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted">{c.label}</span>
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${c.cls}`}>
-                <Icon className="w-3.5 h-3.5" />
-              </div>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
-                {c.value}
-              </span>
-              <span className="text-[11px] text-muted">{c.unit}</span>
-            </div>
-            <p className="text-[10px] text-muted-light leading-relaxed">{c.desc}</p>
-          </div>
+          <span
+            key={c.key}
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-white border border-border text-[11px] text-muted"
+            title={c.desc}
+          >
+            <span className={`w-4 h-4 rounded-md flex items-center justify-center ${c.cls}`}>
+              <Icon className="w-2.5 h-2.5" />
+            </span>
+            <span>
+              {c.label} <strong className="text-ink">{c.value}</strong>
+              {c.unit}
+            </span>
+          </span>
         )
       })}
     </div>

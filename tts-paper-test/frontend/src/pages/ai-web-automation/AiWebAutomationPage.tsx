@@ -273,12 +273,15 @@ function AiWebAutomationPage() {
       case "wa-projects":
         return <ProjectList />
       case "wa-explore":
-        // AI智能体并入 AI探索：探索任务 + 智能体对话两个区块
+        // AI智能体并入 AI探索：左「探索任务」右「AI智能体」，双栏并排
+        // 右栏限高 + 内滚，首屏完整可见，整页不再纵向拉伸
         return (
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
             <AiExploration onStatusChange={handleStatusChange} />
-            <div className="border-t border-border pt-6">
-              <AiAgentPanel />
+            <div className="xl:sticky xl:top-2">
+              <div className="xl:max-h-[calc(100vh-140px)] xl:overflow-y-auto">
+                <AiAgentPanel />
+              </div>
             </div>
           </div>
         )
@@ -323,18 +326,21 @@ function AiWebAutomationPage() {
 
         <main className="flex-1 overflow-y-auto p-4 bg-cream/30">
           <div className="max-w-[1400px] mx-auto space-y-4">
-            {/* 流程图 + 引擎选择器按需显示：仅探索/用例/执行 Tab */}
+            {/* 流程图 + 引擎选择器按需显示：仅探索/用例/执行 Tab — 合并为单行工具栏，首屏不再被大卡片占用 */}
             {FLOW_TABS.includes(activeMenu) && (
-              <>
-                <EngineSelector />
-
-                <FlowChart
-                  steps={stepsWithStatus}
-                  onStepClick={handleStepClickWithNav}
-                  onStartPipeline={handleStartPipeline}
-                  isPipelineRunning={isPipelineRunning}
-                />
-              </>
+              <div className="flex items-stretch gap-3">
+                <div className="flex-1 min-w-0">
+                  <FlowChart
+                    steps={stepsWithStatus}
+                    onStepClick={handleStepClickWithNav}
+                    onStartPipeline={handleStartPipeline}
+                    isPipelineRunning={isPipelineRunning}
+                  />
+                </div>
+                <div className="w-52 flex-shrink-0">
+                  <EngineSelector />
+                </div>
+              </div>
             )}
 
             {/* 内容区 */}

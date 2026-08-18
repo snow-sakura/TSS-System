@@ -403,9 +403,9 @@ export default function AiAgentPanel() {
         )}
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
-        {/* 左侧 2/3：对话 + 计划 */}
-        <div className="lg:col-span-2 flex flex-col min-h-0 gap-4">
+      <div className="flex-1 grid grid-cols-1 gap-4 min-h-0">
+        {/* 对话 + 计划（整行；容器窄时自然堆叠其下区块） */}
+        <div className="flex flex-col min-h-0 gap-4">
           {/* 对话区 */}
           <div className="flex-1 bg-white rounded-2xl border border-border shadow-card flex flex-col min-h-0">
             <div className="px-4 py-3 border-b border-border flex items-center justify-between">

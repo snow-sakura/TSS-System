@@ -317,12 +317,12 @@ export default function TestCaseManager() {
         <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }} className="h-9 px-3 rounded-xl border border-border text-sm text-ink bg-white focus:border-amber outline-none"><option value="">全部状态</option><option value="draft">草稿</option><option value="pending">待审批</option><option value="approved">已通过</option><option value="rejected">已驳回</option></select>
       </div>
 
-      {/* 统计 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl border border-border p-3 text-center"><p className="text-lg font-bold text-ink">{cases.length}</p><p className="text-[11px] text-muted">总用例</p></div>
-        <div className="bg-white rounded-xl border border-border p-3 text-center"><p className="text-lg font-bold text-amber">{cases.filter((c) => c.status === "pending").length}</p><p className="text-[11px] text-muted">待审批</p></div>
-        <div className="bg-white rounded-xl border border-border p-3 text-center"><p className="text-lg font-bold text-pass">{cases.filter((c) => c.status === "approved").length}</p><p className="text-[11px] text-muted">已通过</p></div>
-        <div className="bg-white rounded-xl border border-border p-3 text-center"><p className="text-lg font-bold text-fail">{cases.filter((c) => c.status === "rejected").length}</p><p className="text-[11px] text-muted">已驳回</p></div>
+      {/* 统计 - 紧凑单行徽章 */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="h-7 px-2.5 rounded-full bg-white border border-border text-[11px] text-ink-light flex items-center gap-1">总用例 <b className="text-ink">{cases.length}</b></span>
+        <span className="h-7 px-2.5 rounded-full bg-white border border-amber/20 text-[11px] text-ink-light flex items-center gap-1">待审批 <b className="text-amber">{cases.filter((c) => c.status === "pending").length}</b></span>
+        <span className="h-7 px-2.5 rounded-full bg-white border border-pass/20 text-[11px] text-ink-light flex items-center gap-1">已通过 <b className="text-pass">{cases.filter((c) => c.status === "approved").length}</b></span>
+        <span className="h-7 px-2.5 rounded-full bg-white border border-fail/20 text-[11px] text-ink-light flex items-center gap-1">已驳回 <b className="text-fail">{cases.filter((c) => c.status === "rejected").length}</b></span>
       </div>
 
       {/* 表格 */}

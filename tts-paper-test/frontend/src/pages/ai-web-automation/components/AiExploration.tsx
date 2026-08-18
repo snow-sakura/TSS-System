@@ -212,9 +212,8 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
     <div className="flex-1 flex flex-col min-h-0 gap-4">
       <div className="mb-1"><h2 className="text-base font-semibold text-ink flex items-center gap-2">AI探索 <Sparkles className="w-4 h-4 text-amber" /></h2><p className="text-xs text-muted mt-0.5">输入URL，AI自动使用视觉模型探索网站结构，识别页面元素和交互</p></div>
 
-      {/* URL输入区 */}
-      <div className="bg-white rounded-2xl border border-border shadow-card p-5">
-        <h3 className="text-sm font-semibold text-ink mb-3">目标网站</h3>
+      {/* URL输入区 - 紧凑 */}
+      <div className="bg-white rounded-2xl border border-border shadow-card p-3">
         <div className="flex items-center gap-2">
           <div className="relative flex-1"><Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" /><input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !exploring && startExploration()} placeholder="https://example.com" className="w-full h-10 pl-9 pr-3 rounded-xl border border-border text-sm text-ink font-mono focus:border-amber focus:ring-1 focus:ring-amber outline-none" /></div>
           {exploring ? (
@@ -227,7 +226,7 @@ export default function AiExploration({ onStatusChange }: AiExplorationProps) {
             </button>
           )}
         </div>
-        <div className="mt-3 flex items-center gap-4 text-[11px] text-muted">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
           <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 text-amber" /> AI视觉模型驱动</span>
           <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> midscene.js + Playwright</span>
           <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> 自动发现页面结构</span>
