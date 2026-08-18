@@ -27,6 +27,7 @@ from .test_lifecycle import (
     TestReport,
     PipelineRecord,
     Review,
+    Schedule,
 )
 from .config import (
     Environment,
@@ -86,6 +87,7 @@ __all__ = [
     "TestReport",
     "PipelineRecord",
     "Review",
+    "Schedule",
     "Environment",
     "LLMProvider",
     "PromptTemplate",

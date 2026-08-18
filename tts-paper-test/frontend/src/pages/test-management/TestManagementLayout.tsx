@@ -10,6 +10,7 @@ import {
   Home, FileText, ClipboardList, Target, FlaskConical, CheckCircle,
   Play, Bug, BarChart3, Sparkles, ChevronDown, ChevronRight,
   ArrowLeft, Search, Bell, GitCompare, Settings, FolderKanban, Tags, Users,
+  Kanban, CalendarClock,
 } from "lucide-react"
 
 // ── 菜单配置 ──────────────────────────────────────────────
@@ -43,6 +44,7 @@ const menuGroups: MenuGroup[] = [
       { key: "reviews", label: "用例评审", path: "reviews", icon: CheckCircle },
       { key: "pipeline", label: "AI全流程", path: "pipeline", icon: Sparkles },
       { key: "executions", label: "执行列表", path: "executions", icon: Play },
+      { key: "schedules", label: "执行调度", path: "schedules", icon: CalendarClock },
     ],
   },
   {
@@ -52,6 +54,7 @@ const menuGroups: MenuGroup[] = [
     gradient: "from-rose-500 to-red-600",
     children: [
       { key: "defects", label: "缺陷列表", path: "defects", icon: Bug },
+      { key: "kanban", label: "缺陷看板", path: "kanban", icon: Kanban },
       { key: "root-cause", label: "AI根因分析", path: "root-cause", icon: Sparkles },
       { key: "trend", label: "趋势分析", path: "trend", icon: BarChart3 },
     ],

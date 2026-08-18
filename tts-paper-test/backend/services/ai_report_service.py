@@ -59,7 +59,9 @@ TREND_SYSTEM_PROMPT = """你是一位质量分析专家。分析以下测试执�
 }"""
 
 
-async def _call_llm(system_prompt: str, user_prompt: str, model: str = "gpt-4o") -> Optional[str]:
+async def _call_llm(
+    system_prompt: str, user_prompt: str, model: str = "gpt-4o"
+) -> Optional[str]:
     """调用 LLM"""
     try:
         from openai import AsyncOpenAI
@@ -120,21 +122,23 @@ def _fallback_analysis(data: dict) -> dict:
         "ai_analysis": {
             "execution_analysis": exec_analysis,
             "defect_analysis": f"共发现 {total_defects} 个缺陷，其中 {open_defects} 个未解决。"
-                               f"严重缺陷 {summary.get('critical_defects', 0)} 个。",
+            f"严重缺陷 {summary.get('critical_defects', 0)} 个。",
             "quality_summary": f"整体质量评分为 {pass_rate}/100。",
             "risk_warnings": ["缺陷修复进度需要关注"] if open_defects > 0 else [],
             "strengths": ["测试执行覆盖完整"],
         },
         "conclusion": f"报告基于 {summary.get('execution_count', 0)} 次执行生成。"
-                      f"通过率 {pass_rate}%，缺陷总数 {total_defects}。"
-                      f"{"请重点关注未解决缺陷。" if open_defects > 0 else "质量状况良好。"}",
+        f"通过率 {pass_rate}%，缺陷总数 {total_defects}。"
+        f"{'请重点关注未解决缺陷。' if open_defects > 0 else '质量状况良好。'}",
         "recommendations": {
             "immediate_actions": ["审查失败用例", "跟踪未解决缺陷"],
             "improvement_suggestions": ["增加自动化覆盖", "完善测试数据"],
             "focus_areas": ["核心功能回归测试"],
         },
         "quality_score": {
-            "overall": min(100, int(pass_rate * 0.6 + max(0, 100 - open_defects * 5) * 0.4)),
+            "overall": min(
+                100, int(pass_rate * 0.6 + max(0, 100 - open_defects * 5) * 0.4)
+            ),
             "execution": int(pass_rate),
             "defect_management": max(0, min(100, 100 - open_defects * 10)),
             "test_coverage": 70,
@@ -146,6 +150,7 @@ def _fallback_analysis(data: dict) -> dict:
 # ──────────────────────────────────────────
 # 核心 API
 # ──────────────────────────────────────────
+
 
 async def generate_ai_analysis(summary_data: dict, metrics_data: dict) -> dict:
     """
@@ -171,12 +176,19 @@ async def generate_ai_analysis(summary_data: dict, metrics_data: dict) -> dict:
 
     parsed = _parse_json(llm_result)
 
-    # 确保所有字段都存在
+    # 确保所有字段都存在：以真实数据生成的 fallback 为基准
     result = _fallback_analysis(context)
 
     if "ai_analysis" in parsed:
-        result["ai_analysis"].update(parsed["ai_analysis"])
-    if "conclusion" in parsed:
+        llm_analysis = parsed["ai_analysis"]
+        # 统计型段落（执行/缺陷/质量评分）以真实数据为准，防止 LLM 幻觉数字；
+        # 仅信任 LLM 的分析型段落（风险预警、优势亮点）
+        for k in ("risk_warnings", "strengths", "risk_analysis", "highlight"):
+            if k in llm_analysis:
+                result["ai_analysis"][k] = llm_analysis[k]
+    if "conclusion" in parsed and _conclusion_matches(
+        parsed["conclusion"], summary_data
+    ):
         result["conclusion"] = parsed["conclusion"]
     if "recommendations" in parsed:
         result["recommendations"].update(parsed["recommendations"])
@@ -184,6 +196,28 @@ async def generate_ai_analysis(summary_data: dict, metrics_data: dict) -> dict:
         result["quality_score"].update(parsed["quality_score"])
 
     return result
+
+
+def _conclusion_matches(conclusion: str, summary: dict) -> bool:
+    """校验 LLM 生成的结论中的关键数字是否与真实汇总数据一致（防幻觉）"""
+    import re
+
+    def _num(pattern: str, default: int = -1) -> int:
+        m = re.search(pattern, conclusion)
+        if not m:
+            return default
+        try:
+            return int(float(m.group(1)))
+        except (ValueError, TypeError):
+            return default
+
+    checks = [
+        (_num(r"(\d+)\s*次执行"), summary.get("execution_count", -1)),
+        (_num(r"缺陷总数\s*(\d+)"), summary.get("total_defects", -1)),
+        (_num(r"通过率\s*([\d.]+)%"), summary.get("pass_rate", -1)),
+    ]
+    # 任一关键数字缺失或与真实数据不符，则放弃 LLM 结论（避免把错误数据写进报告）
+    return all(expected < 0 or actual == expected for actual, expected in checks)
 
 
 async def analyze_quality_metrics(metrics: dict) -> dict:
@@ -196,7 +230,9 @@ async def analyze_quality_metrics(metrics: dict) -> dict:
     返回:
       { analysis_text, strengths, risks, score }
     """
-    prompt = f"分析以下质量指标数据：\n{json.dumps(metrics, ensure_ascii=False, indent=2)}"
+    prompt = (
+        f"分析以下质量指标数据：\n{json.dumps(metrics, ensure_ascii=False, indent=2)}"
+    )
     llm_result = await _call_llm(
         "你是一个质量分析专家。分析质量指标并输出 JSON："
         '{{"analysis": "分析文本", "score": 0-100, "strengths": [], "risks": []}}',

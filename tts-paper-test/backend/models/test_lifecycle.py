@@ -367,3 +367,24 @@ class TestReport(Base, TimestampMixin):
         Integer, ForeignKey("users.id"), nullable=True
     )
     published_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+
+class Schedule(Base, TimestampMixin):
+    """执行调度"""
+
+    __tablename__ = "schedules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    cron_expr: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default="running", nullable=False, index=True
+    )  # running / paused
+    schedule_type: Mapped[str] = mapped_column(String(50), default="manual")
+    execution_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_run_at: Mapped[str] = mapped_column(String(30), nullable=True)
+    next_run_at: Mapped[str] = mapped_column(String(30), nullable=True)
+    created_by: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )

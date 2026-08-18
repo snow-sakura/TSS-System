@@ -52,6 +52,9 @@ from schemas.test_lifecycle import (
     ReviewCreate,
     ReviewUpdate,
     ReviewResponse,
+    ScheduleCreate,
+    ScheduleUpdate,
+    ScheduleResponse,
 )
 from services import test_lifecycle_service as tls
 from services.log_service import create_operation_log
@@ -2119,3 +2122,77 @@ async def batch_delete_pipeline_records(
 ):
     count = await tls.batch_delete_pipeline_records(db, ids)
     return ResponseModel(message=f"已删除 {count} 条流程记录")
+
+
+# ============ 执行调度 ============
+
+
+@router.get("/schedules", response_model=ResponseModel)
+async def list_schedules(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """查询全部执行调度"""
+    schedules = await tls.list_schedules(db)
+    return ResponseModel(message="查询成功", data=[
+        ScheduleResponse.model_validate(s).model_dump() for s in schedules
+    ])
+
+
+@router.post("/schedules", response_model=ResponseModel)
+async def create_schedule(
+    body: ScheduleCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """新建执行调度"""
+    schedule = await tls.create_schedule(db, body.model_dump(), user.id)
+    await create_operation_log(
+        db,
+        module="test-lifecycle",
+        action="create_schedule",
+        user_id=user.id,
+        username=user.username,
+        target_id=str(schedule.id),
+        target_type="schedule",
+    )
+    return ResponseModel(message="调度创建成功", data=ScheduleResponse.model_validate(schedule).model_dump())
+
+
+@router.put("/schedules/{schedule_id}", response_model=ResponseModel)
+async def update_schedule(
+    schedule_id: int,
+    body: ScheduleUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """更新执行调度"""
+    schedule = await tls.update_schedule(db, schedule_id, body.model_dump(exclude_unset=True))
+    return ResponseModel(message="调度已更新", data=ScheduleResponse.model_validate(schedule).model_dump())
+
+
+@router.post("/schedules/{schedule_id}/toggle", response_model=ResponseModel)
+async def toggle_schedule(
+    schedule_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """启停调度"""
+    status = body.get("status", "running")
+    schedule = await tls.toggle_schedule(db, schedule_id, status)
+    return ResponseModel(
+        message="调度已启用" if status == "running" else "调度已暂停",
+        data=ScheduleResponse.model_validate(schedule).model_dump(),
+    )
+
+
+@router.delete("/schedules/{schedule_id}", response_model=ResponseModel)
+async def delete_schedule(
+    schedule_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
+):
+    """删除执行调度"""
+    await tls.delete_schedule(db, schedule_id)
+    return ResponseModel(message="调度已删除")

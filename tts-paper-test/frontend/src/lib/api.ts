@@ -364,7 +364,8 @@ export const lifecycleApi = {
   updateDefect: (id: number, data: any) => api.put(`/test-lifecycle/defects/${id}`, data),
   deleteDefect: (id: number) => api.delete(`/test-lifecycle/defects/${id}`),
   batchDeleteDefects: (ids: number[]) => api.post("/test-lifecycle/defects/batch-delete", ids),
-  aiAnalyzeDefect: (id: number) => api.post(`/test-lifecycle/defects/${id}/ai-analyze`),
+  aiAnalyzeDefect: (id: number) =>
+    api.post(`/test-lifecycle/defects/${id}/ai-analyze`, null, { timeout: 180000 }),
   getDefectStatistics: () => api.get("/test-lifecycle/defects/statistics"),
 
   // 仪表盘
@@ -379,7 +380,7 @@ export const lifecycleApi = {
   deleteReport: (id: number) => api.delete(`/test-lifecycle/reports/${id}`),
   batchDeleteReports: (ids: number[]) => api.post("/test-lifecycle/reports/batch-delete", ids),
   generateAiReport: (data: { report_type?: string; name?: string }) =>
-    api.post("/test-lifecycle/reports/generate", data),
+    api.post("/test-lifecycle/reports/generate", data, { timeout: 180000 }),
   getQualityMetrics: () => api.get("/test-lifecycle/quality/metrics"),
   getQualityTrends: () => api.get("/test-lifecycle/quality/trends"),
 
@@ -429,6 +430,13 @@ export const lifecycleApi = {
     api.delete(`/test-lifecycle/pipeline-records/${id}`),
   batchDeletePipelineRecords: (ids: number[]) =>
     api.post("/test-lifecycle/pipeline-records/batch-delete", ids),
+
+  // === 执行调度 ===
+  listSchedules: () => api.get("/test-lifecycle/schedules"),
+  createSchedule: (data: any) => api.post("/test-lifecycle/schedules", data),
+  updateSchedule: (id: number, data: any) => api.put(`/test-lifecycle/schedules/${id}`, data),
+  toggleSchedule: (id: number, status: string) => api.post(`/test-lifecycle/schedules/${id}/toggle`, { status }),
+  deleteSchedule: (id: number) => api.delete(`/test-lifecycle/schedules/${id}`),
 
   // === 引擎管理 ===
   getEngineList: () => api.get("/engines"),

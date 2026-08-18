@@ -22,9 +22,10 @@ export default function CapabilityMatrix({ rows, scope }: Props) {
         )}
       </div>
       <div className="overflow-x-auto">
+        <div className="max-h-[calc(100vh-320px)] min-h-[240px] overflow-y-auto">
         <table className="w-full text-left">
-          <thead>
-            <tr className="bg-cream/40 border-b border-border">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-cream border-b border-border">
               <th className="px-4 py-2.5 text-[11px] font-medium text-ink-light whitespace-nowrap w-28">维度</th>
               <th className="px-4 py-2.5 text-[11px] font-medium text-ink-light whitespace-nowrap w-[38%]">竞品 TestHub</th>
               <th className="px-4 py-2.5 text-[11px] font-medium text-ink-light whitespace-nowrap w-[38%]">TSS 本地</th>
@@ -35,7 +36,7 @@ export default function CapabilityMatrix({ rows, scope }: Props) {
             {rows.map((row) => {
               const meta = GAP_META[row.gap]
               return (
-                <tr key={row.id} className="border-b border-border/60 last:border-b-0 hover:bg-cream/30 transition-colors align-top">
+                <tr key={row.id} className="border-b border-border/60 last:border-b-0 hover:bg-cream/30 transition-colors align-top bg-white">
                   <td className="px-4 py-3">
                     <p className="text-xs font-medium text-ink">{row.dimension}</p>
                     <p className="text-[10px] text-muted mt-0.5">{MODULE_META[row.module].label}</p>
@@ -60,6 +61,7 @@ export default function CapabilityMatrix({ rows, scope }: Props) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

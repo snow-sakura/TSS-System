@@ -507,3 +507,35 @@ class ReportResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============ 执行调度 ============
+class ScheduleCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    cron_expr: str = Field(..., max_length=100)
+    description: Optional[str] = None
+    status: str = "running"
+
+
+class ScheduleUpdate(BaseModel):
+    name: Optional[str] = None
+    cron_expr: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ScheduleResponse(BaseModel):
+    id: int
+    name: str
+    cron_expr: str
+    description: Optional[str] = None
+    status: str
+    schedule_type: Optional[str] = None
+    execution_count: Optional[int] = 0
+    last_run_at: Optional[str] = None
+    next_run_at: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

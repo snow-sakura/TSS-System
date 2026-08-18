@@ -16,6 +16,7 @@ from models.test_lifecycle import (
     Defect,
     TestReport,
     Review,
+    Schedule,
 )
 from core.logging_config import get_logger
 
@@ -624,3 +625,49 @@ async def batch_delete_pipeline_records(db: AsyncSession, ids: list[int]):
     await db.commit()
     logger.info(f"批量删除流程记录: {ids}")
     return result.rowcount
+
+
+# ============ 执行调度 CRUD ============
+
+
+async def list_schedules(db: AsyncSession):
+    """查询全部调度，运行中优先"""
+    query = select(Schedule).order_by(
+        Schedule.status.asc(), Schedule.created_at.desc()
+    )
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
+async def get_schedule(db: AsyncSession, schedule_id: int):
+    return await _get_by_id(db, Schedule, schedule_id)
+
+
+async def create_schedule(db: AsyncSession, data: dict, user_id: int = None):
+    schedule = Schedule(**data, created_by=user_id)
+    db.add(schedule)
+    await db.commit()
+    await db.refresh(schedule)
+    return schedule
+
+
+async def update_schedule(db: AsyncSession, schedule_id: int, data: dict):
+    schedule = await get_schedule(db, schedule_id)
+    for k, v in data.items():
+        if v is not None:
+            setattr(schedule, k, v)
+    await db.commit()
+    await db.refresh(schedule)
+    return schedule
+
+
+async def delete_schedule(db: AsyncSession, schedule_id: int):
+    await _delete_by_id(db, Schedule, schedule_id)
+
+
+async def toggle_schedule(db: AsyncSession, schedule_id: int, status: str):
+    schedule = await get_schedule(db, schedule_id)
+    schedule.status = status
+    await db.commit()
+    await db.refresh(schedule)
+    return schedule
