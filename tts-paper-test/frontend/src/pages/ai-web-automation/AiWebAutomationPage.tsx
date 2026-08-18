@@ -5,7 +5,7 @@
  */
 import { useState, useCallback, useRef, memo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Globe, FileText, ClipboardList, Target, Play, BarChart3, CheckCircle, Cpu, Bot } from "lucide-react"
+import { ArrowLeft, Globe, FileText, ClipboardList, Target, Play, BarChart3, CheckCircle } from "lucide-react"
 import { toast } from "sonner"
 import Sidebar, { type SidebarItem } from "../requirement-testing/components/Sidebar"
 import FlowChart from "./components/FlowChart"
@@ -16,18 +16,19 @@ import ExecutionView from "./components/ExecutionView"
 import ObjectRepository from "./components/ObjectRepository"
 import EngineSelector from "./components/EngineSelector"
 import AiAgentPanel from "./components/AiAgentPanel"
-import CompetitorAnalysisPage from "../competitor-analysis/CompetitorAnalysisPage"
 import { webApi } from "@/lib/api"
 
+// 精简后 5 个 Tab（对标分析已移除；AI智能体并入「AI探索」页内区块）
 const MENU_ITEMS: SidebarItem[] = [
   { key: "wa-projects", label: "项目管理", icon: "requirements" },
-  { key: "wa-agent", label: "AI智能体", icon: "reviews" },
   { key: "wa-explore", label: "AI探索", icon: "reviews" },
   { key: "wa-cases", label: "测试用例", icon: "cases" },
   { key: "wa-objects", label: "对象库", icon: "records" },
   { key: "wa-execution", label: "测试执行", icon: "pipeline" },
-  { key: "wa-analysis", label: "对标分析", icon: "analysis" },
 ]
+
+/** 流程图 / 引擎选择器仅在这些 Tab 显示 */
+const FLOW_TABS = ["wa-explore", "wa-cases", "wa-execution"]
 
 /** 步骤 → Tab 菜单映射 */
 const STEP_TO_MENU: Record<string, string> = {
@@ -106,7 +107,7 @@ async function readSSEStream(
 
 function AiWebAutomationPage() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const activeMenu = searchParams.get("menu") || "wa-projects"
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [flowStatus, setFlowStatus] = useState<Record<string, StepStatus>>({
@@ -115,17 +116,6 @@ function AiWebAutomationPage() {
   })
   const [isPipelineRunning, setIsPipelineRunning] = useState(false)
   const pipelineAbortRef = useRef(false)
-
-  /** 切换菜单（Tab） */
-  const switchMenu = useCallback((menu: string) => {
-    setSearchParams({ menu }, { replace: true })
-  }, [setSearchParams])
-
-  /** 步骤点击 → 跳转到对应 Tab */
-  const handleStepClick = useCallback((stepKey: string) => {
-    const menu = STEP_TO_MENU[stepKey]
-    if (menu) switchMenu(menu)
-  }, [switchMenu])
 
   /** 步骤点击 → 跳转到对应 Tab */
   const handleStepClickWithNav = useCallback((stepKey: string) => {
@@ -140,20 +130,6 @@ function AiWebAutomationPage() {
 
   /** 延迟工具 */
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
-  /** 等待步骤完成 (轮询式) — 子组件通过 onStatusChange 汇报 */
-  const waitForStep = async (key: string, timeoutMs = 120000): Promise<boolean> => {
-    const start = Date.now()
-    while (Date.now() - start < timeoutMs) {
-      if (pipelineAbortRef.current) return false
-      // 检查当前状态
-      const current = flowStatus[key]
-      if (current === "completed") return true
-      if (current === "failed") return false
-      await sleep(500)
-    }
-    return false
-  }
 
   /**
    * 一键全流程流水线 — 接入真实后端
@@ -296,18 +272,22 @@ function AiWebAutomationPage() {
     switch (activeMenu) {
       case "wa-projects":
         return <ProjectList />
-      case "wa-agent":
-        return <AiAgentPanel />
       case "wa-explore":
-        return <AiExploration onStatusChange={handleStatusChange} />
+        // AI智能体并入 AI探索：探索任务 + 智能体对话两个区块
+        return (
+          <div className="space-y-6">
+            <AiExploration onStatusChange={handleStatusChange} />
+            <div className="border-t border-border pt-6">
+              <AiAgentPanel />
+            </div>
+          </div>
+        )
       case "wa-cases":
         return <TestCaseManager />
       case "wa-objects":
         return <ObjectRepository />
       case "wa-execution":
         return <ExecutionView />
-      case "wa-analysis":
-        return <CompetitorAnalysisPage scope={["web"]} embedded />
       default:
         return <ProjectList />
     }
@@ -343,16 +323,19 @@ function AiWebAutomationPage() {
 
         <main className="flex-1 overflow-y-auto p-4 bg-cream/30">
           <div className="max-w-[1400px] mx-auto space-y-4">
-            {/* 引擎选择器（可折叠） */}
-            <EngineSelector />
+            {/* 流程图 + 引擎选择器按需显示：仅探索/用例/执行 Tab */}
+            {FLOW_TABS.includes(activeMenu) && (
+              <>
+                <EngineSelector />
 
-            {/* 流程图 + 一键运行 */}
-            <FlowChart
-              steps={stepsWithStatus}
-              onStepClick={handleStepClickWithNav}
-              onStartPipeline={handleStartPipeline}
-              isPipelineRunning={isPipelineRunning}
-            />
+                <FlowChart
+                  steps={stepsWithStatus}
+                  onStepClick={handleStepClickWithNav}
+                  onStartPipeline={handleStartPipeline}
+                  isPipelineRunning={isPipelineRunning}
+                />
+              </>
+            )}
 
             {/* 内容区 */}
             {renderContent()}

@@ -46,6 +46,7 @@ const ReportsPage = lazy(() => import("@/pages/test-management/reports/ReportsPa
 const AIReportPage = lazy(() => import("@/pages/test-management/ai-report/AIReportPage"))
 const QualityPage = lazy(() => import("@/pages/test-management/quality/QualityPage"))
 const AIPipeline = lazy(() => import("@/pages/requirement-testing/pages/AIPipeline"))
+const PipelinePage = lazy(() => import("@/pages/test-management/pipeline/PipelinePage"))
 const PipelineRecordsPage = lazy(() => import("@/pages/test-management/pipeline/PipelineRecordsPage"))
 const StepPromptConfigPage = lazy(() => import("@/pages/test-management/StepPromptConfigPage"))
 const TestUserManagementPage = lazy(() => import("@/pages/test-management/UserManagementPage"))
@@ -114,8 +115,8 @@ export default function App() {
               <Route path="quality" element={<QualityPage />} />
               {/* 平台对标分析 */}
               <Route path="comparison" element={<CompetitorAnalysisPage />} />
-              {/* AI全流程 */}
-              <Route path="pipeline" element={<AIPipeline />} />
+              {/* AI全流程（新版页内3Tab：流程/生成记录/步骤提示词） */}
+              <Route path="pipeline" element={<PipelinePage />} />
               <Route path="records" element={<PipelineRecordsPage />} />
               {/* 基础配置 */}
               <Route path="project-management" element={<ProjectManagementPage />} />

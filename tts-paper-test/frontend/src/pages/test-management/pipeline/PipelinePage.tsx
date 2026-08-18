@@ -5,7 +5,7 @@ import {
   Play, Sparkles, Clock, FileText, ClipboardList, Target, FlaskConical, 
   CheckCircle, Loader2, ChevronDown, ChevronUp, Upload, X, FileIcon,
   AlertCircle, RotateCcw, ArrowRight, CheckSquare, Code, Eye, Square,
-  FolderKanban, Plus
+  FolderKanban, Plus, History, Zap
 } from "lucide-react"
 import { usePipelineStore } from "@/stores/pipelineStore"
 import type { UploadedFile, PipelineLog, PipelineRecord } from "@/stores/pipelineStore"
@@ -20,6 +20,8 @@ import {
   loadStepConfigs, getDefaultConfig, renderLogTemplate,
   type StepPromptConfig, type StepKey
 } from "@/lib/stepPromptConfig"
+import PipelineRecordsPage from "./PipelineRecordsPage"
+import StepPromptConfigPage from "../StepPromptConfigPage"
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText, ClipboardList, Target, FlaskConical, CheckCircle,
@@ -78,6 +80,24 @@ export default function PipelinePage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isContinuing, setIsContinuing] = useState(false)
+
+  // 页内 Tab：AI全流程 / 生成记录 / 步骤提示词（兼容 URL ?tab= 参数）
+  const [activeTab, setActiveTab] = useState<"flow" | "records" | "config">("flow")
+
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab === "records" || tab === "config") setActiveTab(tab)
+    else setActiveTab("flow")
+  }, [searchParams])
+
+  const switchTab = useCallback((tab: "flow" | "records" | "config") => {
+    setActiveTab(tab)
+    const params = new URLSearchParams(searchParams)
+    if (tab === "flow") params.delete("tab")
+    else params.set("tab", tab)
+    const qs = params.toString()
+    navigate(`/test-management/pipeline${qs ? `?${qs}` : ""}`, { replace: true })
+  }, [navigate, searchParams])
 
   const [projectId, setProjectId] = useState<number | null>(null)
   const [versionId, setVersionId] = useState<number | null>(null)
@@ -791,6 +811,34 @@ export default function PipelinePage() {
 
   return (
     <div className="p-4 md:p-6">
+      {/* 页内 Tab 导航：AI全流程 / 生成记录 / 步骤提示词 */}
+      <div className="flex items-center gap-1 mb-4 border-b border-border">
+        {([
+          { key: "flow" as const, label: "AI全流程", icon: Sparkles },
+          { key: "records" as const, label: "生成记录", icon: History },
+          { key: "config" as const, label: "步骤提示词", icon: Zap },
+        ]).map((tab) => {
+          const Icon = tab.icon
+          const isActive = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => switchTab(tab.key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                isActive
+                  ? "text-amber border-amber"
+                  : "text-muted border-transparent hover:text-ink"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* AI全流程主体（保持挂载，Tab 切换不丢执行状态） */}
+      <div className={activeTab === "flow" ? "" : "hidden"}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold text-ink">AI全流程</h2>
@@ -801,7 +849,7 @@ export default function PipelinePage() {
         <div className="flex items-center gap-2">
           {currentRecord && (
             <button
-              onClick={() => navigate("/test-management/records")}
+              onClick={() => switchTab("records")}
               className="text-xs text-ink-light hover:text-ink px-3 py-1.5 rounded-lg border border-border hover:border-amber/40 transition-colors"
             >
               查看生成记录
@@ -1364,7 +1412,7 @@ export default function PipelinePage() {
                 {/* 查看生成记录 */}
                 {completedCount === steps.length && (
                   <button
-                    onClick={() => navigate("/test-management/records")}
+                    onClick={() => switchTab("records")}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-medium hover:shadow-md transition-all"
                   >
                     <Eye className="w-3 h-3" />
@@ -1491,6 +1539,13 @@ export default function PipelinePage() {
           </div>
         </div>
       )}
+      </div>
+      {/* 关闭 AI全流程主体隐藏层 */}
+
+      {/* 生成记录 Tab */}
+      {activeTab === "records" && <PipelineRecordsPage />}
+      {/* 步骤提示词 Tab */}
+      {activeTab === "config" && <StepPromptConfigPage />}
     </div>
   )
 }

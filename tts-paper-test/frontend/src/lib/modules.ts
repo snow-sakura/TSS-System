@@ -163,6 +163,27 @@ export const moduleTabs: ModuleTab[] = [
     label: "基础配置",
     modules: [
       {
+        key: "test-mgmt-config",
+        title: "测试管理配置",
+        desc: "项目 / 版本 / 用户 / 角色管理",
+        icon: "Settings",
+        gradient: "from-slate-600 to-gray-700",
+        menus: [
+          { label: "项目管理", key: "tmc-projects", icon: "FolderKanban", children: [
+            { label: "项目列表", key: "tmc-project-list" },
+          ]},
+          { label: "版本管理", key: "tmc-versions", icon: "Tags", children: [
+            { label: "版本列表", key: "tmc-version-list" },
+          ]},
+          { label: "用户管理", key: "tmc-users", icon: "Users", children: [
+            { label: "用户列表", key: "tmc-user-list" },
+          ]},
+          { label: "角色管理", key: "tmc-roles", icon: "Shield", children: [
+            { label: "角色列表", key: "tmc-role-list" },
+          ]},
+        ],
+      },
+      {
         key: "environments",
         title: "环境配置",
         desc: "多环境管理与健康检测",

@@ -2,7 +2,7 @@
  * 项目管理 - Web自动化项目CRUD
  */
 import { useState, useEffect, useCallback } from "react"
-import { Search, Plus, Edit, Trash2, Eye, X, Globe, RefreshCw, Play, Clock, CheckCircle, ExternalLink } from "lucide-react"
+import { Search, Plus, Edit, Trash2, Eye, X, Globe, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { webApi } from "@/lib/api"
 import { useConfirmStore } from "@/stores/confirmStore"
@@ -19,20 +19,14 @@ interface Project {
   updated_at: string
 }
 
-const initialProjects: Project[] = [
-  { id: 1, name: "电商网站测试", target_url: "https://demo.testsite.com", description: "测试电商平台核心功能", status: "已完成", page_count: 5, test_case_count: 12, created_at: "2026-07-15 10:00", updated_at: "2026-07-18 16:30" },
-  { id: 2, name: "企业官网验证", target_url: "https://example.com", description: "验证企业官网页面加载和导航", status: "空闲", page_count: 3, test_case_count: 6, created_at: "2026-07-18 09:00", updated_at: "2026-07-18 09:30" },
-  { id: 3, name: "博客系统测试", target_url: "https://blog.example.com", description: "测试博客系统的文章发布和评论功能", status: "探索中", page_count: 0, test_case_count: 0, created_at: "2026-07-20 08:00", updated_at: "2026-07-20 08:00" },
-]
-
 export default function ProjectList() {
-  const [projects, setProjects] = useState(initialProjects)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [apiError, setApiError] = useState(false)
   const [search, setSearch] = useState("")
   const [localSearch, setLocalSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [showDialog, setShowDialog] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
-  const [editingProject, setEditingProject] = useState<any>(null)
   const [form, setForm] = useState({ name: "", target_url: "", description: "" })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -50,9 +44,17 @@ export default function ProjectList() {
           status: p.status, page_count: p.page_count || 0, test_case_count: p.test_case_count || 0,
           created_at: p.created_at, updated_at: p.updated_at,
         })))
+        setApiError(false)
+      } else {
+        setProjects([])
+        setApiError(true)
+        toast.error("获取项目数据失败，请稍后重试")
       }
     } catch {
-      toast.error("无法连接服务器，显示本地预览数据")
+      // API 失败：明确提示，不显示假数据
+      setProjects([])
+      setApiError(true)
+      toast.error("无法连接服务器，请检查服务端连接")
     } finally { setLoading(false) }
   }, [currentPage])
 
@@ -116,8 +118,8 @@ export default function ProjectList() {
     fetchProjects()
   }
 
-  const openCreate = () => { setDialogMode("create"); setEditingProject(null); setForm({ name: "", target_url: "", description: "" }); setFormErrors({}); setShowDialog(true) }
-  const openEdit = (p: any) => { setDialogMode("edit"); setEditingProject(p); setForm({ name: p.name, target_url: p.target_url, description: p.description }); setFormErrors({}); setShowDialog(true) }
+  const openCreate = () => { setDialogMode("create"); setForm({ name: "", target_url: "", description: "" }); setFormErrors({}); setShowDialog(true) }
+  const openEdit = (p: any) => { setDialogMode("edit"); setForm({ name: p.name, target_url: p.target_url, description: p.description }); setFormErrors({}); setShowDialog(true) }
 
   const statusColor = (s: string) => {
     if (s === "已完成") return "bg-pass/10 text-pass border border-pass/20"
@@ -128,6 +130,16 @@ export default function ProjectList() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="mb-3"><h2 className="text-base font-semibold text-ink flex items-center gap-2">项目管理 <span className="text-xs font-normal text-muted">({filtered.length}个)</span></h2><p className="text-xs text-muted mt-0.5">Web自动化测试项目，支持AI探索与自动执行</p></div>
+      {/* API 失败提示 */}
+      {apiError && (
+        <div className="flex items-center justify-between gap-3 mb-3 px-4 py-3 bg-fail/5 border border-fail/20 rounded-xl">
+          <div className="flex items-center gap-2 text-sm text-fail">
+            <span className="w-2 h-2 rounded-full bg-fail animate-pulse" />
+            服务连接失败，当前无法加载项目数据（已停止显示本地预览数据）
+          </div>
+          <button onClick={fetchProjects} className="h-7 px-3 text-xs bg-fail text-white hover:bg-fail/80 rounded-lg flex items-center gap-1"><RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} /> 重试</button>
+        </div>
+      )}
       {/* 统计 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {[
@@ -184,7 +196,13 @@ export default function ProjectList() {
           </div>
         ))}
       </div>
-      {paged.length === 0 && <div className="text-center py-12 text-muted"><Globe className="w-10 h-10 mx-auto mb-2 text-muted-light" /><p className="text-sm font-medium">暂无项目</p><p className="text-xs mt-1">点击「新建项目」开始AI自动化测试</p></div>}
+      {paged.length === 0 && !apiError && (
+        <div className="text-center py-12 text-muted">
+          <Globe className="w-10 h-10 mx-auto mb-2 text-muted-light" />
+          <p className="text-sm font-medium">{loading ? "加载中..." : "暂无项目"}</p>
+          {!loading && <p className="text-xs mt-1">点击「新建项目」开始AI自动化测试</p>}
+        </div>
+      )}
       {/* 分页 */}
       {totalPages > 1 && (
         <div className="flex items-center justify-end gap-1 mt-4">

@@ -2,15 +2,14 @@
  * 测试管理布局组件
  * 
  * 提供左侧边栏导航 + 右侧内容区的经典布局
- * 侧边栏按分组组织菜单：需求测试 / 执行管理 / 缺陷管理 / 分析报告 / 基础配置
+ * 侧边栏按分组组织菜单：测试流程 / 缺陷管理 / 分析报告（基础配置类入口已移至首页）
  */
 import { useState, useEffect, useCallback } from "react"
 import { Outlet, useNavigate, useLocation } from "react-router-dom"
 import {
   Home, FileText, ClipboardList, Target, FlaskConical, CheckCircle,
   Play, Bug, BarChart3, Sparkles, ChevronDown, ChevronRight,
-  ArrowLeft, Search, Bell, Settings, Users, History, Zap,
-  FolderKanban, Tags, GitCompare,
+  ArrowLeft, Search, Bell, GitCompare, Settings, FolderKanban, Tags, Users,
 } from "lucide-react"
 
 // ── 菜单配置 ──────────────────────────────────────────────
@@ -32,8 +31,8 @@ interface MenuGroup {
 
 const menuGroups: MenuGroup[] = [
   {
-    key: "requirement",
-    label: "需求测试",
+    key: "flow",
+    label: "测试流程",
     icon: FileText,
     gradient: "from-blue-500 to-indigo-600",
     children: [
@@ -43,21 +42,6 @@ const menuGroups: MenuGroup[] = [
       { key: "cases", label: "测试用例", path: "cases", icon: FlaskConical },
       { key: "reviews", label: "用例评审", path: "reviews", icon: CheckCircle },
       { key: "pipeline", label: "AI全流程", path: "pipeline", icon: Sparkles },
-      { key: "records", label: "生成记录", path: "records", icon: History },
-      { key: "step-config", label: "步骤提示词", path: "step-config", icon: Zap },
-      { key: "project-management", label: "项目管理", path: "project-management", icon: FolderKanban },
-      { key: "version-management", label: "版本管理", path: "version-management", icon: Tags },
-      { key: "user-management", label: "用户管理", path: "user-management", icon: Users },
-      { key: "role-management", label: "角色管理", path: "role-management", icon: Settings },
-    ],
-  },
-  {
-    key: "execution",
-    label: "执行管理",
-    icon: Play,
-    gradient: "from-sky-500 to-blue-600",
-    children: [
-      { key: "schedules", label: "调度配置", path: "schedules", icon: Settings },
       { key: "executions", label: "执行列表", path: "executions", icon: Play },
     ],
   },
@@ -68,7 +52,6 @@ const menuGroups: MenuGroup[] = [
     gradient: "from-rose-500 to-red-600",
     children: [
       { key: "defects", label: "缺陷列表", path: "defects", icon: Bug },
-      { key: "kanban", label: "看板视图", path: "kanban", icon: Bug },
       { key: "root-cause", label: "AI根因分析", path: "root-cause", icon: Sparkles },
       { key: "trend", label: "趋势分析", path: "trend", icon: BarChart3 },
     ],
@@ -87,11 +70,19 @@ const menuGroups: MenuGroup[] = [
   },
 ]
 
+// 基础配置页内 Tab（入口在首页「基础配置」，侧边栏不展示）
+const configTabs = [
+  { key: "project-management", label: "项目管理", path: "project-management", icon: FolderKanban },
+  { key: "version-management", label: "版本管理", path: "version-management", icon: Tags },
+  { key: "user-management", label: "用户管理", path: "user-management", icon: Users },
+  { key: "role-management", label: "角色管理", path: "role-management", icon: Settings },
+]
+
 // ── 主组件 ──────────────────────────────────────────────
 export default function TestManagementLayout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["requirement"]))
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["flow"]))
   const [activeKey, setActiveKey] = useState<string>("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -304,6 +295,31 @@ export default function TestManagementLayout() {
 
         {/* 主内容区：可滚动容器，列表数据超过一屏时可下拉查看全部（含分页栏） */}
         <main className="flex-1 overflow-y-auto bg-cream/30 min-h-0">
+          {/* 基础配置页内 Tab：从首页「基础配置」进入后，可在项目/版本/用户/角色间切换 */}
+          {configTabs.some(tab => location.pathname.includes(`/test-management/${tab.path}`)) && (
+            <div className="px-4 md:px-6 pt-4 pb-0">
+              <div className="bg-white rounded-xl border border-border shadow-card px-2 py-1.5 flex items-center gap-1 overflow-x-auto">
+                {configTabs.map(tab => {
+                  const TabIcon = tab.icon
+                  const isActive = location.pathname.includes(`/test-management/${tab.path}`)
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => { navigate(`/test-management/${tab.path}`); setSidebarOpen(false) }}
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                        isActive
+                          ? "bg-amber text-white shadow-sm"
+                          : "text-muted hover:text-ink hover:bg-cream"
+                      }`}
+                    >
+                      <TabIcon className="w-3.5 h-3.5" />
+                      {tab.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

@@ -6,7 +6,8 @@ import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
 import { lifecycleApi, projectApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
-import { Play, Bug } from "lucide-react"
+import { Play, Bug, Clock } from "lucide-react"
+import SchedulesPage from "../schedules/SchedulesPage"
 
 interface Execution {
   id: number
@@ -38,6 +39,8 @@ const statusOptions = [
 export default function ExecutionsPage() {
   const toast = useToast()
   const navigate = useNavigate()
+  // 页内 Tab：执行记录 / 调度配置
+  const [activeTab, setActiveTab] = useState<"executions" | "schedules">("executions")
   const [data, setData] = useState<Execution[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -319,6 +322,33 @@ export default function ExecutionsPage() {
 
   return (
     <div>
+      {/* 页内 Tab：执行记录 / 调度配置 */}
+      <div className="flex items-center gap-1 mb-4 border-b border-border">
+        {([
+          { key: "executions" as const, label: "执行记录", icon: Play },
+          { key: "schedules" as const, label: "调度配置", icon: Clock },
+        ]).map((tab) => {
+          const Icon = tab.icon
+          const isActive = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                isActive
+                  ? "text-amber border-amber"
+                  : "text-muted border-transparent hover:text-ink"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 执行记录（保持挂载，切换不丢筛选状态） */}
+      <div className={activeTab === "executions" ? "" : "hidden"}>
       <CrudTable
         title="执行管理"
         subtitle="管理所有测试执行"
@@ -355,6 +385,10 @@ export default function ExecutionsPage() {
         onSubmit={handleSubmit}
         onViewEdit={handleViewEdit}
       />
+      </div>
+
+      {/* 调度配置 */}
+      {activeTab === "schedules" && <SchedulesPage />}
     </div>
   )
 }

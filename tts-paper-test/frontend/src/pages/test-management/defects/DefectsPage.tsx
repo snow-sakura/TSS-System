@@ -6,6 +6,8 @@ import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
 import { lifecycleApi, projectApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
+import { LayoutList, LayoutGrid } from "lucide-react"
+import KanbanPage from "../kanban/KanbanPage"
 
 interface Defect {
   id: number
@@ -109,6 +111,12 @@ const columns: CrudColumn[] = [
 
 export default function DefectsPage() {
   const toast = useToast()
+  // 视图切换：列表 / 看板（兼容 ?view=kanban 直达）
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list")
+  const [viewSearchParams] = useSearchParams()
+  useEffect(() => {
+    if (viewSearchParams.get("view") === "kanban") setViewMode("kanban")
+  }, [viewSearchParams])
   const [data, setData] = useState<Defect[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -355,6 +363,33 @@ export default function DefectsPage() {
 
   return (
     <div>
+      {/* 视图切换：列表 / 看板 */}
+      <div className="flex items-center gap-1 mb-4">
+        {([
+          { key: "list" as const, label: "列表视图", icon: LayoutList },
+          { key: "kanban" as const, label: "看板视图", icon: LayoutGrid },
+        ]).map((view) => {
+          const Icon = view.icon
+          const isActive = viewMode === view.key
+          return (
+            <button
+              key={view.key}
+              onClick={() => setViewMode(view.key)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                isActive
+                  ? "bg-amber text-white border-amber shadow-sm"
+                  : "bg-white text-muted border-border hover:text-ink hover:border-amber/40"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {view.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 列表视图（保持挂载，切换不丢筛选状态） */}
+      <div className={viewMode === "list" ? "" : "hidden"}>
       <CrudTable
         title="缺陷管理"
         subtitle="管理所有缺陷"
@@ -391,6 +426,10 @@ export default function DefectsPage() {
         onSubmit={handleSubmit}
         onViewEdit={handleViewEdit}
       />
+      </div>
+
+      {/* 看板视图 */}
+      {viewMode === "kanban" && <KanbanPage />}
     </div>
   )
 }
