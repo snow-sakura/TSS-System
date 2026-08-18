@@ -52,12 +52,38 @@ function reportToMarkdown(r: Record<string, any>): string {
 
   if (Object.keys(ai).length > 0) {
     lines.push("## AI 分析")
-    lines.push("| 维度 | 内容 |")
-    lines.push("|------|------|")
-    Object.entries(ai).forEach(([k, v]) => {
-      const val = typeof v === "object" ? JSON.stringify(v) : String(v)
-      lines.push(`| ${k} | ${val.replace(/\n/g, " ")} |`)
+
+    // 字符串文本字段 → markdown 小节（保证 AI 长文按富文本解析展示）
+    const sectionLabels: Record<string, string> = {
+      execution_analysis: "执行分析",
+      defect_analysis: "缺陷分析",
+      quality_summary: "质量总结",
+      risk_analysis: "风险评估",
+      highlight: "亮点",
+    }
+    Object.entries(sectionLabels).forEach(([k, label]) => {
+      const v = ai[k]
+      if (typeof v === "string" && v.trim()) {
+        lines.push(`### ${label}`)
+        lines.push(v.trim())
+      }
     })
+
+    // 数组字段 → markdown 列表（不再 JSON.stringify 塞表格）
+    if (Array.isArray(ai.risk_warnings) && ai.risk_warnings.length) {
+      lines.push("### 风险警告")
+      ai.risk_warnings.forEach((x: unknown) => lines.push(`- ⚠️ ${String(x)}`))
+    }
+    if (Array.isArray(ai.strengths) && ai.strengths.length) {
+      lines.push("### 优势")
+      ai.strengths.forEach((x: unknown) => lines.push(`- ✅ ${String(x)}`))
+    }
+
+    // 对象字段（如 quality_score）→ key-value 列表
+    if (ai.quality_score && typeof ai.quality_score === "object" && !Array.isArray(ai.quality_score)) {
+      lines.push("### 质量评分")
+      Object.entries(ai.quality_score).forEach(([k, v]) => lines.push(`- **${k.replace(/_/g, " ")}**: ${String(v)}`))
+    }
   }
 
   if (r.conclusion) lines.push(`## 结论\n${r.conclusion}`)
@@ -68,8 +94,10 @@ function reportToMarkdown(r: Record<string, any>): string {
     Object.entries(rec).forEach(([k, v]) => {
       const val = Array.isArray(v)
         ? v.map((x: any) => `- ${x}`).join("\n")
-        : typeof v === "object" ? JSON.stringify(v) : String(v)
-      lines.push(`### ${k}\n${val}`)
+        : typeof v === "object"
+          ? Object.entries(v).map(([kk, vv]) => `- **${kk.replace(/_/g, " ")}**: ${String(vv)}`).join("\n")
+          : String(v)
+      lines.push(`### ${k.replace(/_/g, " ")}\n${val}`)
     })
   }
 
@@ -216,7 +244,7 @@ export default function AIReportPage() {
                   </button>
                 </div>
                 <div className="bg-cream rounded-xl p-4 border border-border">
-                  <MarkdownPreview content={generatedReport} />
+                  <MarkdownPreview content={generatedReport} maxHeight={480} />
                 </div>
               </div>
             )}

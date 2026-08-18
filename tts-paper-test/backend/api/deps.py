@@ -1,7 +1,7 @@
 """API依赖注入"""
 
 from typing import Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,14 +18,39 @@ async def get_current_user_dep(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """获取当前认证用户"""
+    return await _resolve_user(credentials, db)
+
+
+async def get_sse_user_dep(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """SSE 兼容认证：EventSource 无法携带 Authorization 头，优先从 query token 解析，回退 Bearer"""
+    token = request.query_params.get("token")
+    if token:
+        resolved = await _decode_user(token, db)
+        if resolved is not None:
+            return resolved
+    return await _resolve_user(credentials, db)
+
+
+async def _resolve_user(
+    credentials: Optional[HTTPAuthorizationCredentials],
+    db: AsyncSession,
+) -> User:
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="未提供认证凭证",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return await _decode_user(credentials.credentials, db)
 
-    payload = decode_token(credentials.credentials)
+
+async def _decode_user(token: str, db: AsyncSession) -> User:
+    """解析 Bearer/query token 为当前用户"""
+    payload = decode_token(token)
     if not payload or payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

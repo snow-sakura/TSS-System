@@ -1745,7 +1745,7 @@ function StepLogs({ step }: { step: any }) {
           {step.logs.length === 0 ? (
             <p className="text-muted text-center py-8">等待执行...</p>
           ) : (
-            <MarkdownPreview content={combinedMarkdown} />
+            <MarkdownPreview content={combinedMarkdown} maxHeight={360} />
           )}
         </div>
       )}

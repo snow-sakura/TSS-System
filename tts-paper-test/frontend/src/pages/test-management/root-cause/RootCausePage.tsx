@@ -197,7 +197,7 @@ export default function RootCausePage() {
                     <Sparkles className="w-4 h-4 text-amber" />
                     <span className="text-sm font-semibold text-amber">AI 分析结果</span>
                   </div>
-                  <MarkdownPreview content={analysisResult} />
+                  <MarkdownPreview content={analysisResult} maxHeight={440} />
                 </div>
               </div>
             )}

@@ -15,9 +15,16 @@ interface MarkdownPreviewProps {
   emptyText?: string
   /** 附加到预览容器的样式类 */
   className?: string
+  /** 内容最大高度（数字=px 或 CSS 值），超出后在容器内滚动，防止页面被 AI 长文拉长 */
+  maxHeight?: number | string
 }
 
-function MarkdownPreview({ content, emptyText = "暂无内容", className }: MarkdownPreviewProps) {
+function MarkdownPreview({ content, emptyText = "暂无内容", className, maxHeight }: MarkdownPreviewProps) {
+  const scrollStyle =
+    maxHeight != null
+      ? { maxHeight: typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight, overflowY: "auto" as const }
+      : undefined
+
   if (!content) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-ink-light">
@@ -28,7 +35,7 @@ function MarkdownPreview({ content, emptyText = "暂无内容", className }: Mar
   }
 
   return (
-    <div className={`preview-content prose prose-sm max-w-none ${className ?? ""}`}>
+    <div className={`preview-content prose prose-sm max-w-none ${className ?? ""}`} style={scrollStyle}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
         components={{

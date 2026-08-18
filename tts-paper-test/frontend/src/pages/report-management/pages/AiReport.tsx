@@ -157,13 +157,15 @@ export default function AiReport() {
                     <span className="text-xs font-semibold text-amber">AI 分析</span>
                   </div>
                   {generatedReport.ai_analysis.execution_analysis && (
-                    <div className="text-[11px] text-ink/70 mb-2">
-                      <span className="font-medium text-ink">执行分析：</span>{generatedReport.ai_analysis.execution_analysis}
+                    <div className="mb-2">
+                      <span className="text-[11px] font-medium text-ink">执行分析</span>
+                      <MarkdownPreview content={generatedReport.ai_analysis.execution_analysis} />
                     </div>
                   )}
                   {generatedReport.ai_analysis.defect_analysis && (
-                    <div className="text-[11px] text-ink/70 mb-2">
-                      <span className="font-medium text-ink">缺陷分析：</span>{generatedReport.ai_analysis.defect_analysis}
+                    <div className="mb-2">
+                      <span className="text-[11px] font-medium text-ink">缺陷分析</span>
+                      <MarkdownPreview content={generatedReport.ai_analysis.defect_analysis} />
                     </div>
                   )}
                 </div>
@@ -183,9 +185,9 @@ export default function AiReport() {
 
               {/* 结论 */}
               {generatedReport.conclusion && (
-                <div className="text-xs text-ink/70 leading-relaxed whitespace-pre-wrap">
+                <div className="text-xs text-ink/70">
                   <span className="font-semibold text-ink">结论：</span>
-                  {generatedReport.conclusion}
+                  <MarkdownPreview content={generatedReport.conclusion} />
                 </div>
               )}
 

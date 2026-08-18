@@ -509,7 +509,7 @@ export default function PipelineRecordsPage() {
                               {isExpanded && (
                                 <div className="border-t border-border p-4 bg-cream/30">
                                   {stageContent ? (
-                                    <MarkdownPreview content={stageContent} />
+                                    <MarkdownPreview content={stageContent} maxHeight={320} />
                                   ) : stage.result ? (
                                     <div className="bg-white border border-border rounded-lg p-3 text-xs text-ink-light font-mono overflow-x-auto">
                                       {typeof stage.result === "object" ? (

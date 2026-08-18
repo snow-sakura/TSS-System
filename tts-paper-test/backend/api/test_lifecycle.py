@@ -23,7 +23,7 @@ from sqlalchemy import select
 
 from database import get_db
 from models.user import User
-from api.deps import get_current_user_dep
+from api.deps import get_current_user_dep, get_sse_user_dep
 from schemas.common import ResponseModel
 from schemas.test_lifecycle import (
     RequirementCreate,
@@ -570,11 +570,12 @@ async def create_manual_requirement(
 
 
 @router.post("/requirements/{requirement_id}/analyze")
+@router.get("/requirements/{requirement_id}/analyze")
 async def analyze_requirement_stream(
     requirement_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user_dep),
+    user: User = Depends(get_sse_user_dep),
 ):
     """
     SSE 流式分析需求
@@ -2134,9 +2135,10 @@ async def list_schedules(
 ):
     """查询全部执行调度"""
     schedules = await tls.list_schedules(db)
-    return ResponseModel(message="查询成功", data=[
-        ScheduleResponse.model_validate(s).model_dump() for s in schedules
-    ])
+    return ResponseModel(
+        message="查询成功",
+        data=[ScheduleResponse.model_validate(s).model_dump() for s in schedules],
+    )
 
 
 @router.post("/schedules", response_model=ResponseModel)
@@ -2156,7 +2158,10 @@ async def create_schedule(
         target_id=str(schedule.id),
         target_type="schedule",
     )
-    return ResponseModel(message="调度创建成功", data=ScheduleResponse.model_validate(schedule).model_dump())
+    return ResponseModel(
+        message="调度创建成功",
+        data=ScheduleResponse.model_validate(schedule).model_dump(),
+    )
 
 
 @router.put("/schedules/{schedule_id}", response_model=ResponseModel)
@@ -2167,8 +2172,13 @@ async def update_schedule(
     user: User = Depends(get_current_user_dep),
 ):
     """更新执行调度"""
-    schedule = await tls.update_schedule(db, schedule_id, body.model_dump(exclude_unset=True))
-    return ResponseModel(message="调度已更新", data=ScheduleResponse.model_validate(schedule).model_dump())
+    schedule = await tls.update_schedule(
+        db, schedule_id, body.model_dump(exclude_unset=True)
+    )
+    return ResponseModel(
+        message="调度已更新",
+        data=ScheduleResponse.model_validate(schedule).model_dump(),
+    )
 
 
 @router.post("/schedules/{schedule_id}/toggle", response_model=ResponseModel)

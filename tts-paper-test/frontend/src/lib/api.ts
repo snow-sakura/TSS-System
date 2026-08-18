@@ -308,8 +308,12 @@ export const lifecycleApi = {
     api.post(`/data/${collection}/batch-delete`, ids),
 
   // SSE流式分析 - 使用原生EventSource/SSE
-  analyzeRequirementSSE: (id: number): EventSource =>
-    new EventSource(`/api/v1/test-lifecycle/requirements/${id}/analyze`),
+  analyzeRequirementSSE: (id: number): EventSource => {
+    const token = localStorage.getItem("access_token")
+    const url = new URL(`/api/v1/test-lifecycle/requirements/${id}/analyze`, window.location.origin)
+    if (token) url.searchParams.set("token", token)
+    return new EventSource(url.toString())
+  },
 
   // 测试方案
   listTestPlans: (params?: Record<string, any>) => api.get("/test-lifecycle/test-plans", { params }),

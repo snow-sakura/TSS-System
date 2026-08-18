@@ -7,6 +7,7 @@ import type { CrudField } from "@/components/crud/CrudDialog"
 import { lifecycleApi, projectApi } from "@/lib/api"
 import { formatDateTime } from "@/lib/utils"
 import { useToast } from "@/hooks/useToast"
+import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 
 interface Requirement {
   id: number
@@ -374,15 +375,43 @@ export default function RequirementsPage() {
         const eventSource = lifecycleApi.analyzeRequirementSSE(req.id)
         aiEventSourceRef.current = eventSource
 
+        // 活动检测：收到内容时重置超时，避免 LLM 长分析被误杀
+        const resetAiTimeout = () => {
+          if (aiTimeoutRef.current) {
+            clearTimeout(aiTimeoutRef.current)
+          }
+          aiTimeoutRef.current = setTimeout(() => {
+            if (isAnalyzingRef.current) {
+              setIsAnalyzing(false)
+              setAiOutput((prev) => prev + "\n\n⏱️ 分析超时")
+              if (aiEventSourceRef.current) {
+                aiEventSourceRef.current.close()
+                aiEventSourceRef.current = null
+              }
+            }
+          }, 120000)
+        }
+
         eventSource.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data)
             if (data.type === "thinking") {
               setAiOutput((prev) => prev + "\n💭 " + data.content)
+              resetAiTimeout()
             } else if (data.type === "output") {
               setAiOutput((prev) => prev + "\n✨ " + data.content)
+              resetAiTimeout()
             } else if (data.type === "suggestion") {
               setAiOutput((prev) => prev + "\n💡 " + data.content)
+              resetAiTimeout()
+            } else if (data.type === "chunk") {
+              // 后端流式 chunk：直接追加 AI 内容
+              setAiOutput((prev) => prev + data.content)
+              resetAiTimeout()
+            } else if (data.type === "error") {
+              setAiOutput((prev) => prev + "\n\n❌ " + data.content)
+              setIsAnalyzing(false)
+              eventSource.close()
             } else if (data.type === "done") {
               setAiOutput((prev) => prev + "\n\n✅ 分析完成！")
               setIsAnalyzing(false)
@@ -416,7 +445,7 @@ export default function RequirementsPage() {
               aiEventSourceRef.current = null
             }
           }
-        }, 30000)
+        }, 120000)
       } catch (e: any) {
         toast.error("AI分析失败: " + e.message)
         setIsAnalyzing(false)
@@ -567,10 +596,16 @@ export default function RequirementsPage() {
               )}
 
               <div className="bg-cream rounded-xl p-4 max-h-96 overflow-y-auto">
-                <pre className="text-sm text-ink-light whitespace-pre-wrap font-mono">
-                  {aiOutput || "等待AI输出..."}
-                  {isAnalyzing && <span className="animate-pulse">▊</span>}
-                </pre>
+                {isAnalyzing ? (
+                  /* 流式输出：打字机纯文本，保证实时性 */
+                  <pre className="text-sm text-ink-light whitespace-pre-wrap font-mono">
+                    {aiOutput || "等待AI输出..."}
+                    <span className="animate-pulse">▊</span>
+                  </pre>
+                ) : (
+                  /* 分析完成：Markdown 完整解析渲染 */
+                  <MarkdownPreview content={aiOutput} emptyText="等待AI输出..." />
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-border">
