@@ -131,13 +131,22 @@ export default function DefectsPage() {
   /** 一键提交缺陷的预填数据（来自用例详情页跳转） */
   const [prefill, setPrefill] = useState<Record<string, any> | null>(null)
 
-  // 支持从用例详情页「提交缺陷」跳转预填（?new=1&case_id=xx&case_title=xx&project_id=xx）
+  // 支持从用例详情页/执行失败记录跳转预填创建（?new=1&case_id=xx&case_title=xx&project_id=xx&version_id=xx&execution_id=xx&execution_name=xx）
   const [searchParams, setSearchParams] = useSearchParams()
   useEffect(() => {
     if (searchParams.get("new") !== "1") return
+    const next: Record<string, any> = {}
+    // 执行失败记录一键提交缺陷：优先关联执行
+    const execId = searchParams.get("execution_id")
+    const execName = searchParams.get("execution_name")
+    if (execId) {
+      next.execution_id = Number(execId)
+      next.title = `[执行] ${execName || `执行#${execId}`}`
+      next.description = `关联执行 #${execId}（${execName || ""}）失败的缺陷`
+    }
+    // 用例详情页一键提交缺陷：关联用例
     const caseId = searchParams.get("case_id")
     const caseTitle = searchParams.get("case_title")
-    const next: Record<string, any> = {}
     if (caseTitle) next.title = `[用例] ${caseTitle}`
     if (caseId) {
       next.test_case_id = Number(caseId)
@@ -197,6 +206,18 @@ export default function DefectsPage() {
     { key: "status", label: "状态", type: "select", options: statusOptions, default: "new" },
     { key: "severity", label: "严重度", type: "select", options: severityOptions, default: "medium" },
     { key: "assignee", label: "责任人", type: "text", placeholder: "请输入责任人姓名" },
+    // 一键提交缺陷：关联执行 ID 隐藏展示（禁用输入）
+    ...(prefill?.execution_id
+      ? ([
+          {
+            key: "execution_id",
+            label: "关联执行ID",
+            type: "text" as const,
+            disabled: true,
+            helpText: "该缺陷由失败执行一键提交，自动关联",
+          },
+        ] as CrudField[])
+      : []),
     // 一键提交缺陷：关联用例 ID 隐藏展示（禁用输入）
     ...(prefill?.test_case_id
       ? ([

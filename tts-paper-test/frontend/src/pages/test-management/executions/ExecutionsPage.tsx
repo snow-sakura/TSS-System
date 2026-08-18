@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useNavigate } from "react-router-dom"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
 import { lifecycleApi, projectApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
-import { Play } from "lucide-react"
+import { Play, Bug } from "lucide-react"
 
 interface Execution {
   id: number
@@ -36,6 +37,7 @@ const statusOptions = [
 
 export default function ExecutionsPage() {
   const toast = useToast()
+  const navigate = useNavigate()
   const [data, setData] = useState<Execution[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -116,6 +118,20 @@ export default function ExecutionsPage() {
     [toast, loadData]
   )
 
+  /** 一键提交缺陷：跳转缺陷页并预填创建表单（PingCode 对齐：失败记录一键提交缺陷） */
+  const handleSubmitDefect = useCallback(
+    (row: Execution) => {
+      const execName = row.name || row.title || `执行#${row.id}`
+      const params = new URLSearchParams({
+        new: "1",
+        execution_id: String(row.id),
+        execution_name: execName,
+      })
+      navigate(`/test-management/defects?${params.toString()}`)
+    },
+    [navigate]
+  )
+
   const columns: CrudColumn[] = useMemo(
     () => [
       {
@@ -160,6 +176,15 @@ export default function ExecutionsPage() {
                 <Play className="w-4 h-4" />
               </button>
             )}
+            {row.status === "failed" && (
+              <button
+                onClick={() => handleSubmitDefect(row)}
+                className="p-1 rounded-lg hover:bg-fail/10 text-fail"
+                title="提交缺陷"
+              >
+                <Bug className="w-4 h-4" />
+              </button>
+            )}
           </div>
         ),
       },
@@ -171,7 +196,7 @@ export default function ExecutionsPage() {
         render: (v: string) => v || <span className="text-muted">—</span>,
       },
     ],
-    [handleStart]
+    [handleStart, handleSubmitDefect]
   )
 
   const filters: CrudFilter[] = useMemo(
