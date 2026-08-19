@@ -279,7 +279,8 @@ export default function CrudTable({
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* 宽屏封顶: max-w 使表格在 1920+ 视口下保持常规宽度, 列宽比例不再膨胀 */}
+          <div className="overflow-x-auto w-full max-w-[1400px] mx-auto">
             <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b border-border bg-cream/50">
