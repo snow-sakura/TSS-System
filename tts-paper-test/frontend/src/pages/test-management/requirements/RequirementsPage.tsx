@@ -28,7 +28,9 @@ interface Requirement {
 
 const statusConfig = {
   draft: { label: "草稿", color: "bg-cream text-muted border border-border" },
+  pending: { label: "待分析", color: "bg-cream text-muted border border-border" },
   active: { label: "进行中", color: "bg-info/10 text-info border border-info/20" },
+  analyzing: { label: "分析中", color: "bg-amber/10 text-amber border border-amber/20" },
   analyzed: { label: "已分析", color: "bg-amber/10 text-amber border border-amber/20" },
   reviewed: { label: "已评审", color: "bg-info/10 text-info border border-info/20" },
   approved: { label: "已批准", color: "bg-pass/10 text-pass border border-pass/20" },
