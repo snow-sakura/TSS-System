@@ -9,15 +9,27 @@ MCP 市场 — 发现、浏览和安装 MCP 服务
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional
 
 from database import get_db
+from models.config import MCPService
 from schemas.common import ResponseModel
 from services.config_service import create_mcp_service
 
 router = APIRouter(prefix="/api/v1/mcp-marketplace", tags=["MCP市场"])
+
+
+async def _get_installed_marketplace_ids(db: AsyncSession) -> set[str]:
+    """查询本地已安装（通过市场安装）的 marketplace_id 集合"""
+    result = await db.execute(select(MCPService.config))
+    ids: set[str] = set()
+    for (cfg,) in result.all():
+        if isinstance(cfg, dict) and cfg.get("marketplace_id"):
+            ids.add(str(cfg["marketplace_id"]))
+    return ids
 
 
 # ── 内置 MCP 服务市场模板 ──
@@ -217,6 +229,7 @@ BUILTIN_MCP_SERVICES = [
 
 class InstallMCPRequest(BaseModel):
     """安装 MCP 服务请求"""
+
     marketplace_id: str
     name: Optional[str] = None
     url: Optional[str] = None
@@ -227,8 +240,9 @@ class InstallMCPRequest(BaseModel):
 async def list_marketplace(
     category: Optional[str] = None,
     search: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
-    """浏览 MCP 服务市场，可按分类和关键词筛选"""
+    """浏览 MCP 服务市场，可按分类和关键词筛选；返回每个服务的本地安装状态 installed"""
     services = BUILTIN_MCP_SERVICES
 
     if category:
@@ -236,24 +250,24 @@ async def list_marketplace(
     if search:
         q = search.lower()
         services = [
-            s for s in services
+            s
+            for s in services
             if q in s["name"].lower()
             or q in s["description"].lower()
             or any(q in t for t in s["tags"])
         ]
 
-    return services
+    installed_ids = await _get_installed_marketplace_ids(db)
+    return [{**s, "installed": s["id"] in installed_ids} for s in services]
 
 
 @router.get("/categories", summary="获取市场分类")
 async def list_categories() -> list[dict]:
     """列出 MCP 服务市场的所有分类"""
     from collections import Counter
+
     cats = Counter(s["category"] for s in BUILTIN_MCP_SERVICES)
-    return [
-        {"name": cat, "count": count}
-        for cat, count in cats.most_common()
-    ]
+    return [{"name": cat, "count": count} for cat, count in cats.most_common()]
 
 
 @router.get("/services/{service_id}", summary="获取服务详情")
@@ -281,6 +295,27 @@ async def install_mcp_service(
     if not template:
         raise HTTPException(status_code=404, detail="市场中未找到该服务")
 
+    # 幂等安装：同市场服务已安装时不重复创建，返回已有记录
+    installed_ids = await _get_installed_marketplace_ids(db)
+    if req.marketplace_id in installed_ids:
+        existing_result = await db.execute(
+            select(MCPService).where(
+                MCPService.config["marketplace_id"].as_string() == req.marketplace_id
+            )
+        )
+        existing = existing_result.scalars().first()
+        return {
+            "ok": True,
+            "already_installed": True,
+            "message": f"「{template['name']}」已安装过，可在 MCP 服务配置中管理",
+            "service": {
+                "id": existing.id if existing else None,
+                "name": existing.name if existing else template["name"],
+                "url": existing.url if existing else "",
+                "status": existing.status if existing else "",
+            },
+        }
+
     # 准备安装数据
     service_name = req.name or template["name"]
     service_url = req.url or template.get("default_url", "")
@@ -288,6 +323,7 @@ async def install_mcp_service(
 
     # 调用 config_service 创建 MCP 服务
     from schemas.config import MCPServiceCreate
+
     create_data = MCPServiceCreate(
         name=service_name,
         url=service_url,
@@ -305,6 +341,7 @@ async def install_mcp_service(
 
     return {
         "ok": True,
+        "already_installed": False,
         "message": f"「{service_name}」安装成功",
         "service": {
             "id": service.id,

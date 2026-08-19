@@ -7,7 +7,7 @@ import { mcpMarketApi } from "@/lib/api"
 import {
   Search, Download, Star, Cpu, Globe, Database,
   FileText, GitBranch, MessageSquare, ExternalLink,
-  CheckCircle, Loader2, ChevronLeft, X, Zap, Tag
+  CheckCircle, Loader2, ChevronLeft, X, Zap, Tag, Check
 } from "lucide-react"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
@@ -46,6 +46,8 @@ interface MCPService {
   tools: { name: string; description: string }[]
   downloads: number
   rating: number
+  /** 本地是否已安装（后端聚合返回） */
+  installed?: boolean
 }
 
 export default function MCPMarketplacePage() {
@@ -95,7 +97,13 @@ export default function MCPMarketplacePage() {
         marketplace_id: svc.id,
         url: svc.default_url,
       })
-      toast.success(res?.message || `「${svc.name}」安装成功`)
+      if (res?.already_installed) {
+        toast.info(res?.message || `「${svc.name}」已安装过`)
+      } else {
+        toast.success(res?.message || `「${svc.name}」安装成功`)
+      }
+      // 刷新安装状态（已安装的服务按钮变为「已安装」）
+      fetchServices()
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || err?.message || "安装失败")
     } finally {
@@ -143,15 +151,22 @@ export default function MCPMarketplacePage() {
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); handleInstall(svc) }}
-            disabled={installing === svc.id}
-            className="px-3 h-7 rounded-lg text-[11px] font-medium bg-white border border-border text-ink-light hover:bg-amber hover:text-white hover:border-amber transition-colors disabled:opacity-50 flex items-center gap-1"
+            disabled={installing === svc.id || svc.installed}
+            title={svc.installed ? "已安装，可在 MCP 服务配置中管理" : "安装到本机"}
+            className={`px-3 h-7 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-60 flex items-center gap-1 ${
+              svc.installed
+                ? "bg-pass/10 text-pass border border-pass/30 cursor-default"
+                : "bg-white border border-border text-ink-light hover:bg-amber hover:text-white hover:border-amber"
+            }`}
           >
             {installing === svc.id ? (
               <Loader2 className="w-3 h-3 animate-spin" />
+            ) : svc.installed ? (
+              <Check className="w-3 h-3" />
             ) : (
               <Download className="w-3 h-3" />
             )}
-            安装
+            {svc.installed ? "已安装" : "安装"}
           </button>
         </div>
       </div>
@@ -306,20 +321,28 @@ export default function MCPMarketplacePage() {
 
             {/* 底部操作 */}
             <div className="px-6 py-4 border-t border-border flex items-center justify-between shrink-0">
-              <p className="text-[11px] text-muted">安装后可在 MCP 服务配置中管理</p>
+              <p className="text-[11px] text-muted">
+                {selectedService.installed ? "已安装，可在 MCP 服务配置中管理" : "安装后可在 MCP 服务配置中管理"}
+              </p>
               <div className="flex gap-2">
                 <button onClick={() => setSelectedService(null)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">取消</button>
                 <button
                   onClick={() => { handleInstall(selectedService); setSelectedService(null) }}
-                  disabled={installing === selectedService.id}
-                  className="h-9 px-5 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md flex items-center gap-1.5 disabled:opacity-50"
+                  disabled={installing === selectedService.id || selectedService.installed}
+                  className={`h-9 px-5 rounded-xl text-sm font-medium shadow-sm flex items-center gap-1.5 disabled:opacity-60 ${
+                    selectedService.installed
+                      ? "bg-pass/10 text-pass border border-pass/30 cursor-default"
+                      : "gradient-amber text-white shadow-sm hover:shadow-md"
+                  }`}
                 >
                   {installing === selectedService.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : selectedService.installed ? (
+                    <Check className="w-4 h-4" />
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  安装到本机
+                  {selectedService.installed ? "已安装到本机" : "安装到本机"}
                 </button>
               </div>
             </div>
