@@ -4,7 +4,7 @@ import { useAuthStore } from "@/stores/authStore"
 import { authApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { FlaskConical, Loader2, Eye, EyeOff, Zap, Bot, Shield, Clock } from "lucide-react"
+import { FlaskConical, Loader2, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("")
@@ -28,59 +28,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* 左侧品牌展示 */}
-      <div className="hidden lg:flex lg:w-[55%] gradient-brand relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-amber/15 rounded-full blur-3xl" />
-          <div className="absolute bottom-32 right-16 w-96 h-96 bg-amber/10 rounded-full blur-3xl" />
-        </div>
-        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-amber flex items-center justify-center shadow-lg">
-              <FlaskConical className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-white font-semibold text-lg tracking-wide">TSS AI测试平台</span>
+    <div className="min-h-screen bg-paper flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-[400px]">
+        {/* 品牌头部 */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-14 h-14 rounded-2xl gradient-amber flex items-center justify-center shadow-lg shadow-amber/25 mb-4">
+            <FlaskConical className="w-7 h-7 text-white" />
           </div>
-          <div className="flex-1 flex flex-col justify-center max-w-lg">
-            <h1 className="text-5xl font-bold text-white leading-tight mb-6" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
-              AI 驱动的<br /><span className="text-amber">智能测试</span><br />新范式
-            </h1>
-            <p className="text-lg text-white/60 leading-relaxed mb-10">
-              一站式搞定：AI 需求分析、用例生成与评审、Web自动化、缺陷管理与质量报告。
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { icon: Bot, title: "AI用例生成", desc: "自动解析需求，生成结构化用例" },
-                { icon: Zap, title: "全栈自动化", desc: "API + Web UI 一体化管理" },
-                { icon: Shield, title: "企业级安全", desc: "JWT双Token、权限控制" },
-                { icon: Clock, title: "实时追踪", desc: "执行进度、缺陷趋势一目了然" },
-              ].map((f) => (
-                <div key={f.title} className="p-4 rounded-xl bg-white/8 border border-white/10 hover:bg-white/12 transition-colors backdrop-blur-sm">
-                  <f.icon className="w-5 h-5 text-amber mb-2" />
-                  <p className="text-sm font-medium text-white">{f.title}</p>
-                  <p className="text-xs text-white/50 mt-0.5">{f.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="text-sm text-white/30">© 2026 TSS AI测试平台 · 基于多智能体的软件测试解决方案</div>
+          <h1 className="text-2xl font-bold text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>TSS AI测试平台</h1>
+          <p className="text-sm text-ink-light mt-1.5">基于多智能体的软件测试解决方案</p>
         </div>
-      </div>
 
-      {/* 右侧登录表单 */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-paper">
-        <div className="w-full max-w-[400px] animate-fade-in-up">
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-xl gradient-amber flex items-center justify-center shadow-lg">
-              <FlaskConical className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-ink font-semibold text-lg">TSS AI测试平台</span>
-          </div>
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>登录 TSS</h2>
-            <p className="text-sm text-ink-light mt-1.5">登录以解锁完整内容</p>
-          </div>
+        {/* 登录卡片 */}
+        <div className="bg-white rounded-2xl border border-border shadow-lg p-8 animate-fade-in-up">
           <div className="flex bg-cream rounded-xl p-1 mb-6">
             {(["password", "sms"] as const).map((mode) => (
               <button key={mode} onClick={() => setLoginMode(mode)}
@@ -119,6 +79,8 @@ export default function LoginPage() {
             <Link to="/register" className="text-sm font-medium text-amber hover:text-amber-hover ml-1">立即注册</Link>
           </div>
         </div>
+
+        <div className="text-center text-sm text-muted mt-8">© 2026 TSS AI测试平台 · 基于多智能体的软件测试解决方案</div>
       </div>
     </div>
   )
