@@ -124,7 +124,7 @@ export default function TestManagementLayout() {
   return (
     <div className="h-screen bg-paper flex flex-col overflow-hidden">
       {/* 顶部导航栏 */}
-      <header className="bg-white border-b border-border px-4 md:px-6 py-3 flex-shrink-0 shadow-sm z-20">
+      <header className="bg-white border-b border-border px-4 md:px-6 py-2 flex-shrink-0 shadow-sm z-20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -137,7 +137,7 @@ export default function TestManagementLayout() {
               </span>
             </button>
             <div className="h-8 w-px bg-border/60" />
-            <div className="w-9 h-9 rounded-xl gradient-amber flex items-center justify-center shadow-md flex-shrink-0">
+            <div className="w-8 h-8 rounded-xl gradient-amber flex items-center justify-center shadow-md flex-shrink-0">
               <FlaskConical className="w-4.5 h-4.5 text-white" />
             </div>
             <div className="min-w-0">
@@ -159,7 +159,7 @@ export default function TestManagementLayout() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               <input
                 placeholder="搜索功能..."
-                className="w-48 h-9 pl-9 pr-3 text-sm bg-cream border border-border rounded-xl input-focus"
+                className="w-48 h-8 pl-9 pr-3 text-sm bg-cream border border-border rounded-xl input-focus"
               />
             </div>
             <button className="relative p-2 rounded-xl hover:bg-cream transition-colors">
@@ -205,7 +205,7 @@ export default function TestManagementLayout() {
         <aside
           className={`
             fixed lg:static inset-y-0 left-0 z-40
-            w-64 bg-white border-r border-border flex flex-col
+            w-52 2xl:w-60 bg-white border-r border-border flex flex-col
             transition-transform duration-300 ease-out
             will-change-transform
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
@@ -213,7 +213,7 @@ export default function TestManagementLayout() {
           `}
         >
           {/* 侧边栏顶部 */}
-          <div className="p-4 border-b border-border">
+          <div className="p-3 border-b border-border">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center">
                 <Home className="w-4 h-4 text-amber" />
@@ -300,7 +300,7 @@ export default function TestManagementLayout() {
         <main className="flex-1 overflow-y-auto bg-cream/30 min-h-0">
           {/* 基础配置页内 Tab：从首页「基础配置」进入后，可在项目/版本/用户/角色间切换 */}
           {configTabs.some(tab => location.pathname.includes(`/test-management/${tab.path}`)) && (
-            <div className="px-4 md:px-6 pt-4 pb-0">
+            <div className="px-4 md:px-6 pt-3 pb-0">
               <div className="bg-white rounded-xl border border-border shadow-card px-2 py-1.5 flex items-center gap-1 overflow-x-auto">
                 {configTabs.map(tab => {
                   const TabIcon = tab.icon

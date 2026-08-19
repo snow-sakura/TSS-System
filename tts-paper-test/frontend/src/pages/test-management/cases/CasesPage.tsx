@@ -82,7 +82,6 @@ export default function CasesPage() {
       title: "所属模块",
       width: "min-w-[110px]",
       align: "center",
-      className: "hidden xl:table-cell",
       render: (v: string) => v || <span className="text-muted">—</span>,
     },
     {
@@ -97,7 +96,7 @@ export default function CasesPage() {
       title: "版本",
       width: "min-w-[110px]",
       align: "center",
-      className: "hidden xl:table-cell",
+      className: "hidden 2xl:table-cell",
       render: (v: string) => v || <span className="text-muted">—</span>,
     },
     {
@@ -119,7 +118,7 @@ export default function CasesPage() {
       title: "用例类型",
       width: "min-w-[100px]",
       align: "center",
-      className: "hidden xl:table-cell",
+      className: "hidden 2xl:table-cell",
       render: (v: string) => {
         if (!v) return <span className="text-muted">—</span>
         // 英文值映射为中文
@@ -135,7 +134,7 @@ export default function CasesPage() {
       title: "标签",
       width: "min-w-[120px]",
       align: "center",
-      className: "hidden xl:table-cell",
+      className: "hidden 2xl:table-cell",
       render: (v: string[] | null | undefined) => {
         if (!Array.isArray(v) || v.length === 0) {
           return <span className="text-muted">—</span>

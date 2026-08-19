@@ -115,10 +115,11 @@ const columns: CrudColumn[] = [
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
-    key: "created_at",
+key: "created_at",
     title: "创建时间",
     width: "min-w-[160px]",
-    className: "hidden xl:table-cell",
+    align: "center",
+    className: "hidden 2xl:table-cell",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
