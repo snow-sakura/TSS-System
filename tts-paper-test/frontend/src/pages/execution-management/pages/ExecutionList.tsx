@@ -322,12 +322,12 @@ export default function ExecutionList() {
               <th className="px-3 py-3 w-10"><input type="checkbox" checked={paged.length > 0 && paged.every((e) => selectedIds.has(String(e.id)))} onChange={() => { if (paged.every((e) => selectedIds.has(String(e.id)))) { const n = new Set(selectedIds); paged.forEach((e) => n.delete(String(e.id))); setSelectedIds(n) } else { const n = new Set(selectedIds); paged.forEach((e) => n.add(String(e.id))); setSelectedIds(n) } }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink w-10">ID</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink">执行名称</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">模块</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">触发方式</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">环境</th>
+              <th className="px-3 py-3 text-center text-xs font-bold text-ink hidden xl:table-cell">模块</th>
+              <th className="px-3 py-3 text-center text-xs font-bold text-ink hidden xl:table-cell">触发方式</th>
+              <th className="px-3 py-3 text-center text-xs font-bold text-ink hidden xl:table-cell">环境</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink">状态</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink">通过/失败</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">持续时间</th>
+              <th className="px-3 py-3 text-center text-xs font-bold text-ink hidden xl:table-cell">持续时间</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink">操作</th>
             </tr></thead>
             <tbody>
@@ -338,12 +338,12 @@ export default function ExecutionList() {
                   <td className="px-3 py-3"><input type="checkbox" checked={selectedIds.has(String(e.id))} onChange={() => { const n = new Set(selectedIds); if (n.has(String(e.id))) n.delete(String(e.id)); else n.add(String(e.id)); setSelectedIds(n) }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></td>
                   <td className="px-3 py-3 text-center text-xs text-muted">{e.id}</td>
                   <td className="px-3 py-3 text-center"><div className="flex items-center justify-center gap-1.5 min-w-0">{statusIcon(e.status)}<span className="text-sm font-medium text-ink truncate max-w-[200px]">{e.name}</span></div></td>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{e.module}</td>
-                  <td className="px-3 py-3 text-center"><span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${e.trigger === "CI/CD" ? "bg-info/10 text-info" : e.trigger === "定时" ? "bg-amber-light text-warn" : e.trigger === "API触发" ? "bg-pass/10 text-pass" : "bg-cream text-muted"}`}>{e.trigger}</span></td>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{e.environment}</td>
+                  <td className="px-3 py-3 text-center text-xs text-muted hidden xl:table-cell">{e.module}</td>
+                  <td className="px-3 py-3 text-center hidden xl:table-cell"><span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${e.trigger === "CI/CD" ? "bg-info/10 text-info" : e.trigger === "定时" ? "bg-amber-light text-warn" : e.trigger === "API触发" ? "bg-pass/10 text-pass" : "bg-cream text-muted"}`}>{e.trigger}</span></td>
+                  <td className="px-3 py-3 text-center text-xs text-muted hidden xl:table-cell">{e.environment}</td>
                   <td className="px-3 py-3 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(e.status)}`}>{statusIcon(e.status)}{e.status}</span></td>
                   <td className="px-3 py-3 text-center"><div className="flex items-center justify-center gap-1.5"><span className="text-xs text-pass">{e.passedCases}✓</span><span className="text-xs text-fail">{e.failedCases}✗</span>{e.skippedCases > 0 && <span className="text-xs text-muted">{e.skippedCases}⊘</span>}</div></td>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{e.duration}</td>
+                  <td className="px-3 py-3 text-center text-xs text-muted hidden xl:table-cell">{e.duration}</td>
                   <td className="px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-0.5">
                       <button onClick={() => setPreviewExec(e)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors" title="预览"><Eye className="w-4 h-4" /></button>
@@ -374,12 +374,12 @@ export default function ExecutionList() {
       {/* 新建/编辑弹窗 */}
       {showDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowDialog(false)}>
-          <div className="bg-white rounded-2xl shadow-elevated w-[480px] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-elevated w-[480px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-sm font-bold text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{dialogMode === "create" ? "新建执行计划" : "编辑执行计划"}</h3>
               <button onClick={() => setShowDialog(false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-cream border border-border/60 text-ink-light hover:text-ink transition-all group"><X className="w-4 h-4 group-hover:text-ink" /><span className="text-xs font-medium hidden sm:block">关闭</span></button>
             </div>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
               <div><label className="block text-xs font-medium text-ink-light mb-1">执行名称 *</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`w-full h-9 px-3 rounded-xl border text-sm text-ink focus:border-amber outline-none ${formErrors.name ? "border-fail" : "border-border"}`} placeholder="如：回归测试-第4轮" />{formErrors.name && <p className="text-[11px] text-fail mt-1">{formErrors.name}</p>}</div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block text-xs font-medium text-ink-light mb-1">测试模块</label><select value={form.module} onChange={(e) => setForm({ ...form, module: e.target.value })} className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink outline-none focus:border-amber"><option>登录模块</option><option>搜索模块</option><option>购物车</option><option>支付模块</option><option>用户管理</option><option>全模块</option></select></div>
@@ -387,7 +387,7 @@ export default function ExecutionList() {
               </div>
               <div><label className="block text-xs font-medium text-ink-light mb-1">执行环境</label><select value={form.environment} onChange={(e) => setForm({ ...form, environment: e.target.value })} className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink outline-none focus:border-amber">{environmentOptions.map((e) => <option key={e} value={e}>{e}</option>)}</select></div>
             </div>
-            <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
+            <div className="px-6 py-4 border-t border-border flex flex-shrink-0 justify-end gap-2">
               <button onClick={() => setShowDialog(false)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">取消</button>
               <button onClick={handleSave} className="h-9 px-5 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md">{dialogMode === "create" ? "创建" : "保存"}</button>
             </div>

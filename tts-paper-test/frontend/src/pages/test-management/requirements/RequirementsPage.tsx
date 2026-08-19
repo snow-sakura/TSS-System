@@ -98,6 +98,7 @@ const columns: CrudColumn[] = [
     title: "版本",
     width: "min-w-[120px]",
     align: "center",
+    className: "hidden xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   { key: "priority", title: "优先级", width: "w-28", align: "center" },
@@ -107,6 +108,7 @@ const columns: CrudColumn[] = [
     title: "需求类型",
     width: "min-w-[120px]",
     align: "center",
+    className: "hidden xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
@@ -114,6 +116,7 @@ const columns: CrudColumn[] = [
     title: "来源",
     width: "min-w-[120px]",
     align: "center",
+    className: "hidden xl:table-cell",
     render: (v: string) => {
       if (!v) return <span className="text-muted">—</span>
       const label = sourceConfig[v] || v
@@ -125,6 +128,7 @@ const columns: CrudColumn[] = [
     title: "创建时间",
     width: "min-w-[160px]",
     align: "center",
+    className: "hidden xl:table-cell",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
     ),

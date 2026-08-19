@@ -11,6 +11,8 @@ export interface CrudColumn {
   sortable?: boolean
   render?: (value: any, row: any) => React.ReactNode
   align?: "left" | "center" | "right"
+  /** 响应式类名（如 hidden xl:table-cell），窄屏隐藏次要列避免横向滚动 */
+  className?: string
 }
 
 export interface CrudFilter {
@@ -135,7 +137,11 @@ export default function CrudTable({
     if (value === undefined || value === null || value === "") {
       return <span className="text-xs text-muted">—</span>
     }
-    return <span className="text-sm text-ink">{String(value)}</span>
+    return (
+      <span className="text-sm text-ink" title={String(value)}>
+        {String(value)}
+      </span>
+    )
   }
 
   const renderFilter = (filter: CrudFilter) => {
@@ -294,7 +300,7 @@ export default function CrudTable({
                           : col.align === "right"
                             ? "text-right"
                             : "text-left"
-                      }`}
+                      } ${col.className ?? ""}`}
                       style={{ width: col.width }}
                     >
                       {col.sortable && onSort ? (
@@ -346,7 +352,7 @@ export default function CrudTable({
                             : col.align === "right"
                               ? "text-right"
                               : "text-left"
-                        }`}
+                        } ${col.className ?? ""}`}
                       >
                         {col.render
                           ? col.render(row[col.key], row)

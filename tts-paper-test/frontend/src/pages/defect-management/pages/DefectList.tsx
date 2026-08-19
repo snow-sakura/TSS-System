@@ -323,11 +323,11 @@ export default function DefectList() {
               <th className="px-3 py-3 w-10"><input type="checkbox" checked={paged.length > 0 && paged.every((d) => selectedIds.has(String(d.id)))} onChange={() => { if (paged.every((d) => selectedIds.has(String(d.id)))) { const n = new Set(selectedIds); paged.forEach((d) => n.delete(String(d.id))); setSelectedIds(n) } else { const n = new Set(selectedIds); paged.forEach((d) => n.add(String(d.id))); setSelectedIds(n) } }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink w-10">ID</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber" onClick={() => handleSort("title")}>缺陷标题 {sortKey === "title" && (sortDir === "asc" ? "↑" : "↓")}</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">模块</th>
+              <th className="px-3 py-3 text-center text-xs font-bold text-ink hidden xl:table-cell">模块</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber" onClick={() => handleSort("severity")}>严重程度 {sortKey === "severity" && (sortDir === "asc" ? "↑" : "↓")}</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber" onClick={() => handleSort("priority")}>优先级 {sortKey === "priority" && (sortDir === "asc" ? "↑" : "↓")}</th>
+              <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber hidden xl:table-cell" onClick={() => handleSort("priority")}>优先级 {sortKey === "priority" && (sortDir === "asc" ? "↑" : "↓")}</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber" onClick={() => handleSort("status")}>状态 {sortKey === "status" && (sortDir === "asc" ? "↑" : "↓")}</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">指派人</th>
+              <th className="px-3 py-3 text-center text-xs font-bold text-ink hidden xl:table-cell">指派人</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink">操作</th>
             </tr></thead>
             <tbody>
@@ -338,11 +338,11 @@ export default function DefectList() {
                   <td className="px-3 py-3"><input type="checkbox" checked={selectedIds.has(String(d.id))} onChange={() => { const n = new Set(selectedIds); if (n.has(String(d.id))) n.delete(String(d.id)); else n.add(String(d.id)); setSelectedIds(n) }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></td>
                   <td className="px-3 py-3 text-center text-xs text-muted">{d.id}</td>
                   <td className="px-3 py-3 text-center"><div className="flex items-center justify-center gap-1.5 min-w-0"><Bug className="w-3.5 h-3.5 text-fail flex-shrink-0" /><span className="text-sm font-medium text-ink truncate max-w-[220px]">{d.title}</span>{d.aiAnalysis && <span className="text-[10px] text-amber font-medium">AI</span>}</div></td>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{d.module}</td>
+                  <td className="px-3 py-3 text-center text-xs text-muted hidden xl:table-cell">{d.module}</td>
                   <td className="px-3 py-3 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${severityColor(d.severity)}`}>{d.severity}</span></td>
-                  <td className="px-3 py-3 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${priorityColor(d.priority)}`}>{d.priority}</span></td>
+                  <td className="px-3 py-3 text-center hidden xl:table-cell"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${priorityColor(d.priority)}`}>{d.priority}</span></td>
                   <td className="px-3 py-3 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(d.status)}`}>{d.status}</span></td>
-                  <td className="px-3 py-3 text-center"><span className="text-xs text-muted">{d.assignee || <span className="text-fail">未分配</span>}</span></td>
+                  <td className="px-3 py-3 text-center hidden xl:table-cell"><span className="text-xs text-muted">{d.assignee || <span className="text-fail">未分配</span>}</span></td>
                   <td className="px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-0.5">
                       <button onClick={() => setPreviewDefect(d)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors" title="预览"><Eye className="w-4 h-4" /></button>
