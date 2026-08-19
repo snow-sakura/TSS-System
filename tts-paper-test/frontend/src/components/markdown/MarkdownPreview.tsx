@@ -15,15 +15,26 @@ interface MarkdownPreviewProps {
   emptyText?: string
   /** 附加到预览容器的样式类 */
   className?: string
-  /** 内容最大高度（数字=px 或 CSS 值），超出后在容器内滚动，防止页面被 AI 长文拉长 */
+  /**
+   * 内容最大高度（数字=px 或 CSS 值），超出后在容器内滚动。
+   * 默认 "min(460px, 60vh)"——不传也会限高+内部滚动，防止 AI 长文把页面撑满/穿透；
+   * 需要完全展示时传入 unbounded 或显式传大值。
+   */
   maxHeight?: number | string
+  /** 设为 true 时不限高（完全展示完整内容，不出现滚动条） */
+  unbounded?: boolean
 }
 
-function MarkdownPreview({ content, emptyText = "暂无内容", className, maxHeight }: MarkdownPreviewProps) {
-  const scrollStyle =
-    maxHeight != null
-      ? { maxHeight: typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight, overflowY: "auto" as const }
-      : undefined
+/** 默认最大高度：弹窗类场景不传也能固定高度+内部滚动，避免页面被 AI 长文撑高 */
+const DEFAULT_MAX_HEIGHT = "min(460px, 60vh)"
+
+function MarkdownPreview({ content, emptyText = "暂无内容", className, maxHeight, unbounded = false }: MarkdownPreviewProps) {
+  const scrollStyle = unbounded
+    ? undefined
+    : {
+        maxHeight: maxHeight != null ? (typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight) : DEFAULT_MAX_HEIGHT,
+        overflowY: "auto" as const,
+      }
 
   if (!content) {
     return (
@@ -35,7 +46,10 @@ function MarkdownPreview({ content, emptyText = "暂无内容", className, maxHe
   }
 
   return (
-    <div className={`preview-content prose prose-sm max-w-none ${className ?? ""}`} style={scrollStyle}>
+    <div
+      className={`preview-content prose prose-sm max-w-none w-full min-h-0 ${className ?? ""}`}
+      style={scrollStyle}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
         components={{
