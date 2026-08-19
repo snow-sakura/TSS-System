@@ -2,11 +2,14 @@
 
 import asyncio
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger("tss.lifecycle")
 from fastapi import (
     APIRouter,
     Depends,
@@ -1267,6 +1270,31 @@ async def stream_execution(
             environment=execution.environment or "测试环境",
         ):
             yield event
+
+        # 流结束：将内存中的执行结果回写数据库，保证列表页/详情页数据一致
+        state = get_execution_state(execution_id)
+        if state and state.get("status") in ("completed", "failed", "stopped"):
+            update_payload = {
+                "status": state["status"],
+                "passed": state.get("passed", 0),
+                "failed": state.get("failed", 0),
+                "blocked": state.get("skipped", 0),
+                "pass_rate": state.get("pass_rate"),
+                "duration_ms": state.get("duration_ms"),
+            }
+            if state.get("completed_at"):
+                try:
+                    update_payload["completed_at"] = datetime.fromisoformat(
+                        state["completed_at"]
+                    )
+                except ValueError:
+                    pass
+            try:
+                await tls.update_execution(db, execution_id, update_payload)
+                logger.info(f"执行 #{execution_id} 结果已回写数据库: {state['status']}")
+            except Exception as e:  # 回写失败不中断流
+                await db.rollback()
+                logger.error(f"执行 #{execution_id} 结果回写失败: {e}")
 
     return StreamingResponse(
         event_generator(),

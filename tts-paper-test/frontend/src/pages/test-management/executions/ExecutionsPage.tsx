@@ -13,8 +13,10 @@ interface Execution {
   id: number
   name?: string
   title?: string
-  status: "pending" | "running" | "completed" | "failed"
+  status: "pending" | "running" | "completed" | "passed" | "failed" | "stopped"
   progress: number
+  pass_rate?: number
+  duration_ms?: number
   project_id?: number
   project_name?: string
   version_id?: number
@@ -26,7 +28,9 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "待执行", color: "bg-cream text-muted border border-border" },
   running: { label: "执行中", color: "bg-info/10 text-info border border-info/20" },
   completed: { label: "已完成", color: "bg-pass/10 text-pass border border-pass/20" },
+  passed: { label: "已完成", color: "bg-pass/10 text-pass border border-pass/20" },
   failed: { label: "失败", color: "bg-fail/10 text-fail border border-fail/20" },
+  stopped: { label: "已停止", color: "bg-warn/10 text-warn border border-warn/20" },
 }
 
 const statusOptions = [
@@ -55,6 +59,7 @@ export default function ExecutionsPage() {
   const [projects, setProjects] = useState<any[]>([])
   const [versions, setVersions] = useState<any[]>([])
   const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
+  const [testCaseOptions, setTestCaseOptions] = useState<{ label: string; value: string }[]>([])
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
@@ -68,6 +73,18 @@ export default function ExecutionsPage() {
     projectApi
       .listVersions()
       .then((res) => setVersions(res?.data?.items || []))
+      .catch(() => {})
+    lifecycleApi
+      .listTestCases({ page_size: 500 })
+      .then((res) => {
+        const items = res?.data?.items || res?.data || []
+        setTestCaseOptions(
+          (Array.isArray(items) ? items : []).map((c: any) => ({
+            label: `#${c.id} ${c.title || c.name || "未命名用例"}`,
+            value: String(c.id),
+          }))
+        )
+      })
       .catch(() => {})
   }, [])
 
@@ -116,7 +133,30 @@ export default function ExecutionsPage() {
         loadData()
       } catch (e: any) {
         toast.error(e?.message || "启动执行失败")
+        return
       }
+      // 建立 SSE 消费执行事件流（真实执行由 stream 端点驱动，事件到达即刷新列表）
+      const es = lifecycleApi.streamExecutionSSE(id)
+      es.onmessage = (ev) => {
+        try {
+          const payload = JSON.parse(ev.data)
+          if (payload?.type === "completed" || payload?.type === "error") {
+            es.close()
+          }
+        } catch {
+          // 非 JSON 事件忽略
+        }
+        loadData()
+      }
+      es.onerror = () => {
+        // 服务端关流可能触发 error；由兜底定时器最终刷新，避免无限重连
+        es.close()
+      }
+      // 兜底：60 秒后强制关闭并刷新一次，避免页面常驻时无限请求
+      window.setTimeout(() => {
+        es.close()
+        loadData()
+      }, 60000)
     },
     [toast, loadData]
   )
@@ -164,32 +204,35 @@ export default function ExecutionsPage() {
         title: "进度",
         width: "min-w-[180px]",
         align: "center",
-        render: (_v: number, row: Execution) => (
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-20 h-1.5 bg-cream rounded-full overflow-hidden">
-              <div className="h-full gradient-amber" style={{ width: `${row.progress || 0}%` }} />
+        render: (_v: number, row: Execution) => {
+          const pct = Math.round(row.pass_rate ?? row.progress ?? 0)
+          return (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-20 h-1.5 bg-cream rounded-full overflow-hidden">
+                <div className="h-full gradient-amber" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-xs text-muted">{pct}%</span>
+              {(row.status === "pending" || row.status === "failed") && (
+                <button
+                  onClick={() => handleStart(row.id)}
+                  className="p-1 rounded-lg hover:bg-pass/10 text-pass"
+                  title="执行"
+                >
+                  <Play className="w-4 h-4" />
+                </button>
+              )}
+              {row.status === "failed" && (
+                <button
+                  onClick={() => handleSubmitDefect(row)}
+                  className="p-1 rounded-lg hover:bg-fail/10 text-fail"
+                  title="提交缺陷"
+                >
+                  <Bug className="w-4 h-4" />
+                </button>
+              )}
             </div>
-            <span className="text-xs text-muted">{row.progress || 0}%</span>
-            {(row.status === "pending" || row.status === "failed") && (
-              <button
-                onClick={() => handleStart(row.id)}
-                className="p-1 rounded-lg hover:bg-pass/10 text-pass"
-                title="执行"
-              >
-                <Play className="w-4 h-4" />
-              </button>
-            )}
-            {row.status === "failed" && (
-              <button
-                onClick={() => handleSubmitDefect(row)}
-                className="p-1 rounded-lg hover:bg-fail/10 text-fail"
-                title="提交缺陷"
-              >
-                <Bug className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        ),
+          )
+        },
       },
       {
         key: "created_at",
@@ -218,9 +261,16 @@ export default function ExecutionsPage() {
       { key: "version_id", label: "版本", type: "select", options: versionOptions },
       { key: "name", label: "执行名称", type: "text", required: true, placeholder: "请输入执行名称" },
       { key: "title", label: "标题", type: "text", placeholder: "请输入标题" },
+      {
+        key: "test_case_ids",
+        label: "测试用例",
+        type: "multiselect",
+        options: testCaseOptions,
+        helpText: "勾选要执行的用例，未选将无法启动执行",
+      },
       { key: "status", label: "状态", type: "select", options: statusOptions, default: "pending" },
     ],
-    [projectOptions, versionOptions]
+    [projectOptions, versionOptions, testCaseOptions]
   )
 
   useEffect(() => {

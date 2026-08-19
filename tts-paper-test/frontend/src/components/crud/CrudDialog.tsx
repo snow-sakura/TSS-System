@@ -5,7 +5,7 @@ import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 export interface CrudField {
   key: string
   label: string
-  type: "text" | "textarea" | "select" | "date" | "number" | "email" | "password" | "checklist"
+  type: "text" | "textarea" | "select" | "date" | "number" | "email" | "password" | "checklist" | "multiselect"
   required?: boolean
   placeholder?: string
   options?: { label: string; value: string }[]
@@ -243,6 +243,30 @@ export default function CrudDialog({
             className={`${commonClass} ${errorClass}`}
           />
         )
+      case "multiselect": {
+        const selected: string[] = Array.isArray(value) ? value : []
+        return (
+          <div className="rounded-xl border border-border bg-cream/40 px-3 py-2.5 space-y-1.5 max-h-44 overflow-y-auto">
+            {(field.options || []).length === 0 && <p className="text-xs text-muted">暂无选项</p>}
+            {(field.options || []).map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 text-sm text-ink cursor-pointer hover:bg-cream/60 rounded-lg px-2 py-1">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt.value)}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                      ? [...selected, opt.value]
+                      : selected.filter((v) => v !== opt.value)
+                    handleChange(field.key, next)
+                  }}
+                  className="w-4 h-4 rounded border-border text-amber focus:ring-amber cursor-pointer"
+                />
+                <span className="truncate">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        )
+      }
       case "checklist": {
         const items: { id: string; label: string; required?: boolean; passed: boolean | null; comment?: string }[] =
           Array.isArray(value) ? value : []
