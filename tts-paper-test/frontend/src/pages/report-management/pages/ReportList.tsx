@@ -202,7 +202,7 @@ export default function ReportList() {
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 text-amber animate-spin" /></div>
         ) : (
-          <table className="w-full text-sm table-fixed">
+          <table className="w-full text-sm">
             <thead>
               <tr className="bg-cream/30 border-b border-border">
                 <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-10">ID</th>
@@ -295,17 +295,17 @@ export default function ReportList() {
       {/* 新建/编辑弹窗 */}
       {showDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowDialog(false)}>
-          <div className="bg-white rounded-2xl shadow-elevated w-[520px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-elevated w-[520px] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-sm font-bold text-ink">{dialogMode === "create" ? "新建报告" : "编辑报告"}</h3>
               <button onClick={() => setShowDialog(false)} className="p-1.5 rounded-lg hover:bg-cream"><X className="w-4 h-4 text-muted" /></button>
             </div>
-            <div className="px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+            <div className="px-6 py-5 space-y-4">
               <div><label className="block text-xs font-medium text-ink-light mb-1">报告标题 *</label><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink focus:border-amber outline-none" placeholder="如：v2.1.0版本测试报告" /></div>
               <div><label className="block text-xs font-medium text-ink-light mb-1">报告类型</label><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink focus:border-amber outline-none bg-white">{REPORT_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}</select></div>
               <div><label className="block text-xs font-medium text-ink-light mb-1">报告摘要</label><textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} rows={4} className="w-full px-3 py-2 rounded-xl border border-border text-sm text-ink focus:border-amber outline-none resize-none" placeholder="报告摘要..." /></div>
             </div>
-            <div className="px-6 py-4 border-t border-border flex flex-shrink-0 justify-end gap-2">
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
               <button onClick={() => setShowDialog(false)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">取消</button>
               <button onClick={handleSave} className="h-9 px-5 rounded-xl gradient-amber text-white text-sm font-medium">{dialogMode === "create" ? "创建" : "保存"}</button>
             </div>

@@ -78,47 +78,42 @@ const sourceOptions = [
 ]
 
 const columns: CrudColumn[] = [
-  { key: "name", title: "需求名称", width: "w-[22%]", align: "center" },
+  { key: "name", title: "需求名称", width: "min-w-[160px]", align: "center" },
   {
     key: "code",
     title: "需求编号",
-    width: "w-[8%]",
+    width: "min-w-[120px]",
     align: "center",
-    className: "hidden xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "project_name",
     title: "项目",
-    width: "w-[11%]",
+    width: "min-w-[120px]",
     align: "center",
-    className: "hidden xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "w-[8%]",
+    width: "min-w-[120px]",
     align: "center",
-    className: "hidden 2xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
-  { key: "priority", title: "优先级", width: "w-[9%]", align: "center" },
-  { key: "status", title: "状态", width: "w-[9%]", align: "center" },
+  { key: "priority", title: "优先级", width: "w-28", align: "center" },
+  { key: "status", title: "状态", width: "w-28", align: "center" },
   {
     key: "requirement_type",
     title: "需求类型",
-    width: "w-[9%]",
+    width: "min-w-[120px]",
     align: "center",
-    className: "hidden 2xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "source",
     title: "来源",
-    width: "w-[9%]",
+    width: "min-w-[120px]",
     align: "center",
-    className: "hidden 2xl:table-cell",
     render: (v: string) => {
       if (!v) return <span className="text-muted">—</span>
       const label = sourceConfig[v] || v
@@ -128,9 +123,8 @@ const columns: CrudColumn[] = [
   {
     key: "created_at",
     title: "创建时间",
-    width: "w-[12%]",
+    width: "min-w-[160px]",
     align: "center",
-    className: "hidden 2xl:table-cell",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
     ),

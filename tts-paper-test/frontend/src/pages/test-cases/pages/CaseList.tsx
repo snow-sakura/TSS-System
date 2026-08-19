@@ -221,7 +221,7 @@ export default function CaseList() {
       {/* 用例表格 */}
       <div className="flex-1 bg-white rounded-2xl border border-border shadow-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm table-fixed">
+          <table className="w-full text-sm">
             <thead>
               <tr className="bg-cream/50 border-b border-border">
                 <th className="px-4 py-3 text-center text-xs font-bold text-ink w-12">ID</th>
@@ -285,7 +285,7 @@ export default function CaseList() {
       {/* AI生成弹窗 */}
       {showAiDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowAiDialog(false)}>
-          <div className="bg-white rounded-2xl shadow-elevated w-[480px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-elevated w-[480px] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber to-orange-500 flex items-center justify-center"><Sparkles className="w-4 h-4 text-white" /></div>
@@ -293,7 +293,7 @@ export default function CaseList() {
               </div>
               <button onClick={() => setShowAiDialog(false)} className="p-1.5 rounded-lg hover:bg-cream"><X className="w-4 h-4 text-muted" /></button>
             </div>
-            <div className="px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+            <div className="px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-ink-light mb-1">模块</label>
@@ -324,7 +324,7 @@ export default function CaseList() {
                 </ul>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-border flex flex-shrink-0 justify-end gap-2">
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
               <button onClick={() => setShowAiDialog(false)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">取消</button>
               <button onClick={handleAiGenerate} disabled={aiGenerating} className="h-9 px-5 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md disabled:opacity-50 flex items-center gap-1.5">
                 {aiGenerating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 生成中...</> : <><Sparkles className="w-3.5 h-3.5" /> 开始生成</>}
@@ -337,12 +337,12 @@ export default function CaseList() {
       {/* 编辑/新建弹窗 */}
       {showEditDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowEditDialog(false)}>
-          <div className="bg-white rounded-2xl shadow-elevated w-[520px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-elevated w-[520px] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-sm font-bold text-ink">{editMode === "create" ? "新建测试用例" : "编辑测试用例"}</h3>
               <button onClick={() => setShowEditDialog(false)} className="p-1.5 rounded-lg hover:bg-cream"><X className="w-4 h-4 text-muted" /></button>
             </div>
-            <div className="px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+            <div className="px-6 py-5 space-y-4">
               <div>
                 <label className="block text-xs font-medium text-ink-light mb-1">用例标题 *</label>
                 <input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
@@ -375,7 +375,7 @@ export default function CaseList() {
                   className="w-full px-3 py-2 rounded-xl border border-border text-sm focus:border-amber outline-none resize-none" placeholder="页面跳转到首页" />
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-border flex flex-shrink-0 justify-end gap-2">
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
               <button onClick={() => setShowEditDialog(false)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">取消</button>
               <button onClick={handleSave} className="h-9 px-5 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md">{editMode === "create" ? "创建" : "保存"}</button>
             </div>

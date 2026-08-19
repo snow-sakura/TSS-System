@@ -190,12 +190,12 @@ export default function ScheduleConfig() {
       {/* 弹窗 */}
       {showDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowDialog(false)}>
-          <div className="bg-white rounded-2xl shadow-elevated w-[480px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-elevated w-[480px] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="text-sm font-bold text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{dialogMode === "create" ? "新建调度任务" : "编辑调度任务"}</h3>
               <button onClick={() => setShowDialog(false)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-cream border border-border/60 text-ink-light hover:text-ink transition-all group"><X className="w-4 h-4 group-hover:text-ink" /><span className="text-xs font-medium hidden sm:block">关闭</span></button>
             </div>
-            <div className="px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+            <div className="px-6 py-5 space-y-4">
               <div><label className="block text-xs font-medium text-ink-light mb-1">任务名称 *</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={`w-full h-9 px-3 rounded-xl border text-sm text-ink focus:border-amber outline-none ${formErrors.name ? "border-fail" : "border-border"}`} placeholder="如：每日回归测试" />{formErrors.name && <p className="text-[11px] text-fail mt-1">{formErrors.name}</p>}</div>
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block text-xs font-medium text-ink-light mb-1">触发方式</label><select value={form.trigger} onChange={(e) => setForm({ ...form, trigger: e.target.value })} className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink outline-none focus:border-amber"><option value="定时">定时</option><option value="CI/CD">CI/CD</option><option value="API触发">API触发</option></select></div>
@@ -207,7 +207,7 @@ export default function ScheduleConfig() {
               <div><label className="block text-xs font-medium text-ink-light mb-1">执行环境</label><select value={form.environment} onChange={(e) => setForm({ ...form, environment: e.target.value })} className="w-full h-9 px-3 rounded-xl border border-border text-sm text-ink outline-none focus:border-amber"><option>测试环境</option><option>预发布环境</option><option>生产环境</option></select></div>
               <div><label className="block text-xs font-medium text-ink-light mb-1">描述</label><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="w-full px-3 py-2 rounded-xl border border-border text-sm text-ink focus:border-amber outline-none resize-none" placeholder="任务描述..." /></div>
             </div>
-            <div className="px-6 py-4 border-t border-border flex flex-shrink-0 justify-end gap-2">
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
               <button onClick={() => setShowDialog(false)} className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream">取消</button>
               <button onClick={handleSave} className="h-9 px-5 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md">{dialogMode === "create" ? "创建" : "保存"}</button>
             </div>

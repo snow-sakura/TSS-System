@@ -83,19 +83,20 @@ export default function ProjectManagementPage() {
   )
 
   const columns: CrudColumn[] = [
-    { key: "name", title: "项目名称", width: "w-[22%]", align: "center" },
-    { key: "code", title: "项目编码", width: "w-[8%]", align: "center" },
-    { key: "description", title: "描述", width: "w-[16%]", align: "center", render: (v: string) => v || "—" },
-    { key: "status", title: "状态", width: "w-[9%]", align: "center" },
-    { key: "owner", title: "负责人", width: "w-[10%]", align: "center",
+    { key: "name", title: "项目名称", width: "min-w-[140px]", align: "center" },
+    { key: "code", title: "项目编码", width: "min-w-[130px]", align: "center" },
+    { key: "description", title: "描述", width: "min-w-[180px]", align: "center", render: (v: string) => v || "—" },
+    { key: "status", title: "状态", width: "w-28", align: "center" },
+    {
+      key: "owner", title: "负责人", width: "min-w-[100px]", align: "center",
       render: (v: number) => {
         if (!v) return "—"
         const user = users.find(u => u.id === v)
         return user ? (user.real_name || user.username) : `用户#${v}`
       }
     },
-    { key: "start_date", title: "开始日期", width: "w-[12%]", align: "center", render: (v: string) => v || "—" },
-    { key: "end_date", title: "结束日期", width: "w-[12%]", align: "center", render: (v: string) => v || "—" },
+    { key: "start_date", title: "开始日期", width: "min-w-[110px]", align: "center", render: (v: string) => v || "—" },
+    { key: "end_date", title: "结束日期", width: "min-w-[110px]", align: "center", render: (v: string) => v || "—" },
   ]
 
   const loadData = useCallback(async () => {

@@ -332,7 +332,7 @@ export default function TestCaseManager() {
         ) : paged.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-muted"><FlaskConical className="w-8 h-8 mb-2 text-muted-light" /><p className="text-sm">暂无测试用例</p></div>
         ) : (
-          <table className="w-full table-fixed text-sm">
+          <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-cream/50">
               <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light w-12">ID</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">标题</th>

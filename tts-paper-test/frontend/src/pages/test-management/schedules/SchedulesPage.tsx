@@ -151,7 +151,7 @@ export default function SchedulesPage() {
         {loading ? (
           <div className="p-8 text-center text-muted text-sm">加载中...</div>
         ) : (
-          <table className="w-full table-fixed">
+          <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-cream/50">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-ink-light">调度名称</th>
@@ -205,14 +205,14 @@ export default function SchedulesPage() {
       {/* 新建/编辑弹窗 */}
       {dialog.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setDialog({ open: false, editing: null })}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-ink">{dialog.editing ? "编辑调度" : "新建调度"}</h3>
               <button onClick={() => setDialog({ open: false, editing: null })} className="p-1.5 rounded-lg hover:bg-cream">
                 <X className="w-4 h-4 text-muted" />
               </button>
             </div>
-<div className="space-y-3 flex-1 min-h-0 overflow-y-auto">
+            <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-muted mb-1">调度名称 *</label>
                 <input
@@ -253,7 +253,7 @@ export default function SchedulesPage() {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-5 flex-shrink-0">
+            <div className="flex justify-end gap-2 mt-5">
               <button
                 onClick={() => setDialog({ open: false, editing: null })}
                 className="h-9 px-4 rounded-xl border border-border text-sm text-muted hover:bg-cream"

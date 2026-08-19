@@ -69,11 +69,11 @@ const formatDate = (v?: string) => {
 }
 
 const columns: CrudColumn[] = [
-  { key: "id", title: "记录编号", width: "w-[10%]", align: "center" },
+  { key: "id", title: "记录编号", width: "min-w-[100px]", align: "center" },
   {
     key: "requirement_name",
     title: "需求名称",
-    width: "w-[18%]",
+    width: "min-w-[180px]",
     align: "center",
     render: (v: any, row: PipelineRecordItem) =>
       v || row.name || <span className="text-muted">—</span>,
@@ -81,36 +81,36 @@ const columns: CrudColumn[] = [
   {
     key: "project_name",
     title: "项目",
-    width: "w-[11%]",
+    width: "min-w-[120px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "w-[8%]",
+    width: "min-w-[120px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "current_stage",
     title: "当前阶段",
-    width: "w-[11%]",
+    width: "min-w-[120px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
-  { key: "status", title: "状态", width: "w-[9%]", align: "center" },
+  { key: "status", title: "状态", width: "w-28", align: "center" },
   {
     key: "started_at",
     title: "开始时间",
-    width: "w-[11%]",
+    width: "min-w-[160px]",
     align: "center",
     render: (v: string) => formatDate(v),
   },
   {
     key: "completed_at",
     title: "完成时间",
-    width: "w-[11%]",
+    width: "min-w-[160px]",
     align: "center",
     render: (v: string) => formatDate(v),
   },

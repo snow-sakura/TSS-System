@@ -163,7 +163,7 @@ export default function UserList() {
         <div className="flex items-center justify-center h-48"><Skeleton className="h-4 w-48" count={3} /></div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full table-fixed text-sm">
+          <table className="w-full text-sm">
             <thead><tr className="border-b border-border bg-cream/50">
               <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">ID</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">用户名</th>

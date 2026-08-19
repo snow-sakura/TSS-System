@@ -1430,7 +1430,7 @@ export default function PipelinePage() {
       {/* 项目/版本选择弹窗（含文件选择） */}
       {showProjectVersionDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
             <div className="px-6 py-4 border-b border-border">
               <div className="flex items-center gap-2">
                 <FolderKanban className="w-5 h-5 text-amber" />
@@ -1438,7 +1438,7 @@ export default function PipelinePage() {
               </div>
               <p className="text-xs text-muted mt-1">先关联项目和版本，再选择要上传的文档</p>
             </div>
-            <div className="px-6 py-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
+            <div className="px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-ink mb-1.5 block">
@@ -1521,7 +1521,7 @@ export default function PipelinePage() {
                 )}
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3 bg-cream/50 flex-shrink-0">
+            <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3 bg-cream/50">
               <button
                 onClick={cancelProjectVersion}
                 className="h-9 px-4 rounded-lg border border-border text-sm text-ink-light hover:bg-white transition-colors"

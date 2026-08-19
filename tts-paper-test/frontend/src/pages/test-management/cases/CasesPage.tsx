@@ -76,31 +76,32 @@ export default function CasesPage() {
   const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
 
   const columns: CrudColumn[] = [
-    { key: "name", title: "用例标题", width: "w-[22%]", align: "center" },
+    { key: "name", title: "用例标题", width: "min-w-[160px]", align: "center" },
     {
       key: "module",
       title: "所属模块",
-      width: "w-[10%]",
+      width: "min-w-[110px]",
       align: "center",
       render: (v: string) => v || <span className="text-muted">—</span>,
     },
     {
       key: "project_name",
-    title: "项目",
-    width: "w-[11%]",
+      title: "项目",
+      width: "min-w-[110px]",
       align: "center",
       render: (v: string) => v || <span className="text-muted">—</span>,
     },
     {
       key: "version_name",
-    title: "版本",
-    width: "w-[8%]",
+      title: "版本",
+      width: "min-w-[110px]",
       align: "center",
-      className: "hidden 2xl:table-cell",
       render: (v: string) => v || <span className="text-muted">—</span>,
     },
     {
-      key: "priority", title: "优先级", width: "w-[9%]",
+      key: "priority",
+      title: "优先级",
+      width: "w-28",
       align: "center",
       render: (v: string) => {
         const config = priorityConfig[v as keyof typeof priorityConfig]
@@ -114,9 +115,8 @@ export default function CasesPage() {
     {
       key: "test_type",
       title: "用例类型",
-      width: "w-[9%]",
+      width: "min-w-[100px]",
       align: "center",
-      className: "hidden 2xl:table-cell",
       render: (v: string) => {
         if (!v) return <span className="text-muted">—</span>
         // 英文值映射为中文
@@ -130,9 +130,8 @@ export default function CasesPage() {
     {
       key: "tags",
       title: "标签",
-      width: "w-[11%]",
+      width: "min-w-[120px]",
       align: "center",
-      className: "hidden 2xl:table-cell",
       render: (v: string[] | null | undefined) => {
         if (!Array.isArray(v) || v.length === 0) {
           return <span className="text-muted">—</span>
@@ -153,8 +152,8 @@ export default function CasesPage() {
     },
     {
       key: "status",
-    title: "评审状态",
-    width: "w-[9%]",
+      title: "评审状态",
+      width: "w-36",
       align: "center",
       render: (v: string, row: TestCase) => {
         const config = statusConfig[v as keyof typeof statusConfig] || statusConfig.draft
@@ -185,9 +184,8 @@ export default function CasesPage() {
     {
       key: "created_at",
     title: "创建时间",
-    width: "w-[12%]",
+    width: "min-w-[160px]",
     align: "center",
-    className: "hidden 2xl:table-cell",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
     ),

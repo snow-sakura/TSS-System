@@ -11,8 +11,6 @@ export interface CrudColumn {
   sortable?: boolean
   render?: (value: any, row: any) => React.ReactNode
   align?: "left" | "center" | "right"
-  /** 响应式类名（如 hidden xl:table-cell），窄屏隐藏次要列避免横向滚动 */
-  className?: string
 }
 
 export interface CrudFilter {
@@ -137,11 +135,7 @@ export default function CrudTable({
     if (value === undefined || value === null || value === "") {
       return <span className="text-xs text-muted">—</span>
     }
-    return (
-      <span className="text-sm text-ink" title={String(value)}>
-        {String(value)}
-      </span>
-    )
+    return <span className="text-sm text-ink">{String(value)}</span>
   }
 
   const renderFilter = (filter: CrudFilter) => {
@@ -153,7 +147,7 @@ export default function CrudTable({
             <input
               placeholder={filter.label}
               onChange={(e) => onSearch?.(e.target.value)}
-              className="w-full h-8 pl-9 pr-3 text-sm bg-cream border border-border rounded-xl input-focus"
+              className="w-full h-9 pl-9 pr-3 text-sm bg-cream border border-border rounded-xl input-focus"
             />
           </div>
         )
@@ -163,7 +157,7 @@ export default function CrudTable({
             <Filter className="w-4 h-4 text-muted" />
             <select
               onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
-              className="h-8 px-3 pr-8 text-sm bg-cream border border-border rounded-xl input-focus appearance-none cursor-pointer"
+              className="h-9 px-3 pr-8 text-sm bg-cream border border-border rounded-xl input-focus appearance-none cursor-pointer"
             >
               <option value="">{filter.label}</option>
               {filter.options?.map((opt) => (
@@ -181,7 +175,7 @@ export default function CrudTable({
             <input
               type="date"
               onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
-              className="h-8 px-3 text-sm bg-cream border border-border rounded-xl input-focus"
+              className="h-9 px-3 text-sm bg-cream border border-border rounded-xl input-focus"
             />
           </div>
         )
@@ -192,13 +186,13 @@ export default function CrudTable({
             <input
               type="date"
               onChange={(e) => onFilterChange?.(`${filter.key}_start`, e.target.value)}
-              className="h-8 px-3 text-sm bg-cream border border-border rounded-xl input-focus"
+              className="h-9 px-3 text-sm bg-cream border border-border rounded-xl input-focus"
             />
             <span className="text-xs text-muted">至</span>
             <input
               type="date"
               onChange={(e) => onFilterChange?.(`${filter.key}_end`, e.target.value)}
-              className="h-8 px-3 text-sm bg-cream border border-border rounded-xl input-focus"
+              className="h-9 px-3 text-sm bg-cream border border-border rounded-xl input-focus"
             />
           </div>
         )
@@ -208,8 +202,8 @@ export default function CrudTable({
   }
 
   return (
-    <div className="p-3 md:p-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-3">
+    <div className="p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold text-ink">{title}</h2>
           {subtitle && <span className="text-xs text-muted">{subtitle}</span>}
@@ -222,7 +216,7 @@ export default function CrudTable({
           {showCreateButton && onCreate && (
             <button
               onClick={onCreate}
-              className="h-8 px-4 rounded-xl bg-pass text-white text-sm font-medium shadow-sm hover:shadow-md transition-all flex items-center gap-2"
+              className="h-9 px-4 rounded-xl bg-pass text-white text-sm font-medium shadow-sm hover:shadow-md transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> {createButtonText}
             </button>
@@ -231,7 +225,7 @@ export default function CrudTable({
       </div>
 
       {filters.length > 0 && (
-        <div className="bg-white rounded-2xl border border-border px-4 py-3 shadow-card mb-3">
+        <div className="bg-white rounded-2xl border border-border p-4 shadow-card mb-4">
           <div className="flex flex-wrap items-center gap-3">
             {filters.map((filter) => (
               <div key={filter.key}>{renderFilter(filter)}</div>
@@ -261,7 +255,7 @@ export default function CrudTable({
         </div>
       ) : data.length === 0 ? (
         <div className="bg-white rounded-2xl border border-border shadow-card p-12 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-cream flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-cream flex items-center justify-center mx-auto mb-4">
             <FileText className="w-8 h-8 text-muted" />
           </div>
           <p className="text-sm font-medium text-ink mb-1">{emptyText}</p>
@@ -279,13 +273,11 @@ export default function CrudTable({
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-          {/* 宽屏封顶: max-w 使表格在 1920+ 视口下保持常规宽度, 列宽比例不再膨胀 */}
-          <div className="overflow-x-auto w-full max-w-[1400px] mx-auto">
-            {/* 窄屏兜底: min-w 使窄视口下表格保持 1000px 横滚, 列按 1000 基准的百分比分配不再挤压 (1280+ 视口不触发) */}
-            <table className="w-full table-fixed min-w-[1000px]">
+          <div className="overflow-x-auto">
+            <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-cream/50">
-                  <th className="px-4 py-3 w-[5%]">
+                  <th className="px-4 py-3 w-10">
                     <input
                       type="checkbox"
                       checked={allCurrentPageSelected}
@@ -302,7 +294,8 @@ export default function CrudTable({
                           : col.align === "right"
                             ? "text-right"
                             : "text-left"
-                      } ${col.width ?? ""} ${col.className ?? ""}`}
+                      }`}
+                      style={{ width: col.width }}
                     >
                       {col.sortable && onSort ? (
                         <button
@@ -316,7 +309,7 @@ export default function CrudTable({
                       )}
                     </th>
                   ))}
-                  <th className="px-5 py-3 text-right text-xs font-semibold text-ink-light uppercase tracking-wider w-[16%]">
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-ink-light uppercase tracking-wider w-32">
                     操作
                   </th>
                 </tr>
@@ -336,7 +329,7 @@ export default function CrudTable({
                       selectedIds.has(row.id) ? "bg-amber-light/50" : "hover:bg-cream/50"
                     } ${onRowClick ? "cursor-pointer" : ""}`}
                   >
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selectedIds.has(row.id)}
@@ -347,22 +340,20 @@ export default function CrudTable({
                     {columns.map((col) => (
                       <td
                         key={col.key}
-                        className={`px-5 py-3 ${
+                        className={`px-5 py-3.5 ${
                           col.align === "center"
                             ? "text-center"
                             : col.align === "right"
                               ? "text-right"
                               : "text-left"
-                        } ${col.className ?? ""}`}
+                        }`}
                       >
-                        <div className="truncate">
-                          {col.render
-                            ? col.render(row[col.key], row)
-                            : getDefaultRender(col, row)}
-                        </div>
+                        {col.render
+                          ? col.render(row[col.key], row)
+                          : getDefaultRender(col, row)}
                       </td>
                     ))}
-                    <td className="px-5 py-3 text-right">
+                    <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         {onView && (
                           <button

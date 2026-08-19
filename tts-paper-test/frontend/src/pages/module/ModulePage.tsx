@@ -419,7 +419,7 @@ export default function ModulePage() {
             <div className="bg-white rounded-2xl border border-border shadow-card flex flex-col items-center justify-center py-20"><div className="w-16 h-16 rounded-2xl bg-cream flex items-center justify-center mb-4"><FileText className="w-8 h-8 text-ink-light" /></div><p className="text-sm font-medium text-ink">{searchTerm ? "没有匹配的数据" : "暂无数据"}</p><p className="text-xs mt-1 text-ink-light">点击"新建"按钮添加数据</p></div>
           ) : (
             <div className="bg-white rounded-2xl border border-border shadow-card overflow-x-auto">
-              <table className="w-full table-fixed">
+              <table className="w-full">
                 <thead><tr className="border-b border-border bg-cream/50">
                   <th className="px-4 py-3 w-10"><input type="checkbox" checked={pagedData.length > 0 && pagedData.every((r) => selectedIds.has(r.id))} onChange={toggleSelectAll} className="w-4 h-4 rounded border-border text-amber focus:ring-amber cursor-pointer" /></th>
                   <th className="text-center px-5 py-3 text-xs font-semibold text-ink-light uppercase tracking-wider w-16">ID</th>

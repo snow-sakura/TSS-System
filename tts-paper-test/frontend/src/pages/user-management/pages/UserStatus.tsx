@@ -107,7 +107,7 @@ export default function UserStatus() {
 
       {/* 表格 */}
       <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden flex-1">
-        <table className="w-full table-fixed text-sm">
+        <table className="w-full text-sm">
           <thead>
             <tr className="bg-cream/30 border-b border-border">
               <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">用户名</th>

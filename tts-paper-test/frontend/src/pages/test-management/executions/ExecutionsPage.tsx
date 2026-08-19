@@ -179,31 +179,30 @@ export default function ExecutionsPage() {
     () => [
       {
         key: "name",
-    title: "执行名称",
-    width: "w-[22%]",
+        title: "执行名称",
+        width: "min-w-[160px]",
         align: "center",
         render: (_v: string, row: Execution) => row.name || row.title || <span className="text-muted">—</span>,
       },
       {
         key: "project_name",
-    title: "项目",
-    width: "w-[11%]",
+        title: "项目",
+        width: "min-w-[120px]",
         align: "center",
         render: (v: string) => v || <span className="text-muted">—</span>,
       },
       {
         key: "version_name",
-    title: "版本",
-    width: "w-[8%]",
+        title: "版本",
+        width: "min-w-[120px]",
         align: "center",
-        className: "hidden xl:table-cell",
         render: (v: string) => v || <span className="text-muted">—</span>,
       },
-      { key: "status", title: "状态", width: "w-[9%]", align: "center" },
+      { key: "status", title: "状态", width: "w-28", align: "center" },
       {
         key: "progress",
         title: "进度",
-        width: "w-[11%]",
+        width: "min-w-[180px]",
         align: "center",
         render: (_v: number, row: Execution) => {
           const pct = Math.round(row.pass_rate ?? row.progress ?? 0)
@@ -238,9 +237,8 @@ export default function ExecutionsPage() {
       {
         key: "created_at",
         title: "创建时间",
-        width: "w-[12%]",
+        width: "min-w-[160px]",
         align: "center",
-        className: "hidden xl:table-cell",
         render: (v: string) => v || <span className="text-muted">—</span>,
       },
     ],

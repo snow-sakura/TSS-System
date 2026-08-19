@@ -315,31 +315,3 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: #9C8E82;
 }
-
-/* ===== 表格防溢出全局兜底 =====
- * 配合 table-fixed：单元格内容单行截断（省略号），杜绝列宽被挤压时
- * 中文文本竖排换行导致行高暴涨/横向溢出。markdown 渲染的表格豁免。 */
-table th,
-table td {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pipeline-markdown th,
-.pipeline-markdown td,
-.preview-content th,
-.preview-content td {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-}
-
-/* 内容型表格豁免：多行段落/标签容器保持正常换行 */
-.matrix-table th,
-.matrix-table td,
-.logs-table th,
-.logs-table td {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-}
