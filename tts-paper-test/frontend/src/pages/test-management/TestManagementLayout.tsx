@@ -37,12 +37,12 @@ const menuGroups: MenuGroup[] = [
     icon: FileText,
     gradient: "from-blue-500 to-indigo-600",
     children: [
+      { key: "pipeline", label: "AI全流程", path: "pipeline", icon: Sparkles },
       { key: "requirements", label: "需求管理", path: "requirements", icon: FileText },
       { key: "plans", label: "测试方案", path: "plans", icon: ClipboardList },
       { key: "points", label: "测试点", path: "points", icon: Target },
       { key: "cases", label: "测试用例", path: "cases", icon: FlaskConical },
       { key: "reviews", label: "用例评审", path: "reviews", icon: CheckCircle },
-      { key: "pipeline", label: "AI全流程", path: "pipeline", icon: Sparkles },
       { key: "executions", label: "执行列表", path: "executions", icon: Play },
       { key: "schedules", label: "执行调度", path: "schedules", icon: CalendarClock },
     ],

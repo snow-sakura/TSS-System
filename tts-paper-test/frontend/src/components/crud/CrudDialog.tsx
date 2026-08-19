@@ -159,7 +159,7 @@ export default function CrudDialog({
   const renderField = (field: CrudField) => {
     const value = formData[field.key] ?? ""
     const commonClass =
-      "w-full h-10 px-3 text-sm bg-cream border border-border rounded-xl input-focus disabled:opacity-50"
+      "w-full h-9 px-3 text-sm bg-cream border border-border rounded-xl input-focus disabled:opacity-50"
     const errorClass = errors[field.key]
       ? "border-fail focus:border-fail focus:ring-fail/20"
       : ""
@@ -382,45 +382,45 @@ export default function CrudDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-elevated animate-scale-in">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-lg font-bold text-ink">{dialogTitle}</h3>
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-ink">{dialogTitle}</h3>
             <button onClick={onClose} className="p-1 rounded-lg hover:bg-cream">
-              <X className="w-5 h-5 text-muted" />
+              <X className="w-4 h-4 text-muted" />
             </button>
           </div>
 
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
             {fields.map((field) => (
               <div key={field.key}>
-                <label className="text-sm font-medium text-ink mb-1.5 block">
+                <label className="text-[13px] font-medium text-ink mb-1 block">
                   {field.label}
                   {field.required && !isView && (
-                    <span className="text-fail ml-1">*</span>
+                    <span className="text-fail ml-0.5">*</span>
                   )}
                 </label>
                 {renderField(field)}
                 {errors[field.key] && (
-                  <p className="text-xs text-fail mt-1">{errors[field.key]}</p>
+                  <p className="text-[11px] text-fail mt-0.5">{errors[field.key]}</p>
                 )}
                 {field.helpText && !errors[field.key] && (
-                  <p className="text-xs text-muted mt-1">{field.helpText}</p>
+                  <p className="text-[11px] text-muted mt-0.5">{field.helpText}</p>
                 )}
               </div>
             ))}
           </div>
 
-          <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-border">
+          <div className="flex items-center justify-end gap-2 mt-5 pt-3 border-t border-border">
             <button
               onClick={onClose}
-              className="h-9 px-4 rounded-xl border border-border text-ink-light text-sm hover:bg-cream transition-colors"
+              className="h-8 px-3.5 rounded-xl border border-border text-ink-light text-sm hover:bg-cream transition-colors"
             >
               {isView ? "关闭" : "取消"}
             </button>
             {mode !== "view" && (
               <button
                 onClick={handleSubmit}
-                className="h-9 px-4 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
+                className="h-8 px-3.5 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
               >
                 {mode === "create" ? "创建" : "保存"}
               </button>
@@ -430,7 +430,7 @@ export default function CrudDialog({
                 onClick={() => {
                   onViewEdit()
                 }}
-                className="h-9 px-4 rounded-xl bg-info text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
+                className="h-8 px-3.5 rounded-xl bg-info text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
               >
                 编辑
               </button>

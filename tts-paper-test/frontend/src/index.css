@@ -186,6 +186,24 @@ body {
   box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.1);
 }
 
+/* ========== 表格截断 ========== */
+.table-truncate td > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-truncate td {
+  max-width: 0;
+}
+
+/* ========== 紧凑表单 ========== */
+.compact-form input,
+.compact-form select,
+.compact-form textarea {
+  font-size: 0.875rem;
+  height: 2rem;
+}
+
 /* ========== Pipeline Markdown 渲染 ========== */
 .pipeline-markdown {
   font-size: 0.75rem;
