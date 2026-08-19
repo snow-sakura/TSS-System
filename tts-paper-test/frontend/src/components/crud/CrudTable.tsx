@@ -281,7 +281,8 @@ export default function CrudTable({
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
           {/* 宽屏封顶: max-w 使表格在 1920+ 视口下保持常规宽度, 列宽比例不再膨胀 */}
           <div className="overflow-x-auto w-full max-w-[1400px] mx-auto">
-            <table className="w-full table-fixed">
+            {/* 窄屏兜底: min-w 使窄视口下表格保持 1000px 横滚, 列按 1000 基准的百分比分配不再挤压 (1280+ 视口不触发) */}
+            <table className="w-full table-fixed min-w-[1000px]">
               <thead>
                 <tr className="border-b border-border bg-cream/50">
                   <th className="px-4 py-3 w-[5%]">
