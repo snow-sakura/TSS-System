@@ -283,7 +283,7 @@ export default function CrudTable({
             <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b border-border bg-cream/50">
-                  <th className="px-4 py-3 w-10">
+                  <th className="px-4 py-3 w-[5%]">
                     <input
                       type="checkbox"
                       checked={allCurrentPageSelected}
@@ -300,8 +300,7 @@ export default function CrudTable({
                           : col.align === "right"
                             ? "text-right"
                             : "text-left"
-                      } ${col.className ?? ""}`}
-                      style={{ width: col.width }}
+                      } ${col.width ?? ""} ${col.className ?? ""}`}
                     >
                       {col.sortable && onSort ? (
                         <button
@@ -315,7 +314,7 @@ export default function CrudTable({
                       )}
                     </th>
                   ))}
-                  <th className="px-5 py-3 text-right text-xs font-semibold text-ink-light uppercase tracking-wider w-32">
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-ink-light uppercase tracking-wider w-[16%]">
                     操作
                   </th>
                 </tr>

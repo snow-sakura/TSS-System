@@ -68,37 +68,37 @@ const columns: CrudColumn[] = [
   {
     key: "name",
     title: "测试点名称",
-    width: "w-[16%]",
+    width: "w-[22%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "module",
     title: "所属模块",
-    width: "w-[12%]",
+    width: "w-[10%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "project_name",
     title: "项目",
-    width: "w-[12%]",
+    width: "w-[11%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "w-[12%]",
+    width: "w-[8%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
-  { key: "priority", title: "优先级", width: "w-28", align: "center" },
-  { key: "status", title: "状态", width: "w-28", align: "center" },
+  { key: "priority", title: "优先级", width: "w-[9%]", align: "center" },
+  { key: "status", title: "状态", width: "w-[9%]", align: "center" },
   {
     key: "test_type",
     title: "类型",
-    width: "w-[12%]",
+    width: "w-[9%]",
     align: "center",
     render: (v: string) => {
       if (!v) return <span className="text-muted">—</span>
@@ -112,7 +112,7 @@ const columns: CrudColumn[] = [
   {
     key: "created_at",
     title: "创建时间",
-    width: "w-[16%]",
+    width: "w-[12%]",
     align: "center",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>

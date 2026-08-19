@@ -282,7 +282,7 @@ export default function UserManagementPage() {
       },
     },
     { key: "status", title: "状态" },
-    { key: "last_login_at", title: "最后登录时间", width: "w-[16%]", align: "center",
+    { key: "last_login_at", title: "最后登录", width: "w-[11%]", align: "center",
       render: (value: string) => (
         <span className="text-xs text-ink font-mono">
           {formatDateTime(value)}
@@ -291,8 +291,8 @@ export default function UserManagementPage() {
     },
     {
       key: "reset",
-      title: "重置密码",
-      width: "80px",
+    title: "重置密码",
+    width: "w-[12%]",
       align: "center",
       render: (_: any, row: UserItem) => (
         <button

@@ -75,14 +75,14 @@ const columns: CrudColumn[] = [
   {
     key: "title",
     title: "评审标题",
-    width: "w-[16%]",
+    width: "w-[22%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "target_type",
     title: "关联对象",
-    width: "w-[12%]",
+    width: "w-[9%]",
     align: "center",
     render: (v: string, row: Review) => {
       const label = targetTypeOptions.find((o) => o.value === v)?.label || v
@@ -95,29 +95,29 @@ const columns: CrudColumn[] = [
   {
     key: "project_name",
     title: "项目",
-    width: "w-[12%]",
+    width: "w-[11%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "w-[12%]",
+    width: "w-[8%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "reviewer",
     title: "评审人",
-    width: "w-[10%]",
+    width: "w-[11%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
-  { key: "status", title: "状态", width: "w-28", align: "center" },
+  { key: "status", title: "状态", width: "w-[9%]", align: "center" },
   {
     key: "review_type",
     title: "评审类型",
-    width: "w-28",
+    width: "w-[9%]",
     align: "center",
     render: (v: string) => {
       if (!v) return <span className="text-muted">—</span>
@@ -137,7 +137,7 @@ const columns: CrudColumn[] = [
   {
     key: "checklist",
     title: "清单进度",
-    width: "w-28",
+    width: "w-[11%]",
     align: "center",
     render: (v: any) => {
       const items: { passed: boolean | null }[] = Array.isArray(v) ? v : []
@@ -164,7 +164,7 @@ const columns: CrudColumn[] = [
   {
     key: "created_at",
     title: "创建时间",
-    width: "w-[16%]",
+    width: "w-[12%]",
     align: "center",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>

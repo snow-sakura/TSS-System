@@ -73,11 +73,11 @@ const severityOptions = [
 ]
 
 const columns: CrudColumn[] = [
-  { key: "title", title: "缺陷标题", width: "w-[16%]", align: "center" },
+  { key: "title", title: "缺陷标题", width: "w-[22%]", align: "center" },
   {
     key: "severity",
     title: "严重度",
-    width: "w-28",
+    width: "w-[11%]",
     align: "center",
     render: (v: string) => (
       <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${severityColors[v] || severityColors.low}`}>
@@ -86,22 +86,20 @@ const columns: CrudColumn[] = [
     ),
   },
   {
-    key: "status",
-    title: "状态",
-    width: "w-28",
+    key: "status", title: "状态", width: "w-[9%]",
     align: "center",
   },
   {
     key: "project_name",
     title: "项目",
-    width: "w-[12%]",
+    width: "w-[11%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "w-[12%]",
+    width: "w-[8%]",
     className: "hidden xl:table-cell",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
@@ -117,7 +115,7 @@ const columns: CrudColumn[] = [
   {
 key: "created_at",
     title: "创建时间",
-    width: "w-[16%]",
+    width: "w-[12%]",
     align: "center",
     className: "hidden 2xl:table-cell",
     align: "center",

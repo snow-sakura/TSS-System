@@ -46,11 +46,11 @@ export default function RoleManagementPage() {
   const columns: CrudColumn[] = [
     { key: "name", title: "角色名称", width: "w-[14%]", align: "center" },
     { key: "description", title: "描述", width: "w-[20%]", align: "center", render: (v: string) => v || "—" },
-    { key: "user_count", title: "用户数", width: "w-24", align: "center", render: (v: number) => v || 0 },
+    { key: "user_count", title: "用户数", width: "w-[8%]", align: "center", render: (v: number) => v || 0 },
     {
       key: "created_at",
       title: "创建时间",
-      width: "w-[16%]",
+      width: "w-[12%]",
       align: "center",
       render: (v: string) => (
         <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
