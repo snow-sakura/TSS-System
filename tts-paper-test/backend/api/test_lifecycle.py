@@ -1254,7 +1254,7 @@ async def get_progress(
 async def stream_execution(
     execution_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user_dep),
+    user: User = Depends(get_sse_user_dep),
 ):
     """SSE实时推送执行进度"""
     execution = await tls.get_execution(db, execution_id)

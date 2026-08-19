@@ -29,6 +29,10 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   fixing: { label: "修复中", color: "bg-amber/10 text-amber border border-amber/20" },
   fixed: { label: "已修复", color: "bg-pass/10 text-pass border border-pass/20" },
   closed: { label: "已关闭", color: "bg-cream text-muted border border-border" },
+  // 历史遗留状态值兼容（旧枚举）
+  open: { label: "打开", color: "bg-cream text-muted border border-border" },
+  resolved: { label: "已解决", color: "bg-pass/10 text-pass border border-pass/20" },
+  in_progress: { label: "处理中", color: "bg-amber/10 text-amber border border-amber/20" },
 }
 
 const severityColors: Record<string, string> = {
@@ -36,6 +40,10 @@ const severityColors: Record<string, string> = {
   high: "bg-fail/80 text-white",
   medium: "bg-amber text-white",
   low: "bg-cream text-muted",
+  // 历史遗留严重度值兼容（旧枚举）
+  fatal: "bg-fail text-white",
+  major: "bg-fail/80 text-white",
+  minor: "bg-cream text-muted",
 }
 
 const severityLabels: Record<string, string> = {
@@ -43,6 +51,10 @@ const severityLabels: Record<string, string> = {
   high: "严重",
   medium: "一般",
   low: "轻微",
+  // 历史遗留严重度值兼容（旧枚举）
+  fatal: "致命",
+  major: "严重",
+  minor: "轻微",
 }
 
 const statusOptions = [

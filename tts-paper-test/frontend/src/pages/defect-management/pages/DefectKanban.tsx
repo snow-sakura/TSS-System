@@ -15,7 +15,16 @@ const columns = [
   { key: "已关闭", color: "border-border bg-cream/30", statusEn: "closed" },
 ]
 
-const STATUS_MAP: Record<string, string> = { new: "新建", open: "已确认", in_progress: "修复中", resolved: "已修复", verified: "已验证", closed: "已关闭", reopened: "重新打开" }
+const STATUS_MAP: Record<string, string> = { new: "新建", open: "已确认", confirmed: "已确认", in_progress: "修复中", fixing: "修复中", resolved: "已修复", fixed: "已修复", verified: "已验证", closed: "已关闭", reopened: "重新打开" }
+
+const severityMap = (s: string) => {
+  const map: Record<string, string> = { critical: "致命", fatal: "致命", high: "严重", major: "严重", medium: "一般", low: "轻微", minor: "轻微", suggestion: "建议" }
+  return map[s] || s || "一般"
+}
+const priorityMap = (s: string) => {
+  const map: Record<string, string> = { urgent: "紧急", critical: "紧急", emergency: "紧急", high: "高", medium: "中", low: "低", p0: "P0", p1: "P1", p2: "P2", p3: "P3" }
+  return map[s?.toLowerCase?.() ?? ""] || s || "P2"
+}
 const REVERSE_STATUS: Record<string, string> = Object.fromEntries(Object.entries(STATUS_MAP).map(([k, v]) => [v, k]))
 
 const initialDefects = [
@@ -53,8 +62,8 @@ export default function DefectKanban() {
           id: d.id,
           title: d.title,
           module: d.module || "未指定",
-          severity: d.severity || "一般",
-          priority: d.priority || "P2",
+          severity: severityMap(d.severity),
+          priority: priorityMap(d.priority),
           status: (STATUS_MAP as Record<string, string>)[d.status] || d.status,
           assignee: d.assigned_to ? String(d.assigned_to) : "",
         }))
