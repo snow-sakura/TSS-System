@@ -276,7 +276,7 @@ export default function ProcessRecords() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="border-b border-border bg-cream/30">
                 <th className="px-4 py-3 w-10 text-center"><input type="checkbox" checked={pagedRecords.length > 0 && pagedRecords.every((r) => selectedIds.has(r.id))} onChange={toggleSelectAll} className="w-4 h-4 rounded border-gray-300 text-amber focus:ring-amber" /></th>

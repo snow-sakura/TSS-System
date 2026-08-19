@@ -151,7 +151,7 @@ export default function SchedulesPage() {
         {loading ? (
           <div className="p-8 text-center text-muted text-sm">加载中...</div>
         ) : (
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="border-b border-border bg-cream/50">
                 <th className="px-5 py-3 text-left text-xs font-semibold text-ink-light">调度名称</th>

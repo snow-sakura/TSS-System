@@ -58,21 +58,21 @@ const columns: CrudColumn[] = [
   {
     key: "name",
     title: "方案标题",
-    width: "min-w-[160px]",
+    width: "w-[16%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
@@ -101,14 +101,14 @@ const columns: CrudColumn[] = [
   {
     key: "owner_name",
     title: "负责人",
-    width: "min-w-[100px]",
+    width: "w-[10%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[16%]",
     align: "center",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>

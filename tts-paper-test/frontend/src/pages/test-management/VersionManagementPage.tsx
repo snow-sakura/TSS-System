@@ -34,11 +34,11 @@ const statusOptions = [
 ]
 
 const columns: CrudColumn[] = [
-  { key: "name", title: "版本名称", width: "min-w-[140px]", align: "center" },
-  { key: "version_no", title: "版本号", width: "min-w-[110px]", align: "center" },
-  { key: "description", title: "描述", width: "min-w-[180px]", align: "center", render: (v: string) => v || "—" },
+  { key: "name", title: "版本名称", width: "w-[14%]", align: "center" },
+  { key: "version_no", title: "版本号", width: "w-[12%]", align: "center" },
+  { key: "description", title: "描述", width: "w-[18%]", align: "center", render: (v: string) => v || "—" },
   { key: "status", title: "状态", width: "w-28", align: "center" },
-  { key: "release_date", title: "发布日期", width: "min-w-[110px]", align: "center", render: (v: string) => v || "—" },
+  { key: "release_date", title: "发布日期", width: "w-[12%]", align: "center", render: (v: string) => v || "—" },
 ]
 
 const filters: CrudFilter[] = [

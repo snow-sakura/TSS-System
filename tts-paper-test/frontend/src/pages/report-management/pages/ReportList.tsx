@@ -202,7 +202,7 @@ export default function ReportList() {
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 text-amber animate-spin" /></div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="bg-cream/30 border-b border-border">
                 <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-10">ID</th>

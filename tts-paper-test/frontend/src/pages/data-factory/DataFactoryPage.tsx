@@ -230,7 +230,7 @@ function DataFactoryPage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                  <table className="w-full text-left logs-table">
                     <thead>
                       <tr className="border-b border-border/60 text-[11px] text-muted">
                         <th className="py-2 pr-3 font-medium">生成器</th>

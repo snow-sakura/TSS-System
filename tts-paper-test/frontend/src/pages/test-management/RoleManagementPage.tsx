@@ -44,13 +44,13 @@ export default function RoleManagementPage() {
   const [editingRole, setEditingRole] = useState<Role | null>(null)
 
   const columns: CrudColumn[] = [
-    { key: "name", title: "角色名称", width: "min-w-[140px]", align: "center" },
-    { key: "description", title: "描述", width: "min-w-[200px]", align: "center", render: (v: string) => v || "—" },
+    { key: "name", title: "角色名称", width: "w-[14%]", align: "center" },
+    { key: "description", title: "描述", width: "w-[20%]", align: "center", render: (v: string) => v || "—" },
     { key: "user_count", title: "用户数", width: "w-24", align: "center", render: (v: number) => v || 0 },
     {
       key: "created_at",
       title: "创建时间",
-      width: "min-w-[160px]",
+      width: "w-[16%]",
       align: "center",
       render: (v: string) => (
         <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>

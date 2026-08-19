@@ -221,7 +221,7 @@ export default function CaseList() {
       {/* 用例表格 */}
       <div className="flex-1 bg-white rounded-2xl border border-border shadow-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="bg-cream/50 border-b border-border">
                 <th className="px-4 py-3 text-center text-xs font-bold text-ink w-12">ID</th>

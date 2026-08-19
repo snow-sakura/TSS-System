@@ -76,25 +76,25 @@ export default function CasesPage() {
   const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
 
   const columns: CrudColumn[] = [
-    { key: "name", title: "用例标题", width: "min-w-[160px]", align: "center" },
+    { key: "name", title: "用例标题", width: "w-[16%]", align: "center" },
     {
       key: "module",
       title: "所属模块",
-      width: "min-w-[110px]",
+      width: "w-[12%]",
       align: "center",
       render: (v: string) => v || <span className="text-muted">—</span>,
     },
     {
       key: "project_name",
       title: "项目",
-      width: "min-w-[110px]",
+      width: "w-[12%]",
       align: "center",
       render: (v: string) => v || <span className="text-muted">—</span>,
     },
     {
       key: "version_name",
       title: "版本",
-      width: "min-w-[110px]",
+      width: "w-[12%]",
       align: "center",
       className: "hidden 2xl:table-cell",
       render: (v: string) => v || <span className="text-muted">—</span>,
@@ -116,7 +116,7 @@ export default function CasesPage() {
     {
       key: "test_type",
       title: "用例类型",
-      width: "min-w-[100px]",
+      width: "w-[10%]",
       align: "center",
       className: "hidden 2xl:table-cell",
       render: (v: string) => {
@@ -132,7 +132,7 @@ export default function CasesPage() {
     {
       key: "tags",
       title: "标签",
-      width: "min-w-[120px]",
+      width: "w-[12%]",
       align: "center",
       className: "hidden 2xl:table-cell",
       render: (v: string[] | null | undefined) => {
@@ -187,7 +187,7 @@ export default function CasesPage() {
     {
       key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[16%]",
     align: "center",
     className: "hidden 2xl:table-cell",
     render: (v: string) => (

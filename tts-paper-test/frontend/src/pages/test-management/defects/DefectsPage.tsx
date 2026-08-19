@@ -73,7 +73,7 @@ const severityOptions = [
 ]
 
 const columns: CrudColumn[] = [
-  { key: "title", title: "缺陷标题", width: "min-w-[160px]", align: "center" },
+  { key: "title", title: "缺陷标题", width: "w-[16%]", align: "center" },
   {
     key: "severity",
     title: "严重度",
@@ -94,14 +94,14 @@ const columns: CrudColumn[] = [
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     className: "hidden xl:table-cell",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
@@ -109,7 +109,7 @@ const columns: CrudColumn[] = [
   {
     key: "assignee",
     title: "责任人",
-    width: "min-w-[100px]",
+    width: "w-[10%]",
     className: "hidden xl:table-cell",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
@@ -117,7 +117,7 @@ const columns: CrudColumn[] = [
   {
 key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[16%]",
     align: "center",
     className: "hidden 2xl:table-cell",
     align: "center",

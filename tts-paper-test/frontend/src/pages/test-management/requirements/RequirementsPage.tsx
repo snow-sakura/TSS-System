@@ -78,11 +78,11 @@ const sourceOptions = [
 ]
 
 const columns: CrudColumn[] = [
-  { key: "name", title: "需求名称", width: "min-w-[160px]", align: "center" },
+  { key: "name", title: "需求名称", width: "w-[16%]", align: "center" },
   {
     key: "code",
     title: "需求编号",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     className: "hidden xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
@@ -90,7 +90,7 @@ const columns: CrudColumn[] = [
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     className: "hidden xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
@@ -98,7 +98,7 @@ const columns: CrudColumn[] = [
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     className: "hidden 2xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
@@ -108,7 +108,7 @@ const columns: CrudColumn[] = [
   {
     key: "requirement_type",
     title: "需求类型",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     className: "hidden 2xl:table-cell",
     render: (v: string) => v || <span className="text-muted">—</span>,
@@ -116,7 +116,7 @@ const columns: CrudColumn[] = [
   {
     key: "source",
     title: "来源",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     className: "hidden 2xl:table-cell",
     render: (v: string) => {
@@ -128,7 +128,7 @@ const columns: CrudColumn[] = [
   {
     key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[16%]",
     align: "center",
     className: "hidden 2xl:table-cell",
     render: (v: string) => (

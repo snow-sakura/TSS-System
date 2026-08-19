@@ -120,7 +120,7 @@ export default function ExecutionDetail() {
       {/* 列表 */}
       <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden flex-1">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-sm">
             <thead><tr className="border-b border-border bg-cream/50">
               <th className="px-3 py-3 text-center text-xs font-bold text-ink">执行批次</th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink">用例ID</th>

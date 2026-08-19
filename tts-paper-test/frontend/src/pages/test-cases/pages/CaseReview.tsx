@@ -85,7 +85,7 @@ export default function CaseReview() {
       {/* 评审列表 */}
       <div className="flex-1 bg-white rounded-2xl border border-border shadow-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="bg-cream/50 border-b border-border">
                 <th className="px-4 py-3 text-center text-xs font-bold text-ink">ID</th>

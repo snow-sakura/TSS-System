@@ -317,7 +317,7 @@ export default function ExecutionList() {
       {/* 表格 */}
       <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden flex-1">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead><tr className="border-b border-border bg-cream/50">
               <th className="px-3 py-3 w-10"><input type="checkbox" checked={paged.length > 0 && paged.every((e) => selectedIds.has(String(e.id)))} onChange={() => { if (paged.every((e) => selectedIds.has(String(e.id)))) { const n = new Set(selectedIds); paged.forEach((e) => n.delete(String(e.id))); setSelectedIds(n) } else { const n = new Set(selectedIds); paged.forEach((e) => n.add(String(e.id))); setSelectedIds(n) } }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink w-10">ID</th>

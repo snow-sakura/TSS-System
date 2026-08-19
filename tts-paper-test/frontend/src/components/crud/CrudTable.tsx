@@ -280,7 +280,7 @@ export default function CrudTable({
       ) : (
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b border-border bg-cream/50">
                   <th className="px-4 py-3 w-10">
@@ -354,9 +354,11 @@ export default function CrudTable({
                               : "text-left"
                         } ${col.className ?? ""}`}
                       >
-                        {col.render
-                          ? col.render(row[col.key], row)
-                          : getDefaultRender(col, row)}
+                        <div className="truncate">
+                          {col.render
+                            ? col.render(row[col.key], row)
+                            : getDefaultRender(col, row)}
+                        </div>
                       </td>
                     ))}
                     <td className="px-5 py-3 text-right">

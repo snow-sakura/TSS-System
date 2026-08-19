@@ -180,21 +180,21 @@ export default function ExecutionsPage() {
       {
         key: "name",
         title: "执行名称",
-        width: "min-w-[160px]",
+        width: "w-[16%]",
         align: "center",
         render: (_v: string, row: Execution) => row.name || row.title || <span className="text-muted">—</span>,
       },
       {
         key: "project_name",
         title: "项目",
-        width: "min-w-[120px]",
+        width: "w-[12%]",
         align: "center",
         render: (v: string) => v || <span className="text-muted">—</span>,
       },
       {
         key: "version_name",
         title: "版本",
-        width: "min-w-[120px]",
+        width: "w-[12%]",
         align: "center",
         className: "hidden xl:table-cell",
         render: (v: string) => v || <span className="text-muted">—</span>,
@@ -203,7 +203,7 @@ export default function ExecutionsPage() {
       {
         key: "progress",
         title: "进度",
-        width: "min-w-[180px]",
+        width: "w-[18%]",
         align: "center",
         render: (_v: number, row: Execution) => {
           const pct = Math.round(row.pass_rate ?? row.progress ?? 0)
@@ -238,7 +238,7 @@ export default function ExecutionsPage() {
       {
         key: "created_at",
         title: "创建时间",
-        width: "min-w-[160px]",
+        width: "w-[16%]",
         align: "center",
         className: "hidden xl:table-cell",
         render: (v: string) => v || <span className="text-muted">—</span>,

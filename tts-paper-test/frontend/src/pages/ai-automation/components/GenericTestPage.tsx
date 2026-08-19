@@ -119,7 +119,7 @@ function GenericTestPage({
           <div className="flex items-center justify-center h-48"><Loader2 className="w-6 h-6 animate-spin text-amber" /></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
               <thead>
                 <tr className="bg-cream/50 border-b border-border">
                   {columns.map((col) => (

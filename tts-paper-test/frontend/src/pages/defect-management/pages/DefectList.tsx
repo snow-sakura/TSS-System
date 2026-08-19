@@ -318,7 +318,7 @@ export default function DefectList() {
       {/* 表格 */}
       <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden flex-1">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead><tr className="border-b border-border bg-cream/50">
               <th className="px-3 py-3 w-10"><input type="checkbox" checked={paged.length > 0 && paged.every((d) => selectedIds.has(String(d.id)))} onChange={() => { if (paged.every((d) => selectedIds.has(String(d.id)))) { const n = new Set(selectedIds); paged.forEach((d) => n.delete(String(d.id))); setSelectedIds(n) } else { const n = new Set(selectedIds); paged.forEach((d) => n.add(String(d.id))); setSelectedIds(n) } }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></th>
               <th className="px-3 py-3 text-center text-xs font-bold text-ink w-10">ID</th>

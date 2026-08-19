@@ -75,14 +75,14 @@ const columns: CrudColumn[] = [
   {
     key: "title",
     title: "评审标题",
-    width: "min-w-[160px]",
+    width: "w-[16%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "target_type",
     title: "关联对象",
-    width: "min-w-[110px]",
+    width: "w-[12%]",
     align: "center",
     render: (v: string, row: Review) => {
       const label = targetTypeOptions.find((o) => o.value === v)?.label || v
@@ -95,21 +95,21 @@ const columns: CrudColumn[] = [
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[12%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "reviewer",
     title: "评审人",
-    width: "min-w-[100px]",
+    width: "w-[10%]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
@@ -164,7 +164,7 @@ const columns: CrudColumn[] = [
   {
     key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[16%]",
     align: "center",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>

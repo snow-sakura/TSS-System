@@ -155,7 +155,7 @@ function DataTable({
             <p className="text-xs mt-1 text-muted">点击「新建」添加或选择「AI自动化」生成</p>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="border-b border-border bg-cream/50">
                 <th className="px-4 py-3 w-10 text-left">
