@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
 from database import get_db
+from api.deps import get_current_user_dep
+from models.user import User
 
 settings = get_settings()
 
@@ -129,6 +131,7 @@ async def chat(
     request: Request,
     chat_request: ChatRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
 ):
     """AI聊天接口 - 流式响应（RAG增强：自动检索知识库作为上下文）"""
     messages = [

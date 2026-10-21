@@ -1,0 +1,1790 @@
+{
+ "exported_at": "2026-10-20T16:34:52",
+ "db_file": "tss_dev.db",
+ "note": "TSS AI测试平台 · 真实执行记录快照（已脱敏，需求正文与密钥已移除）",
+ "stats": {
+  "pipeline_total": 21,
+  "pipeline_completed": 10,
+  "pipeline_failed": 11,
+  "sequence_groups": 4,
+  "sequence_tasks": 14,
+  "providers": 3
+ },
+ "pipeline_records": [
+  {
+   "id": 21,
+   "name": "Pipeline - 断连可靠性验证",
+   "status": "failed",
+   "pipeline_id": "416b7e8f",
+   "requirement_name": "断连可靠性验证",
+   "total_duration": 5.5,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "status": "failed",
+     "duration": 1439,
+     "error": "Error code: 400 - {'error': {'type': 'server_error', 'message': 'Upstream request failed: Model is unavailable.'}}"
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "status": "failed",
+     "duration": 736,
+     "error": "Error code: 400 - {'error': {'type': 'server_error', 'message': 'Upstream request failed: Model is unavailable.'}}"
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "status": "failed",
+     "duration": 731,
+     "error": "Error code: 400 - {'error': {'type': 'server_error', 'message': 'Upstream request failed: Model is unavailable.'}}"
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "status": "failed",
+     "duration": 740,
+     "error": "Error code: 400 - {'error': {'type': 'server_error', 'message': 'Upstream request failed: Model is unavailable.'}}"
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "status": "failed",
+     "duration": 1727,
+     "error": "Error code: 400 - {'error': {'type': 'server_error', 'message': 'Upstream request failed: Model is unavailable.'}}"
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-10-18 12:00:42",
+   "updated_at": "2026-10-18 12:00:47",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 20,
+   "name": "Pipeline - E2E调试-弹窗测试",
+   "status": "completed",
+   "pipeline_id": "2c4b2ffb",
+   "requirement_name": "E2E调试-弹窗测试",
+   "total_duration": 454.7,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 93154,
+     "preview": "## 📋 需求概述\n\n本需求旨在为交易/电商系统构建订单取消能力，核心覆盖未支付订单的30分钟超时自动取消，以及已支付订单的退款取消流程。功能需配套取消原因记录与通知推送机制，以提升订单闭环管理效率与用户感知；需求来源为业务方提供的原始简短文本描述（阶段1原始输入）。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 未支付订单自动取消 | 系统对创建后满30分钟仍未支付的订单自动执行取消操作，释放库存/额度 | P",
+     "output_chars": 3782
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 72286,
+     "preview": "## 📋 测试策略概述\n\n本方案基于「分层多Agent策略规划」方法论，由策略Agent确定以订单取消核心链路（未支付超时取消、已支付退款取消）为最高风险优先级，测试深度向接口与单元测试倾斜；资源Agent评估现有MCP工具链（Playwright、Midscene.js、pytest+httpx、k6、ZAP、BrowserStack）可覆盖全维度；排期Agent将执行序列左移，单元/接口测试先于UI。总体遵循**风险驱动**与**测试金字塔**（单元测试基底 > 接口测试主体 > UI端到端精简），并贯彻**左移原则**在需求澄清后即开展测试设计。*",
+     "output_chars": 4345
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 109738,
+     "preview": "## 📋 测试点总览\n\n本阶段基于原始需求“订单取消功能，支持未支付订单30分钟自动取消、已支付订单退款取消。需要支持取消原因记录、取消通知推送。”及上阶段测试策略上下文，采用「多Agent正交分析」方法论（正向/逆向/边界/组合Agent）并结合业务、技术、质量三视角交叉验证，共提取测试点 **33** 个。覆盖范围包括：功能测试（未支付超时取消、已支付退款取消、取消原因记录、通知推送、状态机与权限审计等）、流程测试（订单状态转换与子流程）、性能测试（定时精度、并发冲突、退款吞吐）、安全测试（数据脱敏、越权、注入攻击、审计防篡改）。其中利用AI增强（边",
+     "output_chars": 528
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 93609,
+     "preview": "---\n\n## 📊 用例汇总表\n\n| 编号 | 用例标题 | 优先级 | 测试类型 | 对应测试点 | 前置条件 | 操作步骤 | 预期结果 |\n|------|---------|--------|---------|-----------|---------|---------|---------|\n| TC-001 | 未支付订单满30分钟系统自动取消 | P0 | 功能 | TP-001 | 存在一笔状态为“未支付”的订单，其创建时间距今恰好30分钟（通过时间Mock或数据库脚本插入） | 1. 等待或手动触发订单定时取消任务 2. 查询订单主表",
+     "output_chars": 4655
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 85780,
+     "preview": "## 📋 评审概述\n\n本次评审针对“订单取消功能”上游多Agent生成的8条测试用例（TC-001~TC-008）进行「多Agent交叉评审」。评审范围涵盖未支付自动取消、已支付退款取消、取消原因记录、取消通知推送四大业务维度及其异常/边界场景。采用质量Agent、覆盖率Agent、风险Agent、合规Agent四视角联合审查，并融合业务/技术/质量三方交叉验证。\n\n- **评审方法**：逐条校验可执行性、追溯矩阵完整性、高风险盲区识别、ISTQB/ISO 29119合规性。\n- **AI辅助评审占比**：100%（8条用例均为AI生成，评审过程由AI模",
+     "output_chars": 4093
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-08-23 08:00:48",
+   "updated_at": "2026-08-23 08:00:48",
+   "project_id": 1,
+   "version_id": 1,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 19,
+   "name": "Pipeline - E2E测试-支付模块",
+   "status": "completed",
+   "pipeline_id": "816ae9c8",
+   "requirement_name": "E2E测试-支付模块",
+   "total_duration": 440.7,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 44464,
+     "preview": "---\n\n## 📋 需求概述\n\n本需求旨在为系统构建一套在线支付功能，集成微信支付、支付宝、银行卡三种主流支付渠道，并覆盖支付安全验证、限额控制、超时管理、失败重试及退款等核心交易闭环能力。需求来源为用户输入的原始文本：“在线支付功能，支持微信支付、支付宝、银行卡三种支付方式。需要支持支付密码验证、支付限额控制、支付超时处理（30分钟）。支付失败需自动重试3次，支持退款功能。”\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|-------",
+     "output_chars": 3714
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 119572,
+     "preview": "---\n\n## 📋 测试策略概述\n\n总体测试策略采用「风险驱动 + 分层多Agent规划」方法论。针对在线支付高资金风险业务，策略Agent确定总体测试范围覆盖多渠道支付、密码验证、限额、超时、重试、退款全闭环；风险优先级将第三方不稳定、安全泄露、重试幂等列为高等级，分配最深测试深度。测试深度遵循测试金字塔原则：单元测试/组件测试（幂等键、限额逻辑）自动化目标≥85%，接口测试（Mock网关契约）≥90%，UI端到端≤70%。左移原则：已在需求阶段完成功能点分析与可测试性评估，测试设计提前介入补充规格缺失。AI增强策略：利用大语言模型生成异常边界用例、智",
+     "output_chars": 4322
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 83244,
+     "preview": "## 📋 测试点总览\n\n基于原始需求“在线支付功能（微信/支付宝/银行卡、密码验证、限额控制、30分钟超时、失败重试3次、退款）”及上阶段测试策略上下文，采用「多Agent正交分析」方法论（正向Happy Path、逆向异常容错、边界极限、组合因素）提取测试点。覆盖范围包含功能、流程、性能、安全四大维度，并深度融合AI增强测试设计技术（等价类/边界值自动推导、判定表逻辑覆盖、错误推测历史缺陷匹配）。本次共提取 **28** 个测试点，其中通过AI辅助生成异常数据、状态机边界推导及漏洞模式匹配提取的测试点约 **18** 个（占比64%），人工基于业务风险",
+     "output_chars": 4544
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 115995,
+     "preview": "## 📊 用例汇总表\n\n| 编号 | 用例标题 | 优先级 | 测试类型 | 对应测试点 | 前置条件 | 操作步骤 | 预期结果 |\n|------|---------|--------|---------|-----------|---------|---------|---------|\n| TC-001 | 微信支付成功（正确密码、限额内金额） | P0 | 功能 | TP-001 | 用户已登录并绑定微信，待支付订单金额100元（≤5000） | 1. 选择微信支付 2. 输入正确支付密码 3. 提交支付指令 | 支付成功，订单状态变为“已支付",
+     "output_chars": 8882
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 77106,
+     "preview": "## 📋 评审概述\n\n本次评审范围涵盖基于「在线支付功能」原始需求衍生的 28 条测试用例（TC-001 至 TC-028），包含功能、异常、边界、流程、性能及安全六大测试类型。评审采用「多Agent交叉评审」模式，由质量Agent、覆盖率Agent、风险Agent与合规Agent并行校验，并引入 AI 增强检测（自动识别遗漏场景、冗余与格式规范）。AI 辅助评审占比 100%，通过自然语言处理解析用例结构、构建需求追溯矩阵并模拟多视角交叉验证，确保评审客观且符合 ISTQB / ISO 29119 标准。\n\n---\n\n## ✅ 质量检查\n\n| 检查项 ",
+     "output_chars": 4400
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-08-23 07:46:29",
+   "updated_at": "2026-08-23 07:46:29",
+   "project_id": 1,
+   "version_id": 1,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 18,
+   "name": "Pipeline - 自动化验证-登录模块",
+   "status": "completed",
+   "pipeline_id": "f5a83399",
+   "requirement_name": "自动化验证-登录模块",
+   "total_duration": 348.9,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 54805,
+     "preview": "---\n\n## 📋 需求概述\n\n本需求旨在实现用户登录模块，支持账号密码与手机验证码双方式登录，并涵盖记住密码、忘记密码以及失败锁定等辅助安全功能。需求来源为用户输入的原始文本：“用户登录功能，支持账号密码、手机验证码两种方式登录。需要支持记住密码、忘记密码功能。登录失败3次后锁定账户30分钟。”\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 账号密码登录 | 用户输入账号和密码进行身份校验并登录系统 | P0 ",
+     "output_chars": 3350
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 59380,
+     "preview": "---\n\n## 📋 测试策略概述\n\n本方案基于需求分析与风险驱动，采用「分层多Agent策略规划」方法论：\n- **策略Agent**确定总体范围以登录认证核心链路（P0）为重心，辅助功能（P1/P2）适度覆盖；测试深度遵循测试金字塔——单元测试由开发左移保障（约10%），接口测试为主体（约60%），UI端到端轻量精准（约30%）。\n- **资源Agent**评估现有1名测试经理+2名测试开发+1名安全兼职的人力，以及MCP工具链全可用，AI工具可节省约30%脚本与数据工作量。\n- **排期Agent**生成最优序列：需求阶段已左移设计，提测前完成接口框",
+     "output_chars": 4156
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 104703,
+     "preview": "## 📋 测试点总览\n\n基于用户登录功能原始需求（支持账号密码、手机验证码登录，记住密码、忘记密码，失败3次锁定30分钟）及上阶段测试策略上下文（覆盖 AC-001~008），本阶段采用多 Agent 正交分析（正向/逆向/边界/组合）共提取 **31** 个测试点。覆盖范围包括：功能测试（15项，含等价类、边界值、状态转换）、流程测试（7项核心状态跳转）、性能测试（3项并发与限流）、安全测试（6项注入/凭证/暴力破解等）。AI 辅助提取比例约 **32%**（其中 10 项由 AI 全自动生成或智能断言，5 项半自动增强，符合上阶段质量门禁 AI 自动",
+     "output_chars": 3493
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 84406,
+     "preview": "---\n\n## 📊 用例汇总表\n\n| 编号 | 用例标题 | 优先级 | 测试类型 | 对应测试点",
+     "output_chars": 49
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 45502,
+     "preview": "## 📋 评审概述\n\n**评审范围**：针对原始需求“用户登录功能（账号密码、手机验证码、记住密码、忘记密码、失败3次锁定30分钟）”进行全量测试资产评审。  \n**评审方法**：采用多Agent交叉评审模式（质量Agent、覆盖率Agent、风险Agent、合规Agent），并从业务视角、技术视角、质量视角进行三方交叉验证。  \n**上阶段上下文状态**：检测到上阶段“用例汇总表”仅含表头无实质用例（执行失败/为空）。根据指令，评审专家基于原始需求独立构建了一套基准测试用例集（TC-001~TC-009）并直接对其进行全流程评审，以保障本阶段交付物结构",
+     "output_chars": 3348
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-08-19 01:43:40",
+   "updated_at": "2026-08-19 01:43:40",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 17,
+   "name": "Pipeline - 未命名需求",
+   "status": "failed",
+   "pipeline_id": "106edbf2",
+   "requirement_name": "未命名需求",
+   "total_duration": 92.0,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 17821
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 19411
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 17938
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 17977
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 18804
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-08-14 03:48:36",
+   "updated_at": "2026-08-14 03:48:36",
+   "project_id": 2,
+   "version_id": 2,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 16,
+   "name": "Pipeline - API_DOC",
+   "status": "completed",
+   "pipeline_id": "5b8749f2",
+   "requirement_name": "API_DOC",
+   "total_duration": 344.1,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 55.8,
+     "preview": "## 📋 需求概述\n\nTSS 票务系统提供一组基于 HTTP/JSON 的 RESTful API，覆盖用户管理、目的地管理、票务购买、订单管理及仪表盘统计等核心业务功能。需求来源为《TSS 票务系统 - API 接口文档 v3.0》，目前文档声明所有接口均可匿名访问，未实现认证校验，存在明显的安全缺口，同时文档部分字段定义不完整，需在测试设计与实现阶段重点补充约束。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n|",
+     "output_chars": 7355
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 79.9,
+     "preview": "## 📋 测试策略概述\n\n本测试方案针对 **TSS 票务系统 API v3.0**，覆盖文档所列 17 个接口的完整测试周期。基于上阶段需求分析，确定测试总体策略如下：\n\n1. **风险驱动**：核心业务链路（注册→登录→查询目的地→计算票价→购买→订单查询）以及 API 未认证的安全缺口设置为 P0 优先级，投入最高测试深度；文档未定义但推断存在的规则（如分页、删除约束、幂等性）通过补充业务规则进行测试设计。\n2. **接口测试为主，分层次推进**：以 `pytest + httpx` 构建 API 自动化测试基座，覆盖全部接口的正向、反向、边界、异",
+     "output_chars": 8234
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 66.0,
+     "preview": "## 📋 测试点总览\n\n本次测试点提取基于 **TSS 票务系统 API v3.0** 接口文档和上阶段测试策略，覆盖全部 17 个接口，共提取 **107** 个测试点。测试点按照功能、流程、性能、安全四大维度组织，应用等价类划分、边界值分析、判定表、状态转换、错误推测等 ISTQB 标准测试设计技术，并借助 AI 增强生成边界外极值、组合爆炸场景和异常模式测试数据。\n\n- **优先级分布**：P0 项 56 个（核心业务链路、安全漏洞、关键业务规则），P1 项 35 个（边界条件、数据一致性、性能基准），P2 项 16 个（边缘兼容、文档一致性、极端",
+     "output_chars": 5974
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 57.9,
+     "preview": "好的，作为资深 AI 测试用例设计专家，我将严格遵循 ISTQB 方法论与 BDD 实践，采用「生成-验证-优化」多智能体协作模式，基于上阶段提取的 107 个测试点，为您产出全面、详实、可执行的测试用例。\n\n---\n\n## 📋 测试用例总览\n\n本阶段基于 TSS 票务系统 API v3.0 文档及上阶段 107 个测试点，共生成 **32** 个核心测试用例。用例覆盖全部 **17** 个 API 接口，横跨功能、异常、边界、安全、数据一致性五大测试类型，应用等价类划分、边界值分析、判定表、状态转换、错误推测等设计技术。\n\n- **优先级分布**：P0",
+     "output_chars": 10801
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 84.2,
+     "preview": "## 📋 评审概述\n\n本次评审严格遵循 **ISTQB 测试用例评审标准** 与 **ISO 29119 测试文档规范**，采用「质量 Agent → 覆盖率 Agent → 风险 Agent → 合规 Agent」多Agent交叉评审模式，对 TSS 票务系统 API v3.0 上阶段输出的 **32 条测试用例** 进行全量审查。\n\n- **评审范围**：覆盖全部 17 个 API 接口、107 个测试点、32 条测试用例，横跨功能、异常、边界、安全、数据一致性五大测试类型。\n- **评审方法**：基于需求文档、接口定义、BDD 行为规范三基线交叉比",
+     "output_chars": 4481
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-31 10:21:32",
+   "updated_at": "2026-07-31 10:21:32",
+   "project_id": 2,
+   "version_id": 2,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 15,
+   "name": "Pipeline - 需求规格说明书",
+   "status": "failed",
+   "pipeline_id": "174ea80b",
+   "requirement_name": "需求规格说明书",
+   "total_duration": 233.5,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 80.5,
+     "preview": "---\n\n## 📋 需求概述\n\nTSS 售票系统是一个基于 Web 的轻量级票务管理平台，提供用户注册/登录、在线购票、订单管理以及后台管理功能。系统支持管理员和普通用户两种角色，采用 Flask+SQLite+Bootstrap5 技术栈。本需求来源于《TSS 票务系统 - 需求规格说明书 v1.0》。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|----------|\n| 用户注册 | 包括用户名(唯一)、密码、确认密码、选填邮箱，",
+     "output_chars": 5572
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 24.3
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 78.0,
+     "preview": "## 📋 测试点总览\n\n本测试点清单基于 TSS 售票系统需求规约 v1.0，覆盖登录、注册、仪表盘、购票流程（首页、选择目的地、选择票务选项、支付、打印车票）及后台权限管理共五大功能域。采用多 Agent 正交分析方法（正向、逆向、边界、组合），结合 ISTQB 测试设计技术，共提取测试点 **31 个**，其中 P0 级 12 个、P1 级 13 个、P2 级 6 个。AI 辅助提取（自动/半自动）占比约 **16%**，主要应用于边界扩大、错误推测和组合爆炸场景。\n\n---\n\n## 🔍 功能测试点\n\n| 编号 | 测试点 | 对应功能 | 优先级 ",
+     "output_chars": 4574
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 32.0
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 18.6
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 13:01:52",
+   "updated_at": "2026-07-30 13:01:52",
+   "project_id": 1,
+   "version_id": 1,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 14,
+   "name": "Pipeline - 测试需求",
+   "status": "failed",
+   "pipeline_id": "66d4b7cb",
+   "requirement_name": "测试需求",
+   "total_duration": 194.6,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 18.3
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 18.7
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 66.9,
+     "preview": "---\n\n## 📋 测试点总览\n\n本测试点清单基于ISTQB测试设计技术（等价类划分、边界值分析、判定表、状态转换、错误推测），结合多Agent正交分析（正向、逆向、边界、组合）生成，覆盖用户登录功能的业务流程、UI交互、边界条件、异常容错、性能与安全。共提取 **40** 个测试点，其中P0 11个、P1 22个、P2 7个。AI增强辅助提取（自动/半自动） **18** 个，占比 **45%**，主要集中于边界极值、隐藏组合、异常压力场景。\n\n---\n\n## 🔍 功能测试点\n\n| 编号 | 测试点 | 对应功能 | 优先级 | 测试类型 | 设计技术",
+     "output_chars": 6538
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 71.5
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 19.0
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 12:17:50",
+   "updated_at": "2026-07-30 12:17:50",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 13,
+   "name": "Pipeline - 测试需求",
+   "status": "failed",
+   "pipeline_id": "bb321041",
+   "requirement_name": "测试需求",
+   "total_duration": 159.9,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 50.6,
+     "preview": "---\n\n## 📋 需求概述\n\n本需求旨在对用户登录功能进行系统化的测试验证，确保用户能够通过正确的用户名和密码成功登录系统、对无效输入给出适当反馈，并保证系统的基本安全性和稳定性。需求来源为用户提供的原始文本“用户登录功能测试”。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 用户凭证输入 | 界面提供用户名和密码输入控件，支持文字录入 | P0 | 核心功能 | 否（显性需求） |\n| 身份验证 | 系统根据",
+     "output_chars": 2575
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 23.1
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 36.2,
+     "preview": "---\n\n## 📋 测试点总览\n\n本测试点清单针对「用户登录功能」进行全面分析，覆盖功能正确性、异常处理、边界极限、组合场景、性能及安全方面。共输出 **28 个测试点**，其中 P0 级关键测试点 12 个，P1 级重要测试点 10 个，P2 级一般测试点 6 个。设计技术涵盖等价类划分、边界值分析、判定表、状态转换和错误推测，AI 辅助提取比例约 35%（主要应用于极值推荐、隐藏等价类发现及组合爆炸化简）。\n\n---\n\n## 🔍 功能测试点\n\n| 编号 | 测试点 | 对应功能 | 优先级 | 测试类型 | 设计技术 | AI增强 |\n|------",
+     "output_chars": 5029
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 26.6
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 23.3
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 12:10:30",
+   "updated_at": "2026-07-30 12:10:30",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 12,
+   "name": "Pipeline - 测试需求",
+   "status": "failed",
+   "pipeline_id": "a12608ae",
+   "requirement_name": "测试需求",
+   "total_duration": 181.4,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 21.8
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 21.2
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 85.6,
+     "preview": "## 📋 测试点总览\n\n本文基于“用户登录功能”原始需求，应用多Agent正交分析方法，结合ISTQB测试设计技术（等价类划分、边界值分析、判定表、状态转换、错误推测），从正向、逆向、边界、组合四个视角系统提取测试点。覆盖身份验证、输入校验、验证码、流程状态转换、性能阈值、安全防护等功能与质量属性。共提取测试点 **35** 个，其中AI辅助增强测试点 **12** 个（占比34%，含自动/半自动提取），人工设计 **23** 个。按优先级：P0核心功能 **14** 个，P1重要功能 **14** 个，P2次要功能 **7** 个。设计技术涵盖等价类、",
+     "output_chars": 3155
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 18.3
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 34.3,
+     "preview": "好的，作为资深AI测试用例评审专家，我将采用多Agent交叉评审模式，基于原始需求“用户登录功能测试”独立完成本阶段。考虑到上阶段因限流失败，我将根据典型测试实践构建一套合理的测试用例集进行评审，并完整输出报告。\n\n---\n\n## 📋 评审概述\n\n本次评审针对 **用户登录功能** 进行用例质量评估。由于上一阶段用例生成因API限流失败，评审专家基于原始需求独立构建了包含6个核心测试用例的候选集，覆盖正常登录、异常密码/用户名、空输入等基本场景。评审采用多Agent（质量、覆盖率、风险、合规）交叉验证，AI辅助占比40%（包括自动检测遗漏场景、冗余分析）",
+     "output_chars": 4576
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 12:02:31",
+   "updated_at": "2026-07-30 12:02:31",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 11,
+   "name": "Pipeline - 测试需求",
+   "status": "failed",
+   "pipeline_id": "36e718d9",
+   "requirement_name": "测试需求",
+   "total_duration": 188.7,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 59.7,
+     "preview": "## 📋 需求概述\n\n用户登录功能是系统的基础入口，用于验证用户身份并授予相应权限。需求来源为原始需求「用户登录功能测试」，需确保登录流程的安全性、可靠性和易用性。该功能涉及身份认证、失败处理、会话管理及辅助安全机制，是后续所有业务操作的前提。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 用户身份认证 | 验证用户名与密码是否匹配，匹配则允许登录，否则拒绝并提示错误 | P0 | 核心功能 | 是 - 最基础认",
+     "output_chars": 5683
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 20.6
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 20.1
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 41.0,
+     "preview": "---\n\n## 📋 测试用例总览\n\n本文档针对 **用户登录功能** 设计详细的测试用例。共包含 **6 个测试用例**，覆盖以下主要测试点：  \n- TP-001：有效凭据登录成功  \n- TP-002：无效密码登录失败  \n- TP-003：不存在用户名登录失败  \n- TP-004：连续失败锁定机制  \n- TP-005：空白输入处理  \n- TP-006：密码大小写敏感  \n\n采用等价类划分、边界值分析和判定表技术进行设计，并结合 AI 辅助补充异常场景（如多次失败后的锁定边界）。用例均可自动化执行（Playwright），自动化率 100%。A",
+     "output_chars": 6607
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 47.2,
+     "preview": "---\n\n## 📋 评审概述\n\n本次评审针对 **用户登录功能** 的测试用例集，采用多Agent交叉评审模式（质量、覆盖率、风险、合规），结合 ISTQB 原则与 ISO 29119 标准。上阶段输出了 **5 个用例**（总览提及应为 6 个），覆盖了 TP-001 至 TP-005，但 **TP-006（密码大小写敏感）缺失**。用例整体设计合理，使用了等价类、边界值和判定表方法，并引入 AI 增强。AI 辅助评审占比约 **50%**，用于检测遗漏、评估格式及识别改进点。\n\n---\n\n## ✅ 质量检查\n\n| 检查项 | 结果 | 说明 | AI",
+     "output_chars": 3862
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 11:54:18",
+   "updated_at": "2026-07-30 11:54:18",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 10,
+   "name": "Pipeline - 测试需求",
+   "status": "failed",
+   "pipeline_id": "12b21544",
+   "requirement_name": "测试需求",
+   "total_duration": 240.7,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 48.3,
+     "preview": "---\n\n## 📋 需求概述\n\n本分析针对“用户登录功能测试”这一原始需求，目标是定义用户登录功能的核心需求、业务规则、约束条件及可测试性要求。需求来源为用户给出的单句描述，未提供任何补充文档或原型，因此本分析基于主流登录功能的通用特性与行业最佳实践进行合理推断。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 用户名输入 | 用户输入已注册的用户名/邮箱/手机号 | P0 | 核心功能 | 是 – 基于常见登录流",
+     "output_chars": 4587
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 75.3,
+     "preview": "---\n\n## 📋 测试策略概述\n\n本测试规划针对“用户登录功能测试”这一需求，基于上阶段需求分析（推断的8个功能点、6条业务规则、10项验收标准）制定全生命周期测试策略。由于原始需求极不完整（可测试性评分2/5），采用**风险驱动+分层多Agent策略规划**方法论：\n\n- **策略Agent**：确定以核心认证逻辑（P0）为最高优先级，同时覆盖安全、性能、兼容性等非功能测试；利用AI增强补充需求模糊带来的测试空缺。\n- **资源Agent**：评估人力配置2名测试工程师（自动化+安全/性能）、1名开发支持；工具链整合Playwright、Midsce",
+     "output_chars": 6506
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 25.8
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 72.2,
+     "preview": "---\n\n## 📋 测试用例总览\n\n本次针对「用户登录功能」生成12个测试用例，覆盖正常流程、异常流程、边界条件、安全防御和用户体验场景。设计方法包括等价类划分、边界值分析、判定表、错误推测和状态转换，确保功能稳定性和安全性。\n\n- **覆盖测试点**：TP-LOGIN-001（基本登录验证）、TP-LOGIN-002（输入验证）、TP-LOGIN-003（账户锁定）、TP-LOGIN-004（安全防护）、TP-LOGIN-005（会话管理）、TP-LOGIN-006（UI可用性）\n- **用例分布**：P0 4个、P1 5个、P2 3个\n- **AI贡",
+     "output_chars": 11902
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 19.0
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 11:48:12",
+   "updated_at": "2026-07-30 11:48:12",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 9,
+   "name": "Pipeline - 测试需求",
+   "status": "failed",
+   "pipeline_id": "2dd69c7a",
+   "requirement_name": "测试需求",
+   "total_duration": 183.8,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 18.2
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 18.8
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 69.3,
+     "preview": "## 📋 测试点总览\n\n本测试计划针对“用户登录功能”进行了全流程测试设计，共包含测试点 **34** 个。覆盖范围涵盖功能正确性、输入校验、异常处理、状态转换、系统性能及安全防护。其中约 **30%** 的测试点由 AI 增强分析自动提取或推荐生成（如边界极值扩展、复杂错误推测、组合判定优化等），有效提升了测试设计的完备性。\n\n---\n\n## 🔍 功能测试点\n\n| 编号 | 测试点 | 对应功能 | 优先级 | 测试类型 | 设计技术 | AI增强 |\n|------|--------|---------|--------|---------|----",
+     "output_chars": 2130
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 18.9
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 58.4,
+     "preview": "好的，收到任务。由于上一阶段（用例生成）执行失败，我将基于“用户登录功能测试”这一需求，独立构造一套完整的测试点与测试用例，并严格按照多智能体交叉评审模式对它们进行全面的用例评审。以下是评审报告。\n\n---\n\n## 📋 评审概述\n\n本次评审针对“用户登录功能测试”需求，采用多Agent交叉评审模式（质量Agent、覆盖率Agent、风险Agent、合规Agent），对由AI独立生成的9个测试点（TP-001~TP-009）及其对应的9个测试用例（TC-001~TC-009）进行全面质量评估。评审过程100%由AI自动执行，覆盖功能正确性、步骤清晰性、可执",
+     "output_chars": 3826
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 11:18:20",
+   "updated_at": "2026-07-30 11:18:20",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 8,
+   "name": "Pipeline - 用户登录模块测试",
+   "status": "failed",
+   "pipeline_id": "c0c37c4d",
+   "requirement_name": "用户登录模块测试",
+   "total_duration": 178.6,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 18.1
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 18.6
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 71.4,
+     "preview": "以下是根据用户登录功能需求，采用多Agent正交分析方法论提取的完整测试点清单，覆盖功能、流程、性能、安全等维度，并结合AI增强设计技术（边界值分析、等价类划分、判定表、错误推测）进行补充。\n\n---\n\n## 📋 测试点总览\n\n基于原始需求（账号密码登录、手机验证码登录、失败锁定、记住密码、忘记密码），通过正向、逆向、边界、组合四类Agent协同分析，共识别 **42** 个测试点。其中 **P0** 关键功能/安全测试点 10 个，**P1** 重要异常/边界测试点 23 个，**P2** 边缘场景/性能测试点 9 个。**AI辅助提取比例约 40%*",
+     "output_chars": 4772
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 19.2
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 51.1,
+     "preview": "## 📋 评审概述\n\n本次评审基于原始需求“用户登录功能测试需求”，由于前一阶段用例生成执行失败（Error 429），评审专家根据原始需求独立构建了10个典型测试用例（TC‑001～TC‑010）并进行多Agent交叉评审。评审采用多智能体协作模式（业务、技术、质量视角交叉验证），AI辅助评审占比100%。整体用例集覆盖了需求的全部功能点，但在测试数据明确性、边界场景覆盖、部分步骤描述方面仍有改进空间。\n\n---\n\n## ✅ 质量检查\n\n| 检查项 | 结果 | 说明 | AI检测 |\n|--------|------|------|--------|",
+     "output_chars": 3733
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 11:12:30",
+   "updated_at": "2026-07-30 11:12:30",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 7,
+   "name": "Pipeline - 用户登录模块测试",
+   "status": "failed",
+   "pipeline_id": "0df00bbe",
+   "requirement_name": "用户登录模块测试",
+   "total_duration": 121.1,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 17.5
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 42.2,
+     "preview": "## 📋 测试策略概述\n\n本方案采用「分层多Agent策略规划」方法论，从业务、技术、质量三个视角交叉验证，形成风险驱动的全流程测试方案。针对用户登录功能（账号密码登录、手机验证码登录、失败锁定、记住密码、忘记密码），我们按照测试金字塔原则进行分层：\n\n- **策略Agent**：确定测试范围为功能正确性、安全性、用户体验、性能韧性，优先级从P0（核心登录成功率）到P2（边缘场景）。\n- **资源Agent**：评估人力（2名测试工程师）、环境（测试环境+Mock服务）、工具链（Playwright、Midscene.js、pytest+httpx、k6",
+     "output_chars": 4663
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 22.3
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 18.1
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 20.9
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 11:09:26",
+   "updated_at": "2026-07-30 11:09:26",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 6,
+   "name": "Pipeline - API_DOC",
+   "status": "completed",
+   "pipeline_id": "ebeddc9f",
+   "requirement_name": "API_DOC",
+   "total_duration": 287.9,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 47.5,
+     "preview": "---\n\n## 📋 需求概述\n\nTSS 票务系统旨在提供一套面向景区管理的基础 RESTful API，包括用户认证、用户管理、目的地管理、票务购买与订单管理以及仪表盘统计等模块。需求来源于《TSS 票务系统 - API 接口文档 v3.0》，当前文档仅覆盖部分接口细节，且明确声明 API 层未实现认证机制。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 用户登录 | POST `/api/login`，验证用户",
+     "output_chars": 6712
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 55.1,
+     "preview": "---\n\n## 📋 测试策略概述\n\n本测试方案围绕 TSS 票务系统 RESTful API v3.0，采用分层多 Agent 策略规划方法，以风险驱动为核心，按 P0→P2 优先级依次落测。策略聚焦三大层级：\n- **策略 Agent**：基于需求分析与隐含规则推演，确定覆盖范围（全量 17 个接口）并对无认证、参数缺失等高危项实施深度测试。\n- **资源 Agent**：合理分配人力（1 名测试负责人 + 2 名功能/安全工程师 + 1 名性能工程师），复用现有工具链减少环境搭建成本。\n- **排期 Agent**：按依赖关系编排执行序列（先核心功能",
+     "output_chars": 5056
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 61.0,
+     "preview": "## 📋 测试点总览\n\n基于 TSS 票务系统 API v3.0 文档与上阶段测试策略，本清单采用多 Agent 正交分析法（正向/逆向/边界/组合）对全部 17 个接口进行全面测试点设计。覆盖功能正确性、参数异常、边界极限、流程完整性、高并发性能及常见安全漏洞。\n\n**共提取测试点 45 个**，其中：P0（核心）15 个、P1（重要）20 个、P2（一般）10 个。AI 辅助增强提取 15 个（占 33%），人工建议 30 个。\n\n---\n\n## 🔍 功能测试点\n\n| 编号 | 测试点 | 对应功能 | 优先级 | 测试类型 | 设计技术 | AI增",
+     "output_chars": 7148
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 60.7,
+     "preview": "# 📋 测试用例总览\n\n本次测试用例生成严格依据 TSS 票务系统 API v3.0 接口文档，并基于上阶段提取的全部 **56 个测试点**（功能测试点 48 个、流程测试点 5 个、性能测试点 3 个）进行详细设计。每个测试点对应一个独立测试用例，共计 **56 个用例**，其中 **P0 用例 15 个、P1 用例 29 个、P2 用例 12 个**。  \n用例设计方法覆盖等价类划分、边界值分析、错误推测、状态转换及判定表技术。AI 辅助增强部分通过自动生成边界值数据、补全异常场景及智能推荐组合，**AI 独立生成 20 个（35.7%），半自动辅",
+     "output_chars": 9317
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 63.5,
+     "preview": "好的，收到。以下是对您提供的测试用例（基于 TSS 票务系统 API v3.0 阶段输出）进行的专业评审。\n\n---\n\n## 📋 评审概述\n\n本次评审以 `多Agent交叉评审` 模式，对 **阶段 5/5** 输出的测试用例进行检视。由于上阶段仅提供了测试用例总览与前 5 个用例（TC-001 ~ TC-005）的完整详情，其余 51 个用例未给出具体内容，因此评审重点为 **已提供的 5 个登录相关用例**。同时结合总览信息与原始需求文档，对整体测试套件进行合理推断与建议。\n\n- **评审范围**: 功能用例 5 个（P0×4，P1×1），自动化自动",
+     "output_chars": 6332
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 10:42:08",
+   "updated_at": "2026-07-30 10:42:08",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 5,
+   "name": "Pipeline - 未命名需求",
+   "status": "completed",
+   "pipeline_id": "4a3c169a",
+   "requirement_name": "未命名需求",
+   "total_duration": 286.9,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 39.5,
+     "preview": "---\n\n## 📋 需求概述\n\n本需求旨在为用户系统构建一个完整、安全的登录与注册模块，同时涵盖账号安全策略（锁定）、第三方集成（微信、Google）以及会话管理。需求来自原始描述“开发一个用户登录功能，支持邮箱和手机号注册登录，需要验证码验证，支持第三方登录（微信、Google），密码需要加密存储，登录失败5次锁定账号30分钟，会话有效期24小时。”。整体目标是实现多方式身份认证，并保障用户账号安全。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|-",
+     "output_chars": 5189
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 41.2,
+     "preview": "## 📋 测试策略概述\n\n本方案采用 **分层多Agent策略规划** 方法论，综合业务、技术、质量三重视角进行交叉验证。总体遵循测试金字塔原则，以 API 接口自动化为核心（覆盖全部业务规则与安全策略），UI 端到端自动化覆盖关键用户旅程及视觉回归，辅以 AI 驱动探索测试覆盖边界与异常场景。针对“验证码依赖”“锁定-第三方登录联动”等高安全模块引入专项安全测试与性能压测。AI 增强贯穿测试设计、数据生成、结果分析全流程，旨在提升覆盖率与效率，同时保持关键断言的准确性。\n\n---\n\n## 🎯 测试范围与AI增强\n\n| 范围类型 | 包含/排除 | 说明",
+     "output_chars": 5050
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 69.2,
+     "preview": "## 📋 测试点总览\n\n本测试点清单基于原始登录需求，融合上阶段测试策略中的分层多Agent方法（正向、逆向、边界、组合），共提取 **68 个测试点**，覆盖功能、流程、性能、安全等维度。其中 **AI 辅助提取（如LLM生成边界数据、Midscene.js视觉探索、错误模式推测）占比约 35%**，人工设计占 65%。所有 P0 级测试点均通过接口自动化实现 100% 覆盖，P1 级通过 AI 增强数据驱动覆盖 85% 以上。\n\n---\n\n## 🔍 功能测试点\n\n| 编号 | 测试点 | 对应功能 | 优先级 | 测试类型 | 设计技术 | AI增强",
+     "output_chars": 9688
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 65.3,
+     "preview": "好的，作为AI测试用例设计专家，我将基于上阶段输出的68个测试点，严格按照BDD风格（Gherkin），并融合多Agent协作模式，生成详细、可执行的测试用例。我将确保每个用例包含完整的前置条件、测试数据、操作步骤和预期结果，并标注AI增强部分。输出将覆盖所有P0测试点，并补充关键P1安全与边界用例。\n\n---\n\n## 📋 测试用例总览\n\n本测试用例集基于上阶段提取的68个测试点，聚焦“用户登录系统”的核心功能、流程、安全及边界。用例设计遵循ISTQB方法与BDD实践，采用多Agent协作模式，确保用例的完整性、可执行性和可验证性。\n\n- **总用例数*",
+     "output_chars": 7132
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 71.6,
+     "preview": "好的，作为AI测试用例评审专家，我将基于提供的上阶段输出片段（前5个用例）与原始需求，严格遵循「多Agent交叉评审」模式与指定格式，输出评审报告。本次评审将包含质量、覆盖率、风险、合规检查，并标注AI增强与自动检测结果。\n\n---\n\n## 📋 评审概述\n本次评审基于上阶段输出的“用户登录系统”测试用例集（声明共46个用例，其中P0 42个）。  \n- **评审范围**：实际可见并详细评审的用例为前5个（TC-001~TC-005）。  \n- **评审方法**：多Agent交叉评审（质量Agent、覆盖率Agent、风险Agent、合规Agent），全部",
+     "output_chars": 1304
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 10:32:11",
+   "updated_at": "2026-07-30 10:32:11",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 4,
+   "name": "Pipeline - 未命名需求",
+   "status": "completed",
+   "pipeline_id": "92e56180",
+   "requirement_name": "未命名需求",
+   "total_duration": 246.5,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 28.7,
+     "preview": "---\n\n## 📋 需求概述\n\n本需求旨在构建用户登录模块，支持邮箱与手机号两种常规登录方式（均可配合密码或验证码完成认证），并集成微信扫码登录。需求来源于原始输入文本，涵盖身份验证的核心流程，但未涉及注册、密码找回等关联功能。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 邮箱密码登录 | 用户输入邮箱地址和密码进行登录 | P0 | 核心功能 | 是 – 需已注册邮箱且密码正确，需数据库存储邮箱与哈希密码 |",
+     "output_chars": 3549
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 46.7,
+     "preview": "---\n\n## 📋 测试策略概述\n\n本方案采用风险驱动的分层测试策略，围绕“邮箱/手机号密码登录、验证码登录、微信扫码登录”五种核心登录方式，展开全流程质量保障。  \n测试活动遵循测试金字塔原则，以接口测试为验证主干，UI端到端测试覆盖关键用户路径，安全与性能测试锁定高权重风险项。  \n引入 **AI 增强策略**，利用 Midscene.js 进行视觉探索与兼容性差异发现，利用 AI 自动生成边界/异常测试数据与智能断言，同时通过 Playwright、pytest+httpx、k6、OWASP ZAP、BrowserStack 等 MCP 工具链实现",
+     "output_chars": 5985
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 51.4,
+     "preview": "---\n\n## 📋 测试点总览\n\n本测试点清单围绕“邮箱/手机号密码登录、邮箱/手机号验证码登录、微信扫码登录”五种核心登录方式，结合锁定规则与输入校验，共提取 **21 个测试点**。覆盖功能（正向／异常）、流程、性能、安全四大维度，同时应用等价类划分、边界值分析、判定表、状态转换与错误推测等 ISTQB 设计技术。其中约 **33% 的测试点注入了 AI 辅助生成（边界/异常数据、攻击向量、性能负载模型）**，有效提升了测试深度与效率。\n\n---\n\n## 🔍 功能测试点\n\n| 编号 | 测试点 | 对应功能 | 优先级 | 测试类型 | 设计技术 |",
+     "output_chars": 7136
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 77.1
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 42.5,
+     "preview": "```markdown\n\n## 📋 评审概述\n\n本次评审基于原始需求“用户登录模块需要支持邮箱和手机号两种登录方式，验证码登录功能，以及微信扫码登录”。由于上阶段输出为空，本人独立完成测试点分解（4个）及测试用例撰写（12个），并依据ISTQB/ISO 29119标准及多Agent交叉评审模式对全部用例进行评审。评审内容覆盖质量、覆盖率、风险、合规四个维度，AI辅助占比100%（用例生成及检测均由AI完成，人工复核）。总体来看，用例功能覆盖基本完整，但在Gherkin格式、BDD规范性、边界场景及异常组合方面存在明显不足，需改进后方可执行。\n\n---\n\n",
+     "output_chars": 4259
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 10:14:55",
+   "updated_at": "2026-07-30 10:14:55",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 3,
+   "name": "Pipeline - 未命名需求",
+   "status": "completed",
+   "pipeline_id": "e4be7e44",
+   "requirement_name": "未命名需求",
+   "total_duration": 254.9,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 35.2,
+     "preview": "---\n\n## 📋 需求概述\n\n本需求旨在实现用户登录模块，支持使用邮箱和手机号两种标识进行登录，并提供验证码登录功能作为快捷认证方式。需求来源为原始需求文本，目标为构建基础认证入口。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 邮箱登录 | 用户使用已注册的邮箱地址与密码进行身份验证并登录系统 | P0 | 核心功能 | 否 |\n| 手机号登录 | 用户使用已注册的手机号码与密码进行身份验证并登录系统 | P",
+     "output_chars": 3347
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 59.4,
+     "preview": "---\n\n## 📋 测试策略概述\n\n本测试方案针对“用户登录模块”的邮箱登录、手机号登录及验证码登录功能，采用风险驱动、分层多Agent策略。以接口测试为核心（覆盖全部业务规则）、UI端到端验证关键用户旅程、AI增强探索覆盖异常与安全攻击场景。利用AI技术（Midscene.js、生成式数据）提升测试生成效率与深度，遵循左移原则在需求阶段明确可测试规则，并基于影响分析制定回归范围。\n\n**总体策略**：  \n- **接口优先**：100%自动化覆盖登录、验证码请求/验证、锁定机制等核心API。  \n- **UI关键路径**：Playwright自动化P0",
+     "output_chars": 6127
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 70.4
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 63.6
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 26.2,
+     "preview": "## 📋 评审概述\n\n本次评审基于原始需求「用户登录模块需要支持邮箱和手机号两种登录方式，验证码登录功能」，因上阶段输出上下文为空，评审专家依据需求独立构建典型测试用例集，并采用「多Agent交叉评审」模式（质量、覆盖率、风险、合规）进行全面评估。AI辅助评审占比100%，覆盖需求分析、用例生成与评审全流程。评审范围包括：登录方式合规性、验证码功能正确性、边界与异常处理、BDD格式规范性等。\n\n---\n\n## ✅ 质量检查\n\n| 检查项 | 结果 | 说明 | AI检测 |\n|--------|------|------|--------|\n| 用例完整",
+     "output_chars": 4233
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 10:04:17",
+   "updated_at": "2026-07-30 10:04:17",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 2,
+   "name": "Pipeline - 未命名需求",
+   "status": "completed",
+   "pipeline_id": "403d530c",
+   "requirement_name": "未命名需求",
+   "total_duration": 245.7,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 42.8,
+     "preview": "---\n\n## 📋 需求概述\n\n用户登录模块需要支持邮箱和手机号两种登录方式，用户通过输入对应凭证（邮箱/手机号 + 密码）完成身份认证。需求来源于产品基本功能定义，是用户身份验证的核心入口。\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 | 隐含推断 |\n|--------|------|--------|------|---------|\n| 邮箱登录 | 用户输入邮箱地址和密码进行登录，系统验证邮箱格式及密码正确性 | P0 | 核心功能 | 是 - 需要密码输入框，基于通用登录设计 |\n| 手机号登录 | 用户输入手机号码",
+     "output_chars": 3882
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 49.7,
+     "preview": "---\n\n## 📋 测试策略概述\n\n本方案基于「分层多Agent策略规划」方法论，对用户登录模块（支持邮箱/手机号+密码认证）进行全流程测试设计。策略层以风险驱动为导向，将**P0核心功能**（邮箱/手机号正常登录、格式校验、切换清空）作为最高测试深度覆盖；技术层遵循测试金字塔原则：接口自动化（pytest+httpx）覆盖登录API的完整业务逻辑与异常注入，UI端到端（Playwright）覆盖主流用户操作路径与视觉验证，单元测试由开发侧补充。AI增强贯穿各环节：Midscene.js执行视觉探索测试自动识别UI异常，AI生成边界/安全测试数据，智能断",
+     "output_chars": 5291
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 61.8,
+     "preview": "---\n\n## 📋 测试点总览\n\n本清单基于用户登录模块（邮箱/手机号 + 密码登录）需求，运用多Agent正交分析从正向、逆向、边界、组合四个维度提取测试点。覆盖功能（含UI与接口）、流程状态转换、性能、安全四大类别，共计 **34个测试点**。其中AI自动提取13个（38.2%），半自动辅助设计9个（26.5%），人工设计12个（35.3%）。AI增强重点作用于边界值生成（邮箱/手机号超长与格式变体）、等价类扩展（Unicode、特殊符号）、安全注入模式fuzzing、并发锁定场景模拟。\n\n---\n\n## 🔍 功能测试点\n\n| 编号 | 测试点 | ",
+     "output_chars": 908
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 56.3,
+     "preview": "---\n\n## 📋 测试用例总览\n\n本用例集基于用户登录模块（邮箱/手机号 ＋ 密码登录）需求，从功能正确性、UI校验、边界处理、异常流程、安全机制及性能等多个维度出发，共设计 **15 条**可独立执行的测试用例。涵盖上阶段 34 个测试点中的 **15 个核心测试点**（包含全部 P0/P1 已识别点），并补充了 AI 自动识别的缺失安全与异常场景。其中 **人工必备用例 8 条**（覆盖基本功能与 UI 校验），**AI 辅助生成 7 条**（覆盖边界值、等价类扩展、状态转换与安全注入等），AI 生成比例为 **46.7%**。用例均采用 Gher",
+     "output_chars": 12610
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 35.1,
+     "preview": "以下是对你提供的 5 条用户登录测试用例的完整评审报告。由于上阶段上下文仅包含 TC-001～TC-005 的完整描述（TC‑005 的 Playwright 片段有截断），本次评审基于此 5 条用例进行，其余未提供的用例暂不纳入统计。评审采用多 Agent 交叉模式，AI 辅助占比约 40%。\n\n---\n\n## 📋 评审概述\n\n本次评审范围包括 **5 条 Gherkin 格式测试用例**（TC‑001 ~ TC‑005），覆盖用户登录模块中邮箱/手机号登录的功能正常流程、Token 有效性验证以及前端格式校验。评审应用了质量、覆盖率、风险、合规四类 ",
+     "output_chars": 3885
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 09:54:51",
+   "updated_at": "2026-07-30 09:54:51",
+   "project_id": null,
+   "version_id": null,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  },
+  {
+   "id": 1,
+   "name": "Pipeline - API_DOC",
+   "status": "completed",
+   "pipeline_id": "3adcf842",
+   "requirement_name": "API_DOC",
+   "total_duration": 342.2,
+   "stage_count": 5,
+   "stage_results": [
+    {
+     "key": "requirements",
+     "label": "需求分析",
+     "duration": 69.1,
+     "preview": "---\n\n## 📋 需求概述\n\nTSS 票务系统是一套提供票务购买与管理的 RESTful API 服务，涵盖用户管理（登录/注册/CRUD）、目的地管理、票价计算、订单处理以及运营数据统计等核心模块。当前版本为 v3.0，所有接口均处于无认证的匿名访问状态，文档明确指出了这一安全缺陷，并要求在生产环境中补齐认证机制。\n\n---\n\n## 🎯 功能点分析\n\n| 功能点 | 描述 | 优先级 | 分类 |\n|--------|------|--------|------|\n| 用户登录 | 接受用户名/密码，验证身份后返回用户基本信息 | P0 | 核心功能",
+     "output_chars": 4493
+    },
+    {
+     "key": "test-plans",
+     "label": "规划方案",
+     "duration": 36.3,
+     "preview": "---\n\n## 📋 测试策略概述\n\n本次测试针对 TSS 票务系统 v3.0 提供的一组 RESTful API 进行，策略上以功能正确性测试为基础，重点覆盖异常场景与边界情况；同时由于文档明确指出**当前版本无认证机制**，安全测试将作为关键环节，模拟未授权访问、权限绕过等攻击场景。性能测试聚焦于高并发场景下的库存扣减准确性，确保系统不会出现超卖。兼容性测试限于接口协议本身（HTTP/JSON），无需考虑前端浏览器差异。整体采用自动化测试为主（接口脚本），配合手工探索性测试发现逻辑漏洞。\n\n---\n\n## 🎯 测试范围\n\n| 范围类型 | 包含/排除 ",
+     "output_chars": 4440
+    },
+    {
+     "key": "test-points",
+     "label": "提取测试点",
+     "duration": 89.1
+    },
+    {
+     "key": "test-cases",
+     "label": "用例生成",
+     "duration": 61.1,
+     "preview": "---\n\n## 📋 测试用例总览\n\n本用例集基于 TSS 票务系统 API 接口文档 v3.0，针对全部 17 个接口设计共 44 个测试用例，涵盖：\n\n- **正常流程**：每个接口的主要成功场景  \n- **异常场景**：参数缺失、格式错误、资源不存在、业务规则冲突等  \n- **特殊规则**：密码一致性、库存扣减与恢复、价格倍率计算  \n- **边界情况**：库存为 0、分页查询等  \n\n用例按照 P0（关键路径）、P1（主要功能）、P2（边缘场景）划分优先级，采用 Gherkin 格式描述，可直接转换为自动化脚本。\n\n---\n\n## ✅ 测试用例",
+     "output_chars": 14840
+    },
+    {
+     "key": "test-review",
+     "label": "用例评审",
+     "duration": 86.4,
+     "preview": "下面是对当前阶段提供的测试用例（含文档中的44个用例描述，实际给出TC‑001～TC‑031）的完整评审报告。由于部分用例内容不完整、关键接口缺失，报告中会明确指出需要补充的项目和优化建议。\n\n---\n\n## 📋 评审概述\n\n本文档对TSS票务系统API接口文档v3.0配套的测试用例集进行评审。用例集声称包含44个用例，但实际提供的详细描述仅到TC‑031（其中TC‑031被截断），缺失购买票务、订单管理、仪表盘等核心接口的测试用例。评审范围以已有详细内容的31个用例为主，结合需求文档进行覆盖率、规范性、数据充分性、格式合规性分析。整体来看，已有用例质量",
+     "output_chars": 5245
+    }
+   ],
+   "created_by": null,
+   "created_at": "2026-07-30 04:11:19",
+   "updated_at": "2026-07-30 04:11:19",
+   "project_id": 1,
+   "version_id": 1,
+   "sequence_group_id": null,
+   "sequence_lane": null
+  }
+ ],
+ "sequence_groups": [
+  {
+   "id": 4,
+   "name": "UI演示-串行3任务",
+   "status": "completed",
+   "mode": "serial",
+   "tier": "free",
+   "concurrency": 1,
+   "model": "hy3-free",
+   "simulated": 1,
+   "total_tasks": 3,
+   "done_tasks": 3,
+   "failed_tasks": 0,
+   "tasks": [
+    {
+     "order": 1,
+     "lane": 1,
+     "name": "登录模块测试",
+     "content_preview": "用户通过用户名+密码登录，连续5次失败锁定账户30分钟，支持记住登录状态。",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 11.0,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 2202
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 2202
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 2202
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 2202
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 2203
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "lane": 1,
+     "name": "支付模块测试",
+     "content_preview": "订单支持MCard与现金两种支付方式，支付成功后扣减库存，取消订单恢复库存。",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 11.0,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 2202
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 2202
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 2201
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "lane": 1,
+     "name": "报表导出测试",
+     "content_preview": "测试报告支持Excel/PDF导出，导出内容包含用例统计、缺陷分布与趋势图。",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 11.0,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 2202
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 2202
+      }
+     ]
+    }
+   ],
+   "total_duration": 33.1,
+   "project_id": null,
+   "version_id": null,
+   "created_by": 1,
+   "created_at": "2026-10-19 09:28:19",
+   "updated_at": "2026-10-19 09:28:52"
+  },
+  {
+   "id": 3,
+   "name": "UI演示-并行4任务",
+   "status": "completed",
+   "mode": "parallel",
+   "tier": "paid",
+   "concurrency": 3,
+   "model": "hy3-free",
+   "simulated": 1,
+   "total_tasks": 4,
+   "done_tasks": 4,
+   "failed_tasks": 0,
+   "tasks": [
+    {
+     "order": 1,
+     "lane": 1,
+     "name": "登录模块测试",
+     "content_preview": "用户通过用户名+密码登录，连续5次失败锁定账户30分钟，支持记住登录状态。",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 7.5,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 1501
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "lane": 2,
+     "name": "支付模块测试",
+     "content_preview": "订单支持MCard与现金两种支付方式，支付成功后扣减库存，取消订单恢复库存。",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 7.5,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 1502
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 1503
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "lane": 3,
+     "name": "报表导出测试",
+     "content_preview": "测试报告支持Excel/PDF导出，导出内容包含用例统计、缺陷分布与趋势图。",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 7.5,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 1502
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 1503
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "lane": 1,
+     "name": "权限管理测试",
+     "content_preview": "基于角色的访问控制：管理员/测试员/访客三种角色，接口级鉴权与菜单级可见性控制。",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 7.5,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 1501
+      }
+     ]
+    }
+   ],
+   "total_duration": 15.0,
+   "project_id": null,
+   "version_id": null,
+   "created_by": 1,
+   "created_at": "2026-10-19 09:15:15",
+   "updated_at": "2026-10-19 09:15:31"
+  },
+  {
+   "id": 2,
+   "name": "并行验证-付费模型",
+   "status": "completed",
+   "mode": "parallel",
+   "tier": "paid",
+   "concurrency": 3,
+   "model": "hy3-free",
+   "simulated": 1,
+   "total_tasks": 4,
+   "done_tasks": 4,
+   "failed_tasks": 0,
+   "tasks": [
+    {
+     "order": 1,
+     "lane": 1,
+     "name": "任务A",
+     "content_preview": "内容A",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 7.5,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 1500
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "lane": 2,
+     "name": "任务B",
+     "content_preview": "内容B",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 7.5,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 1500
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "lane": 3,
+     "name": "任务C",
+     "content_preview": "内容C",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 7.5,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 1500
+      }
+     ]
+    },
+    {
+     "order": 4,
+     "lane": 1,
+     "name": "任务D",
+     "content_preview": "内容D",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 7.5,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 1502
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 1500
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 1501
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 1500
+      }
+     ]
+    }
+   ],
+   "total_duration": 15.0,
+   "project_id": null,
+   "version_id": null,
+   "created_by": 1,
+   "created_at": "2026-10-18 11:58:17",
+   "updated_at": "2026-10-18 11:58:32"
+  },
+  {
+   "id": 1,
+   "name": "串行验证-免费模型",
+   "status": "completed",
+   "mode": "serial",
+   "tier": "free",
+   "concurrency": 1,
+   "model": "hy3-free",
+   "simulated": 1,
+   "total_tasks": 3,
+   "done_tasks": 3,
+   "failed_tasks": 0,
+   "tasks": [
+    {
+     "order": 1,
+     "lane": 1,
+     "name": "登录模块",
+     "content_preview": "用户登录功能",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 11.0,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 2200
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 2200
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 2200
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 2200
+      }
+     ]
+    },
+    {
+     "order": 2,
+     "lane": 1,
+     "name": "支付模块",
+     "content_preview": "支付功能",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 11.0,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 2200
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 2200
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 2200
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 2201
+      }
+     ]
+    },
+    {
+     "order": 3,
+     "lane": 1,
+     "name": "订单模块",
+     "content_preview": "订单功能",
+     "project_id": null,
+     "version_id": null,
+     "status": "completed",
+     "pipeline_record_id": null,
+     "duration": 11.0,
+     "error": null,
+     "stages": [
+      {
+       "key": "requirements",
+       "label": "需求分析",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-plans",
+       "label": "规划方案",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-points",
+       "label": "提取测试点",
+       "status": "completed",
+       "duration": 2201
+      },
+      {
+       "key": "test-cases",
+       "label": "用例生成",
+       "status": "completed",
+       "duration": 2200
+      },
+      {
+       "key": "test-review",
+       "label": "用例评审",
+       "status": "completed",
+       "duration": 2201
+      }
+     ]
+    }
+   ],
+   "total_duration": 33.0,
+   "project_id": null,
+   "version_id": null,
+   "created_by": 1,
+   "created_at": "2026-10-18 11:56:46",
+   "updated_at": "2026-10-18 11:57:19"
+  }
+ ],
+ "llm_providers": [
+  {
+   "id": 1,
+   "name": "OpenCode Zen (免费)",
+   "type": "Chat模型",
+   "model": "hy3-free",
+   "tier": "free",
+   "max_concurrency": 1,
+   "status": "已启用",
+   "created_at": "2026-08-14 04:01:25"
+  },
+  {
+   "id": 2,
+   "name": "Agnes AI 图像 (免费)",
+   "type": "多模态",
+   "model": "agnes-image-2.0-flash",
+   "tier": "free",
+   "max_concurrency": 1,
+   "status": "已启用",
+   "created_at": "2026-08-14 04:01:25"
+  },
+  {
+   "id": 3,
+   "name": "Agnes AI 视频 (免费)",
+   "type": "多模态",
+   "model": "agnes-video-v2.0",
+   "tier": "free",
+   "max_concurrency": 1,
+   "status": "未启用",
+   "created_at": "2026-08-14 04:01:25"
+  }
+ ]
+}

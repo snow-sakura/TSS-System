@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
@@ -6,6 +6,8 @@ import type { CrudField } from "@/components/crud/CrudDialog"
 import { lifecycleApi, projectApi } from "@/lib/api"
 import { formatDateTime } from "@/lib/utils"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
+import { useCrudPage } from "@/hooks/useCrudPage"
 
 interface Report {
   id: number
@@ -26,7 +28,6 @@ const reportTypeOptions = [
   { label: "总结报告", value: "summary" },
 ]
 
-/** 报告类型英文值 → 中文映射 */
 const reportTypeConfig: Record<string, string> = {
   test: "测试报告",
   performance: "性能报告",
@@ -41,14 +42,14 @@ const columns: CrudColumn[] = [
   {
     key: "title",
     title: "报告名称",
-    width: "min-w-[160px]",
-    align: "center",
+    width: "w-[220px]",
+    align: "left",
     render: (v: string, row: Report) => v || row.name || <span className="text-muted">—</span>,
   },
   {
     key: "report_type",
     title: "报告类型",
-    width: "min-w-[120px]",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => {
       if (!v) return <span className="text-muted">—</span>
@@ -61,21 +62,21 @@ const columns: CrudColumn[] = [
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[110px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "created_at",
     title: "生成时间",
-    width: "min-w-[160px]",
+    width: "w-[140px]",
     align: "center",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
@@ -85,152 +86,131 @@ const columns: CrudColumn[] = [
 
 export default function ReportsPage() {
   const toast = useToast()
-  const [data, setData] = useState<Report[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [reportTypeFilter, setReportTypeFilter] = useState("")
-  const [projectFilter, setProjectFilter] = useState("")
-  const [versionFilter, setVersionFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
-
   const [projects, setProjects] = useState<any[]>([])
   const [versions, setVersions] = useState<any[]>([])
   const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
-
+  const [reportTypeFilter, setReportTypeFilter] = useState("")
+  const [projectFilter, setProjectFilter] = useState("")
+  const [versionFilter, setVersionFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
   const [editingReport, setEditingReport] = useState<Report | null>(null)
 
   useEffect(() => {
-    projectApi
-      .listProjects()
-      .then((res) => setProjects(res?.data?.items || []))
-      .catch(() => {})
-    projectApi
-      .listVersions()
-      .then((res) => setVersions(res?.data?.items || []))
-      .catch(() => {})
+    projectApi.listProjects().then((res) => setProjects(res?.data?.items || [])).catch(() => {})
+    projectApi.listVersions().then((res) => setVersions(res?.data?.items || [])).catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (!editingReport?.project_id) {
-      setVersionOptions(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
-    } else {
-      setVersionOptions(
-        versions
-          .filter((v: any) => v.project_id === editingReport.project_id)
-          .map((v: any) => ({ label: v.name, value: String(v.id) }))
-      )
-    }
+    const opts = editingReport?.project_id
+      ? versions.filter((v: any) => v.project_id === editingReport.project_id)
+      : versions
+    setVersionOptions(opts.map((v: any) => ({ label: v.name, value: String(v.id) })))
   }, [versions, editingReport])
 
-  const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
+  const extraFilters = useMemo(
+    () => ({
+      report_type: reportTypeFilter || undefined,
+      project_id: projectFilter || undefined,
+      version_id: versionFilter || undefined,
+    }),
+    [reportTypeFilter, projectFilter, versionFilter]
+  )
 
-  const filters: CrudFilter[] = [
-    { key: "search", label: "搜索报告名称...", type: "search" },
-    { key: "report_type", label: "全部报告类型", type: "select", options: reportTypeOptions },
-    { key: "project", label: "全部项目", type: "select", options: projectOptions },
-    { key: "version", label: "全部版本", type: "select", options: versionOptions },
-  ]
+  const { data, total, page, setPage, pageSize, setPageSize, loading, searchTerm, setSearchTerm, reload } =
+    useCrudPage<Report>({
+      fetchFn: (params) => lifecycleApi.listReports(params),
+      extraFilters,
+    })
 
-  const fields: CrudField[] = [
-    { key: "project_id", label: "项目", type: "select", options: projectOptions },
-    { key: "version_id", label: "版本", type: "select", options: versionOptions },
-    { key: "title", label: "报告名称", type: "text", required: true, placeholder: "请输入报告名称" },
-    { key: "report_type", label: "报告类型", type: "select", options: reportTypeOptions, default: "test" },
-    { key: "name", label: "负责人", type: "text", placeholder: "请输入负责人姓名" },
-  ]
+  const projectOptions = useMemo(
+    () => projects.map((p: any) => ({ label: p.name, value: String(p.id) })),
+    [projects]
+  )
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (reportTypeFilter) params.report_type = reportTypeFilter
-      if (projectFilter) params.project_id = projectFilter
-      if (versionFilter) params.version_id = versionFilter
-      const res = await lifecycleApi.listReports(params)
-      const list = res?.data?.items || res?.data || (Array.isArray(res) ? res : [])
-      setData(Array.isArray(list) ? list : [])
-      setTotal(res?.data?.total ?? (Array.isArray(list) ? list.length : 0))
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, reportTypeFilter, projectFilter, versionFilter])
+  const filters: CrudFilter[] = useMemo(
+    () => [
+      { key: "search", label: "搜索报告名称...", type: "search" },
+      { key: "report_type", label: "全部报告类型", type: "select", options: reportTypeOptions },
+      { key: "project", label: "全部项目", type: "select", options: projectOptions },
+      { key: "version", label: "全部版本", type: "select", options: versionOptions },
+    ],
+    [projectOptions, versionOptions]
+  )
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  const fields: CrudField[] = useMemo(
+    () => [
+      { key: "project_id", label: "项目", type: "select", options: projectOptions },
+      { key: "version_id", label: "版本", type: "select", options: versionOptions },
+      { key: "title", label: "报告名称", type: "text", required: true, placeholder: "请输入报告名称" },
+      { key: "report_type", label: "报告类型", type: "select", options: reportTypeOptions, default: "test" },
+      { key: "name", label: "负责人", type: "text", placeholder: "请输入负责人姓名" },
+    ],
+    [projectOptions, versionOptions]
+  )
 
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value)
-    setPage(1)
-  }, [])
+  const handleSearch = useCallback(
+    (value: string) => { setSearchTerm(value); setPage(1) },
+    [setSearchTerm, setPage]
+  )
 
-  const handleFilterChange = useCallback((key: string, value: string) => {
-    if (key === "report_type") {
-      setReportTypeFilter(value)
+  const handleFilterChange = useCallback(
+    (key: string, value: string) => {
+      if (key === "report_type") setReportTypeFilter(value)
+      else if (key === "project") setProjectFilter(value)
+      else if (key === "version") setVersionFilter(value)
       setPage(1)
-    } else if (key === "project") {
-      setProjectFilter(value)
-      setPage(1)
-    } else if (key === "version") {
-      setVersionFilter(value)
-      setPage(1)
-    }
-  }, [])
+    },
+    [setPage]
+  )
 
-  const handleCreate = useCallback(() => {
-    setDialogMode("create")
-    setEditingReport(null)
-    setDialogOpen(true)
-  }, [])
-
-  const handleEdit = useCallback((row: Report) => {
-    setDialogMode("edit")
-    setEditingReport(row)
-    setDialogOpen(true)
-  }, [])
-
-  const handleView = useCallback((row: Report) => {
-    setDialogMode("view")
-    setEditingReport(row)
+  const openDialog = useCallback((mode: "create" | "edit" | "view", report?: Report) => {
+    setDialogMode(mode)
+    setEditingReport(report || null)
     setDialogOpen(true)
   }, [])
 
   const handleDelete = useCallback(
     async (row: Report) => {
-      if (!window.confirm(`确定要删除报告「${row.title || row.name}」吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "确认删除",
+        message: "确定要删除该报告吗？删除后不可恢复。",
+        itemName: row.title || row.name,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.deleteReport(row.id)
         toast.success("删除成功")
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload]
   )
 
   const handleBatchDelete = useCallback(
     async (ids: (string | number)[]) => {
-      if (!window.confirm(`确定要删除选中的 ${ids.length} 条报告吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "批量删除",
+        message: `确定要删除选中的 ${ids.length} 条报告吗？删除后不可恢复。`,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.batchDeleteReports(ids as number[])
         toast.success("批量删除成功")
         setSelectedIds(new Set())
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "批量删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload]
   )
 
   const handleSubmit = useCallback(
@@ -244,19 +224,13 @@ export default function ReportsPage() {
           toast.success("报告更新成功")
         }
         setDialogOpen(false)
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "操作失败")
       }
     },
-    [dialogMode, editingReport, toast, loadData]
+    [dialogMode, editingReport, toast, reload]
   )
-
-  const handleViewEdit = useCallback(() => {
-    if (editingReport) {
-      setDialogMode("edit")
-    }
-  }, [editingReport])
 
   const dialogTitle =
     dialogMode === "create" ? "新建报告" : dialogMode === "edit" ? "编辑报告" : "报告详情"
@@ -279,15 +253,14 @@ export default function ReportsPage() {
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         onSelectionChange={setSelectedIds}
-        onCreate={handleCreate}
-        onEdit={handleEdit}
-        onView={handleView}
+        onCreate={() => openDialog("create")}
+        onEdit={(row) => openDialog("edit", row)}
+        onView={(row) => openDialog("view", row)}
         onDelete={handleDelete}
         onBatchDelete={handleBatchDelete}
         emptyText="暂无报告数据"
         createButtonText="新建报告"
       />
-
       <CrudDialog
         open={dialogOpen}
         mode={dialogMode}
@@ -296,7 +269,7 @@ export default function ReportsPage() {
         initialData={editingReport || {}}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
-        onViewEdit={handleViewEdit}
+        onViewEdit={() => dialogMode === "view" && openDialog("edit", editingReport!)}
       />
     </div>
   )

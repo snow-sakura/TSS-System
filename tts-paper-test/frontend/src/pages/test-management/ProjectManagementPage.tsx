@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
 import { projectApi, usersApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
+import { useCrudPage } from "@/hooks/useCrudPage"
 
 interface Project {
   id: number
@@ -45,12 +47,6 @@ const fields: CrudField[] = [
 
 export default function ProjectManagementPage() {
   const toast = useToast()
-  const [data, setData] = useState<Project[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
 
@@ -59,6 +55,14 @@ export default function ProjectManagementPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null)
 
   const [users, setUsers] = useState<any[]>([])
+
+  const extraFilters = useMemo(() => ({ status: statusFilter || undefined }), [statusFilter])
+
+  const { data, total, page, setPage, pageSize, setPageSize, loading, searchTerm, setSearchTerm, reload } =
+    useCrudPage<Project>({
+      fetchFn: useCallback((params) => projectApi.listProjects(params), []),
+      extraFilters,
+    })
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -83,55 +87,28 @@ export default function ProjectManagementPage() {
   )
 
   const columns: CrudColumn[] = [
-    { key: "name", title: "项目名称", width: "min-w-[140px]", align: "center" },
-    { key: "code", title: "项目编码", width: "min-w-[130px]", align: "center" },
-    { key: "description", title: "描述", width: "min-w-[180px]", align: "center", render: (v: string) => v || "—" },
-    { key: "status", title: "状态", width: "w-28", align: "center" },
+    { key: "name", title: "项目名称", width: "w-[200px]", align: "center" },
+    { key: "code", title: "项目编码", width: "w-[130px]", align: "center" },
+    { key: "description", title: "描述", width: "w-[200px]", align: "center", render: (v: string) => v || "—" },
+    { key: "status", title: "状态", width: "w-[90px]", align: "center" },
     {
-      key: "owner", title: "负责人", width: "min-w-[100px]", align: "center",
+      key: "owner", title: "负责人", width: "w-[100px]", align: "center",
       render: (v: number) => {
         if (!v) return "—"
         const user = users.find(u => u.id === v)
         return user ? (user.real_name || user.username) : `用户#${v}`
       }
     },
-    { key: "start_date", title: "开始日期", width: "min-w-[110px]", align: "center", render: (v: string) => v || "—" },
-    { key: "end_date", title: "结束日期", width: "min-w-[110px]", align: "center", render: (v: string) => v || "—" },
+    { key: "start_date", title: "开始日期", width: "w-[110px]", align: "center", render: (v: string) => v || "—" },
+    { key: "end_date", title: "结束日期", width: "w-[110px]", align: "center", render: (v: string) => v || "—" },
   ]
-
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (statusFilter) params.status = statusFilter
-      const res = await projectApi.listProjects(params)
-      const payload = res?.data
-      const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
-      const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
-      setData(list)
-      setTotal(totalCount)
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, statusFilter])
-
-  useEffect(() => { loadData() }, [loadData])
-
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value)
-    setPage(1)
-  }, [])
 
   const handleFilterChange = useCallback((key: string, value: string) => {
     if (key === "status") {
       setStatusFilter(value)
       setPage(1)
     }
-  }, [])
+  }, [setPage])
 
   const handleCreate = useCallback(() => {
     setDialogMode("create")
@@ -152,36 +129,47 @@ export default function ProjectManagementPage() {
   }, [])
 
   const handleDelete = useCallback(async (row: Project) => {
-    if (!window.confirm(`确定要删除项目「${row.name}」吗？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: "确定要删除该项目吗？删除后不可恢复。",
+      itemName: row.name,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await projectApi.deleteProject(row.id)
       toast.success("删除成功")
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.message || "删除失败")
     }
-  }, [toast, loadData])
+  }, [toast, reload])
 
   const handleBatchDelete = useCallback(async (ids: (string | number)[]) => {
-    if (!window.confirm(`确定要删除选中的 ${ids.length} 个项目吗？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "批量删除",
+      message: `确定要删除选中的 ${ids.length} 个项目吗？删除后不可恢复。`,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await projectApi.batchDeleteProjects(ids as number[])
       toast.success("批量删除成功")
       setSelectedIds(new Set())
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.message || "批量删除失败")
     }
-  }, [toast, loadData])
+  }, [toast, reload])
 
   const handleSubmit = useCallback(async (formData: Record<string, any>) => {
     try {
-      // 转换数据类型，确保数字字段正确
       const submitData: Record<string, any> = { ...formData }
       if (submitData.owner) {
         submitData.owner = Number(submitData.owner)
       }
-      // 移除空字符串字段
       Object.keys(submitData).forEach(key => {
         if (submitData[key] === "" || submitData[key] === null) {
           delete submitData[key]
@@ -196,11 +184,11 @@ export default function ProjectManagementPage() {
         toast.success("项目更新成功")
       }
       setDialogOpen(false)
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || e?.message || "操作失败")
     }
-  }, [dialogMode, editingProject, toast, loadData])
+  }, [dialogMode, editingProject, toast, reload])
 
   const handleViewEdit = useCallback(() => {
     if (editingProject) {
@@ -226,10 +214,10 @@ export default function ProjectManagementPage() {
         loading={loading}
         selectedIds={selectedIds}
         statusConfig={statusConfig}
-        onSearch={handleSearch}
+        onSearch={setSearchTerm}
         onFilterChange={handleFilterChange}
         onPageChange={setPage}
-        onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}
+        onPageSizeChange={setPageSize}
         onSelectionChange={setSelectedIds}
         onCreate={handleCreate}
         onEdit={handleEdit}

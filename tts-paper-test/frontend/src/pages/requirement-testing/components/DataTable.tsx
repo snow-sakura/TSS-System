@@ -142,7 +142,7 @@ function DataTable({
       )}
 
       {/* 表格 */}
-      <div className="flex-1 overflow-auto rounded-2xl border border-border bg-white">
+      <div className="flex-1 overflow-auto rounded-2xl border border-border bg-white shadow-card">
         {loading ? (
           <div className="flex items-center justify-center h-48 text-ink-light text-sm">
             <div className="w-5 h-5 border-2 border-amber border-t-transparent rounded-full animate-spin mr-2" />
@@ -155,19 +155,19 @@ function DataTable({
             <p className="text-xs mt-1 text-muted">点击「新建」添加或选择「AI自动化」生成</p>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="border-b border-border bg-cream/50">
-                <th className="px-4 py-3 w-10 text-left">
+                <th className="px-3 py-2.5 w-10 text-left">
                   <input type="checkbox" checked={data.length > 0 && data.every((r) => selectedIds.has(String(r.id)))} onChange={toggleSelectAll} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" />
                 </th>
-                <th className="text-center px-4 py-3 text-xs font-semibold text-ink-light tracking-wider w-12">ID</th>
+                <th className="text-center px-3 py-2.5 text-xs font-semibold text-ink tracking-wider w-12">ID</th>
                 {columns.map((col) => (
-                  <th key={col.key} className="text-center px-4 py-3 text-xs font-semibold text-ink-light tracking-wider" style={{ width: col.width }}>
+                  <th key={col.key} className="text-center px-3 py-2.5 text-xs font-semibold text-ink tracking-wider" style={{ width: col.width }}>
                     {col.label}
                   </th>
                 ))}
-                <th className="text-center px-4 py-3 text-xs font-semibold text-ink-light tracking-wider" style={{ width: "120px" }}>操作</th>
+                <th className="text-center px-3 py-2.5 text-xs font-semibold text-ink tracking-wider" style={{ width: "120px" }}>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -175,12 +175,12 @@ function DataTable({
                 <tr key={item.id}
                   className={`border-b border-border/50 last:border-b-0 transition-colors ${selectedIds.has(String(item.id)) ? "bg-amber-light/40" : idx % 2 === 0 ? "bg-white" : "bg-cream/30"} hover:bg-cream/50`}
                 >
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                   <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={selectedIds.has(String(item.id))} onChange={() => toggleSelect(String(item.id))} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" />
                   </td>
-                  <td className="px-4 py-3 text-center text-sm text-ink-light">{item.id}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{item.id}</td>
                   {columns.map((col) => (
-                    <td key={col.key} className={`px-4 py-3 text-sm ${col.center !== false ? "text-center" : "text-left"} text-ink`}>
+                    <td key={col.key} className={`px-3 py-2.5 text-xs ${col.center !== false ? "text-center" : "text-left"} text-ink`}>
                       {col.render ? (
                         col.render(item[col.key], item)
                       ) : (
@@ -190,18 +190,18 @@ function DataTable({
                       )}
                     </td>
                   ))}
-                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1">
                       {renderActions && renderActions(item)}
                       {onRowClick && (
-                        <button onClick={() => onRowClick(item)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors" title="预览">
+                        <button onClick={() => onRowClick(item)} className="p-1.5 rounded-lg hover:bg-info/10 text-muted hover:text-info transition-colors" title="预览">
                           <FileText className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg hover:bg-amber-50 text-ink-light hover:text-amber-700 transition-colors" title="编辑">
+                      <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg hover:bg-amber-50 text-muted hover:text-amber-700 transition-colors" title="编辑">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => onDelete(item)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors" title="删除">
+                      <button onClick={() => onDelete(item)} className="p-1.5 rounded-lg hover:bg-fail/10 text-muted hover:text-fail transition-colors" title="删除">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>

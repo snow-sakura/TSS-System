@@ -11,6 +11,7 @@ import {
   AlertTriangle, Search, Bot, Activity, ShieldCheck, Scan, Bug, Grid3X3,
   GitCompare, GitBranch, FolderOpen
 } from "lucide-react"
+import { toast } from "sonner"
 import { TEST_TYPES, type TestType } from "./test-types"
 import { ALL_PAGE_CONFIGS } from "./page-configs"
 import { PAGE_DATA_SOURCES } from "./page-data"
@@ -92,7 +93,7 @@ function AiTestTypeDetail() {
       setRows(items)
       setDynamicStats(dataSource.buildStats ? dataSource.buildStats(items) : pageConfig?.stats || [])
     } catch (err) {
-      console.error("加载数据失败:", err)
+      toast.error("加载数据失败")
       setRows([])
       setDynamicStats(pageConfig?.stats || [])
     } finally {

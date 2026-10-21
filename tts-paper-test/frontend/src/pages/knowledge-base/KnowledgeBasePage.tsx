@@ -4,7 +4,7 @@
  */
 import { useState, memo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowLeft, BookOpen, Bug, Search as SearchIcon, Brain, Sparkles } from "lucide-react"
+import { ArrowLeft, BookOpen, Bug, Search as SearchIcon, Brain, Sparkles, GitBranch } from "lucide-react"
 import Sidebar, { type SidebarItem } from "../requirement-testing/components/Sidebar"
 import TestPatterns from "./components/TestPatterns"
 import BugKnowledge from "./components/BugKnowledge"
@@ -50,6 +50,14 @@ function KnowledgeBasePage() {
             <h1 className="text-sm font-bold text-ink truncate" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>知识库</h1>
             <p className="text-[11px] text-muted truncate">测试模式与Bug知识库，支持RAG智能搜索</p>
           </div>
+          {/* 工作流编排跳转 */}
+          <button
+            onClick={() => navigate("/workflow-orchestration")}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-cream border border-border/60 transition-all group text-xs text-ink-light hover:text-ink"
+          >
+            <GitBranch className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">工作流编排</span>
+          </button>
         </div>
       </div>
       <div className="flex-1 flex min-h-0">

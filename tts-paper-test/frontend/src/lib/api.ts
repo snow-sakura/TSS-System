@@ -1,4 +1,38 @@
 import axios from "axios"
+import type {
+  PipelineStartRequest,
+  PipelineRecord,
+  StageResult,
+  PaginatedResponse,
+  StepPromptConfig,
+  UserProfile,
+  Project,
+  Version,
+  Requirement,
+  TestPlan,
+  TestPoint,
+  TestCase,
+  Review,
+  TestExecution,
+  Defect,
+  TestReport,
+  Environment,
+  LLMProvider,
+  PromptConfig,
+  DeAIStyle,
+  MCPServer,
+  Skill,
+  HermesChannel,
+  Schedule,
+  MCPMarketplaceService,
+  TestPattern,
+  BugKnowledge,
+  Workflow,
+  WorkflowNode,
+  WorkflowEdge,
+  WorkflowExecution,
+  WebTestCase,
+} from "./api-types"
 
 const api = axios.create({
   baseURL: "/api/v1",
@@ -77,14 +111,14 @@ export const authApi = {
 
 // Users API
 export const usersApi = {
-  listUsers: (params?: Record<string, any>) => api.get("/users", { params }),
+  listUsers: (params?: Record<string, unknown>) => api.get("/users", { params }),
   listAllUsers: () => api.get("/users/all"),
   getUser: (id: number) => api.get(`/users/${id}`),
-  createUser: (data: any) => api.post("/users", data),
-  updateUser: (id: number, data: any) => api.put(`/users/${id}`, data),
+  createUser: (data: Partial<UserProfile>) => api.post("/users", data),
+  updateUser: (id: number, data: Partial<UserProfile>) => api.put(`/users/${id}`, data),
   deleteUser: (id: number) => api.delete(`/users/${id}`),
   getUserStatus: (id: number) => api.get(`/users/${id}/status`),
-  listLoginLogs: (params?: Record<string, any>) => api.get("/users/login-logs", { params }),
+  listLoginLogs: (params?: Record<string, unknown>) => api.get("/users/login-logs", { params }),
   // 角色管理
   listRoles: () => api.get("/users/roles/list"),
   getRoleStats: () => api.get("/users/roles/stats"),
@@ -99,9 +133,9 @@ export const usersApi = {
 }
 
 // 通用CRUD API工厂
-export function createCrudApi<T>(endpoint: string) {
+export function createCrudApi<T extends { id?: number }>(endpoint: string) {
   return {
-    list: (params?: Record<string, any>) => api.get(`/${endpoint}`, { params }),
+    list: (params?: Record<string, unknown>) => api.get(`/${endpoint}`, { params }),
     get: (id: number) => api.get(`/${endpoint}/${id}`),
     create: (data: Partial<T>) => api.post(`/${endpoint}`, data),
     update: (id: number, data: Partial<T>) => api.put(`/${endpoint}/${id}`, data),
@@ -125,31 +159,32 @@ export async function apiFetch(url: string, options?: { method?: string; body?: 
       signal: options?.signal,
     })
     return response
-  } catch (err: any) {
+  } catch (err: unknown) {
     // 静默处理请求被中止的错误（用户主动停止、组件卸载、HMR 热更新等）
     // Chrome 的 net::ERR_ABORTED 通常表现为 TypeError: Failed to fetch 或 AbortError
-    const errName = err?.name || ""
-    const errMsg = (err?.message || "").toLowerCase()
+    const error = err as Error & { code?: string; response?: { status?: number } }
+    const errName = error?.name || ""
+    const errMsg = (error?.message || "").toLowerCase()
     const isAborted =
       errName === "AbortError" ||
-      err?.code === "ERR_ABORTED" ||
-      err?.code === "ERR_NETWORK" ||
+      error?.code === "ERR_ABORTED" ||
+      error?.code === "ERR_NETWORK" ||
       errMsg.includes("failed to fetch") ||
       errMsg.includes("networkerror") ||
       errMsg.includes("aborted")
     if (isAborted) {
       // 返回一个永远不会 resolve 的 Promise，避免错误冒泡到调用方
-      return new Promise<Response>(() => {}) as any
+      return new Promise<Response>(() => {}) as Promise<Response>
     }
     // 401 未授权：清理 token 并跳转登录页
-    if (err?.response?.status === 401) {
+    if (error?.response?.status === 401) {
       localStorage.removeItem("access_token")
       localStorage.removeItem("refresh_token")
       cancelAllRequests()
       window.location.replace("/login")
-      return new Promise<Response>(() => {}) as any
+      return new Promise<Response>(() => {}) as Promise<Response>
     }
-    throw err
+    throw error
   }
 }
 
@@ -177,9 +212,9 @@ export const webApi = {
     apiFetch(`/api/v1/web-automation/projects/${projectId}/generate`, { method: "POST" }),
   listTestCases: (projectId: number, status?: string) =>
     api.get(`/web-automation/projects/${projectId}/test-cases`, { params: { status } }),
-  createTestCase: (projectId: number, data: any) =>
+  createTestCase: (projectId: number, data: Partial<WebTestCase>) =>
     api.post(`/web-automation/projects/${projectId}/test-cases`, data),
-  updateTestCase: (caseId: number, data: any) =>
+  updateTestCase: (caseId: number, data: Partial<WebTestCase>) =>
     api.put(`/web-automation/test-cases/${caseId}`, data),
   approveTestCase: (caseId: number) =>
     api.post(`/web-automation/test-cases/${caseId}/approve`),
@@ -187,7 +222,7 @@ export const webApi = {
     api.post(`/web-automation/test-cases/${caseId}/reject`),
   deleteTestCase: (caseId: number) =>
     api.delete(`/web-automation/test-cases/${caseId}`),
-  execute: (projectId: number, data?: Record<string, any>) =>
+  execute: (projectId: number, data?: Record<string, unknown>) =>
     api.post(`/web-automation/projects/${projectId}/execute`, data),
   getExecutions: (projectId: number) =>
     api.get(`/web-automation/projects/${projectId}/executions`),
@@ -237,7 +272,7 @@ export const apiTestApi = {
   // 执行
   listExecutions: (params?: Record<string, any>) => api.get("/api-test/executions", { params }),
   getExecution: (id: number) => api.get(`/api-test/executions/${id}`),
-  executeTests: (projectId: number, data?: Record<string, any>) =>
+  executeTests: (projectId: number, data?: Record<string, unknown>) =>
     api.post(`/api-test/projects/${projectId}/execute`, data),
   // 报告
   listReports: (params?: Record<string, any>) => api.get("/api-test/reports", { params }),
@@ -248,28 +283,28 @@ export const apiTestApi = {
 
 // Project & Version API
 export const projectApi = {
-  listProjects: (params?: Record<string, any>) => api.get("/projects", { params }),
+  listProjects: (params?: Record<string, unknown>) => api.get("/projects", { params }),
   getProject: (id: number) => api.get(`/projects/${id}`),
-  createProject: (data: any) => api.post("/projects", data),
-  updateProject: (id: number, data: any) => api.put(`/projects/${id}`, data),
+  createProject: (data: Partial<Project>) => api.post("/projects", data),
+  updateProject: (id: number, data: Partial<Project>) => api.put(`/projects/${id}`, data),
   deleteProject: (id: number) => api.delete(`/projects/${id}`),
   batchDeleteProjects: (ids: number[]) => api.post("/projects/batch-delete", ids),
 
-  listVersions: (params?: Record<string, any>) => api.get("/versions", { params }),
+  listVersions: (params?: Record<string, unknown>) => api.get("/versions", { params }),
   getVersion: (id: number) => api.get(`/versions/${id}`),
-  createVersion: (data: any) => api.post("/versions", data),
-  updateVersion: (id: number, data: any) => api.put(`/versions/${id}`, data),
+  createVersion: (data: Partial<Version>) => api.post("/versions", data),
+  updateVersion: (id: number, data: Partial<Version>) => api.put(`/versions/${id}`, data),
   deleteVersion: (id: number) => api.delete(`/versions/${id}`),
   batchDeleteVersions: (ids: number[]) => api.post("/versions/batch-delete", ids),
 }
 
 // 角色管理 API
 export const rolesApi = {
-  listRoles: (params?: Record<string, any>) => api.get("/roles", { params }),
+  listRoles: (params?: Record<string, unknown>) => api.get("/roles", { params }),
   listAllRoles: () => api.get("/roles/all"),
   getRole: (id: number) => api.get(`/roles/${id}`),
-  createRole: (data: any) => api.post("/roles", data),
-  updateRole: (id: number, data: any) => api.put(`/roles/${id}`, data),
+  createRole: (data: { name: string; code: string; description?: string }) => api.post("/roles", data),
+  updateRole: (id: number, data: { name?: string; description?: string }) => api.put(`/roles/${id}`, data),
   deleteRole: (id: number) => api.delete(`/roles/${id}`),
   batchDeleteRoles: (ids: number[]) => api.post("/roles/batch-delete", ids),
 }
@@ -277,30 +312,26 @@ export const rolesApi = {
 // 测试生命周期 API
 export const lifecycleApi = {
   // 需求分析
-  listRequirements: (params?: Record<string, any>) => api.get("/test-lifecycle/requirements", { params }),
+  listRequirements: (params?: Record<string, unknown>) => api.get("/test-lifecycle/requirements", { params }),
   getRequirement: (id: number) => api.get(`/test-lifecycle/requirements/${id}`),
-  createRequirement: (data: any) => api.post("/test-lifecycle/requirements", data),
-  updateRequirement: (id: number, data: any) => api.put(`/test-lifecycle/requirements/${id}`, data),
+  createRequirement: (data: Partial<Requirement>) => api.post("/test-lifecycle/requirements", data),
+  updateRequirement: (id: number, data: Partial<Requirement>) => api.put(`/test-lifecycle/requirements/${id}`, data),
   deleteRequirement: (id: number) => api.delete(`/test-lifecycle/requirements/${id}`),
   batchDeleteRequirements: (ids: number[]) => api.post("/test-lifecycle/requirements/batch-delete", ids),
   updateRequirementStatus: (id: number, status: string) =>
     api.put(`/test-lifecycle/requirements/${id}/status`, { status }, { headers: { "Content-Type": "application/x-www-form-urlencoded" } }),
   uploadRequirement: (formData: FormData) =>
-    api.post("/test-lifecycle/requirements/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
+    api.post("/test-lifecycle/requirements/upload", formData),
   createManualRequirement: (formData: FormData) =>
-    api.post("/test-lifecycle/requirements/manual", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    }),
+    api.post("/test-lifecycle/requirements/manual", formData),
   // === 需求测试数据管理 CRUD API ===
-  listData: (collection: string, params?: Record<string, any>) =>
+  listData: (collection: string, params?: Record<string, unknown>) =>
     api.get(`/data/${collection}`, { params }),
   getData: (collection: string, id: string) =>
     api.get(`/data/${collection}/${id}`),
-  createData: (collection: string, data: any) =>
+  createData: (collection: string, data: Record<string, unknown>) =>
     api.post(`/data/${collection}`, data),
-  updateData: (collection: string, id: string, data: any) =>
+  updateData: (collection: string, id: string, data: Record<string, unknown>) =>
     api.put(`/data/${collection}/${id}`, data),
   deleteData: (collection: string, id: string) =>
     api.delete(`/data/${collection}/${id}`),
@@ -316,26 +347,26 @@ export const lifecycleApi = {
   },
 
   // 测试方案
-  listTestPlans: (params?: Record<string, any>) => api.get("/test-lifecycle/test-plans", { params }),
+  listTestPlans: (params?: Record<string, unknown>) => api.get("/test-lifecycle/test-plans", { params }),
   getTestPlan: (id: number) => api.get(`/test-lifecycle/test-plans/${id}`),
-  createTestPlan: (data: any) => api.post("/test-lifecycle/test-plans", data),
-  updateTestPlan: (id: number, data: any) => api.put(`/test-lifecycle/test-plans/${id}`, data),
+  createTestPlan: (data: Partial<TestPlan>) => api.post("/test-lifecycle/test-plans", data),
+  updateTestPlan: (id: number, data: Partial<TestPlan>) => api.put(`/test-lifecycle/test-plans/${id}`, data),
   deleteTestPlan: (id: number) => api.delete(`/test-lifecycle/test-plans/${id}`),
   batchDeleteTestPlans: (ids: number[]) => api.post("/test-lifecycle/test-plans/batch-delete", ids),
 
   // 测试点
-  listTestPoints: (params?: Record<string, any>) => api.get("/test-lifecycle/test-points", { params }),
+  listTestPoints: (params?: Record<string, unknown>) => api.get("/test-lifecycle/test-points", { params }),
   getTestPoint: (id: number) => api.get(`/test-lifecycle/test-points/${id}`),
-  createTestPoint: (data: any) => api.post("/test-lifecycle/test-points", data),
-  updateTestPoint: (id: number, data: any) => api.put(`/test-lifecycle/test-points/${id}`, data),
+  createTestPoint: (data: Partial<TestPoint>) => api.post("/test-lifecycle/test-points", data),
+  updateTestPoint: (id: number, data: Partial<TestPoint>) => api.put(`/test-lifecycle/test-points/${id}`, data),
   deleteTestPoint: (id: number) => api.delete(`/test-lifecycle/test-points/${id}`),
   batchDeleteTestPoints: (ids: number[]) => api.post("/test-lifecycle/test-points/batch-delete", ids),
 
   // 测试用例
-  listTestCases: (params?: Record<string, any>) => api.get("/test-lifecycle/test-cases", { params }),
+  listTestCases: (params?: Record<string, unknown>) => api.get("/test-lifecycle/test-cases", { params }),
   getTestCase: (id: number) => api.get(`/test-lifecycle/test-cases/${id}`),
-  createTestCase: (data: any) => api.post("/test-lifecycle/test-cases", data),
-  updateTestCase: (id: number, data: any) => api.put(`/test-lifecycle/test-cases/${id}`, data),
+  createTestCase: (data: Partial<TestCase>) => api.post("/test-lifecycle/test-cases", data),
+  updateTestCase: (id: number, data: Partial<TestCase>) => api.put(`/test-lifecycle/test-cases/${id}`, data),
   deleteTestCase: (id: number) => api.delete(`/test-lifecycle/test-cases/${id}`),
   batchDeleteTestCases: (ids: number[]) => api.post("/test-lifecycle/test-cases/batch-delete", ids),
   reviewTestCase: (id: number, data: { action: string; review_comment?: string }) =>
@@ -344,10 +375,10 @@ export const lifecycleApi = {
     api.post("/test-lifecycle/test-cases/ai-generate", data),
 
   // 执行管理
-  listExecutions: (params?: Record<string, any>) => api.get("/test-lifecycle/executions", { params }),
+  listExecutions: (params?: Record<string, unknown>) => api.get("/test-lifecycle/executions", { params }),
   getExecution: (id: number) => api.get(`/test-lifecycle/executions/${id}`),
-  createExecution: (data: any) => api.post("/test-lifecycle/executions", data),
-  updateExecution: (id: number, data: any) => api.put(`/test-lifecycle/executions/${id}`, data),
+  createExecution: (data: Partial<TestExecution>) => api.post("/test-lifecycle/executions", data),
+  updateExecution: (id: number, data: Partial<TestExecution>) => api.put(`/test-lifecycle/executions/${id}`, data),
   deleteExecution: (id: number) => api.delete(`/test-lifecycle/executions/${id}`),
   batchDeleteExecutions: (ids: number[]) => api.post("/test-lifecycle/executions/batch-delete", ids),
   // 执行引擎
@@ -362,10 +393,10 @@ export const lifecycleApi = {
   },
 
   // 缺陷管理
-  listDefects: (params?: Record<string, any>) => api.get("/test-lifecycle/defects", { params }),
+  listDefects: (params?: Record<string, unknown>) => api.get("/test-lifecycle/defects", { params }),
   getDefect: (id: number) => api.get(`/test-lifecycle/defects/${id}`),
-  createDefect: (data: any) => api.post("/test-lifecycle/defects", data),
-  updateDefect: (id: number, data: any) => api.put(`/test-lifecycle/defects/${id}`, data),
+  createDefect: (data: Partial<Defect>) => api.post("/test-lifecycle/defects", data),
+  updateDefect: (id: number, data: Partial<Defect>) => api.put(`/test-lifecycle/defects/${id}`, data),
   deleteDefect: (id: number) => api.delete(`/test-lifecycle/defects/${id}`),
   batchDeleteDefects: (ids: number[]) => api.post("/test-lifecycle/defects/batch-delete", ids),
   aiAnalyzeDefect: (id: number) =>
@@ -377,10 +408,10 @@ export const lifecycleApi = {
   getPipelineStages: () => api.get("/test-lifecycle/pipeline/stages"),
 
   // 测试报告
-  listReports: (params?: Record<string, any>) => api.get("/test-lifecycle/reports", { params }),
+  listReports: (params?: Record<string, unknown>) => api.get("/test-lifecycle/reports", { params }),
   getReport: (id: number) => api.get(`/test-lifecycle/reports/${id}`),
-  createReport: (data: any) => api.post("/test-lifecycle/reports", data),
-  updateReport: (id: number, data: any) => api.put(`/test-lifecycle/reports/${id}`, data),
+  createReport: (data: Partial<TestReport>) => api.post("/test-lifecycle/reports", data),
+  updateReport: (id: number, data: Partial<TestReport>) => api.put(`/test-lifecycle/reports/${id}`, data),
   deleteReport: (id: number) => api.delete(`/test-lifecycle/reports/${id}`),
   batchDeleteReports: (ids: number[]) => api.post("/test-lifecycle/reports/batch-delete", ids),
   generateAiReport: (data: { report_type?: string; name?: string }) =>
@@ -392,16 +423,12 @@ export const lifecycleApi = {
 
   // 全流程 Pipeline
   startPipelineSSE: (
-    data: {
-      requirement_content: string
-      requirement_name?: string
-      project_id?: number
-      version_id?: number
-      resume_from?: string
-      record_id?: number
-    },
+    data: PipelineStartRequest,
     signal?: AbortSignal
   ) => apiFetch("/api/v1/pipeline/start", { method: "POST", body: data, signal }),
+  // 断线重连：订阅进行中 Pipeline 记录的事件流（since=事件游标）
+  reconnectPipelineSSE: (recordId: number, since = 0, signal?: AbortSignal) =>
+    apiFetch(`/api/v1/pipeline/runs/${recordId}/stream?since=${since}`, { signal }),
 
   // === 用例确认 ===
   confirmCases: (case_ids: string[], confirmed_by = "manual") =>
@@ -418,18 +445,18 @@ export const lifecycleApi = {
   },
 
   // 评审管理
-  listReviews: (params?: Record<string, any>) => api.get("/test-lifecycle/reviews", { params }),
+  listReviews: (params?: Record<string, unknown>) => api.get("/test-lifecycle/reviews", { params }),
   getReview: (id: number) => api.get(`/test-lifecycle/reviews/${id}`),
-  createReview: (data: any) => api.post("/test-lifecycle/reviews", data),
-  updateReview: (id: number, data: any) => api.put(`/test-lifecycle/reviews/${id}`, data),
+  createReview: (data: Partial<Review>) => api.post("/test-lifecycle/reviews", data),
+  updateReview: (id: number, data: Partial<Review>) => api.put(`/test-lifecycle/reviews/${id}`, data),
   deleteReview: (id: number) => api.delete(`/test-lifecycle/reviews/${id}`),
   batchDeleteReviews: (ids: number[]) => api.post("/test-lifecycle/reviews/batch-delete", ids),
 
   // === 流程记录 (DB版) ===
-  listPipelineRecords: (params?: Record<string, any>) =>
-    api.get("/test-lifecycle/pipeline-records", { params }),
+  listPipelineRecords: (params?: Record<string, unknown>) =>
+    api.get("/test-lifecycle/pipeline-records", { params }) as Promise<PaginatedResponse<PipelineRecord>>,
   getPipelineRecord: (id: number) =>
-    api.get(`/test-lifecycle/pipeline-records/${id}`),
+    api.get(`/test-lifecycle/pipeline-records/${id}`) as Promise<PipelineRecord>,
   deletePipelineRecord: (id: number) =>
     api.delete(`/test-lifecycle/pipeline-records/${id}`),
   batchDeletePipelineRecords: (ids: number[]) =>
@@ -437,8 +464,8 @@ export const lifecycleApi = {
 
   // === 执行调度 ===
   listSchedules: () => api.get("/test-lifecycle/schedules"),
-  createSchedule: (data: any) => api.post("/test-lifecycle/schedules", data),
-  updateSchedule: (id: number, data: any) => api.put(`/test-lifecycle/schedules/${id}`, data),
+  createSchedule: (data: Partial<Schedule>) => api.post("/test-lifecycle/schedules", data),
+  updateSchedule: (id: number, data: Partial<Schedule>) => api.put(`/test-lifecycle/schedules/${id}`, data),
   toggleSchedule: (id: number, status: string) => api.post(`/test-lifecycle/schedules/${id}/toggle`, { status }),
   deleteSchedule: (id: number) => api.delete(`/test-lifecycle/schedules/${id}`),
 
@@ -457,19 +484,19 @@ export const configApi = {
   // 环境配置
   listEnvironments: (page = 1, pageSize = 20) => api.get("/config/environments", { params: { page, page_size: pageSize } }),
   getEnvironment: (id: number) => api.get(`/config/environments/${id}`),
-  createEnvironment: (data: any) => api.post("/config/environments", data),
-  updateEnvironment: (id: number, data: any) => api.put(`/config/environments/${id}`, data),
+  createEnvironment: (data: Partial<Environment>) => api.post("/config/environments", data),
+  updateEnvironment: (id: number, data: Partial<Environment>) => api.put(`/config/environments/${id}`, data),
   deleteEnvironment: (id: number) => api.delete(`/config/environments/${id}`),
   healthCheckEnvironment: (id: number) => api.post(`/config/environments/${id}/health-check`),
   batchHealthCheck: () => api.post("/config/environments/batch-health-check"),
   getEnvironmentHealthHistory: (id: number, limit = 10) => api.get(`/config/environments/${id}/health-history`, { params: { limit } }),
-  listHealthHistory: (params?: Record<string, any>) => api.get("/config/health-history", { params }),
+  listHealthHistory: (params?: Record<string, unknown>) => api.get("/config/health-history", { params }),
 
   // 大模型配置
   listLLMProviders: (page = 1, pageSize = 20) => api.get("/config/llm-providers", { params: { page, page_size: pageSize } }),
   getLLMProvider: (id: number) => api.get(`/config/llm-providers/${id}`),
-  createLLMProvider: (data: any) => api.post("/config/llm-providers", data),
-  updateLLMProvider: (id: number, data: any) => api.put(`/config/llm-providers/${id}`, data),
+  createLLMProvider: (data: Partial<LLMProvider>) => api.post("/config/llm-providers", data),
+  updateLLMProvider: (id: number, data: Partial<LLMProvider>) => api.put(`/config/llm-providers/${id}`, data),
   deleteLLMProvider: (id: number) => api.delete(`/config/llm-providers/${id}`),
   toggleLLMProvider: (id: number) => api.post(`/config/llm-providers/${id}/toggle`),
   testLLMConnection: (id: number) => api.post(`/config/llm-providers/${id}/test`),
@@ -477,8 +504,8 @@ export const configApi = {
   // 提示词配置
   listPrompts: (page = 1, pageSize = 20) => api.get("/config/prompts", { params: { page, page_size: pageSize } }),
   getPrompt: (id: number) => api.get(`/config/prompts/${id}`),
-  createPrompt: (data: any) => api.post("/config/prompts", data),
-  updatePrompt: (id: number, data: any) => api.put(`/config/prompts/${id}`, data),
+  createPrompt: (data: Partial<PromptConfig>) => api.post("/config/prompts", data),
+  updatePrompt: (id: number, data: Partial<PromptConfig>) => api.put(`/config/prompts/${id}`, data),
   deletePrompt: (id: number) => api.delete(`/config/prompts/${id}`),
   publishPrompt: (id: number) => api.post(`/config/prompts/${id}/publish`),
   testPrompt: (id: number, data: { variables?: Record<string, string>; input_text?: string }) => api.post(`/config/prompts/${id}/test`, data),
@@ -486,16 +513,16 @@ export const configApi = {
   // 去AI味配置
   listDeAIStyles: (page = 1, pageSize = 20) => api.get("/config/deai-styles", { params: { page, page_size: pageSize } }),
   getDeAIStyle: (id: number) => api.get(`/config/deai-styles/${id}`),
-  createDeAIStyle: (data: any) => api.post("/config/deai-styles", data),
-  updateDeAIStyle: (id: number, data: any) => api.put(`/config/deai-styles/${id}`, data),
+  createDeAIStyle: (data: Partial<DeAIStyle>) => api.post("/config/deai-styles", data),
+  updateDeAIStyle: (id: number, data: Partial<DeAIStyle>) => api.put(`/config/deai-styles/${id}`, data),
   deleteDeAIStyle: (id: number) => api.delete(`/config/deai-styles/${id}`),
   testDeAIStyle: (id: number, inputText = "") => api.post(`/config/deai-styles/${id}/test`, { input_text: inputText }),
 
   // MCP服务配置
   listMCPServices: (page = 1, pageSize = 20) => api.get("/config/mcp-services", { params: { page, page_size: pageSize } }),
   getMCPService: (id: number) => api.get(`/config/mcp-services/${id}`),
-  createMCPService: (data: any) => api.post("/config/mcp-services", data),
-  updateMCPService: (id: number, data: any) => api.put(`/config/mcp-services/${id}`, data),
+  createMCPService: (data: Partial<MCPServer>) => api.post("/config/mcp-services", data),
+  updateMCPService: (id: number, data: Partial<MCPServer>) => api.put(`/config/mcp-services/${id}`, data),
   deleteMCPService: (id: number) => api.delete(`/config/mcp-services/${id}`),
   testMCPConnection: (id: number) => api.post(`/config/mcp-services/${id}/test`),
   batchTestMCP: () => api.post("/config/mcp-services/batch-test"),
@@ -503,17 +530,17 @@ export const configApi = {
   // Skills技能配置
   listSkills: (page = 1, pageSize = 20) => api.get("/config/skills", { params: { page, page_size: pageSize } }),
   getSkill: (id: number) => api.get(`/config/skills/${id}`),
-  createSkill: (data: any) => api.post("/config/skills", data),
-  updateSkill: (id: number, data: any) => api.put(`/config/skills/${id}`, data),
+  createSkill: (data: Partial<Skill>) => api.post("/config/skills", data),
+  updateSkill: (id: number, data: Partial<Skill>) => api.put(`/config/skills/${id}`, data),
   deleteSkill: (id: number) => api.delete(`/config/skills/${id}`),
   toggleSkill: (id: number) => api.post(`/config/skills/${id}/toggle`),
-  executeSkill: (id: number, data: { params?: Record<string, any>; input_text?: string }) => api.post(`/config/skills/${id}/execute`, data),
+  executeSkill: (id: number, data: { params?: Record<string, unknown>; input_text?: string }) => api.post(`/config/skills/${id}/execute`, data),
 
   // Hermes渠道配置
   listHermesChannels: (page = 1, pageSize = 20) => api.get("/config/hermes-channels", { params: { page, page_size: pageSize } }),
   getHermesChannel: (id: number) => api.get(`/config/hermes-channels/${id}`),
-  createHermesChannel: (data: any) => api.post("/config/hermes-channels", data),
-  updateHermesChannel: (id: number, data: any) => api.put(`/config/hermes-channels/${id}`, data),
+  createHermesChannel: (data: Partial<HermesChannel>) => api.post("/config/hermes-channels", data),
+  updateHermesChannel: (id: number, data: Partial<HermesChannel>) => api.put(`/config/hermes-channels/${id}`, data),
   deleteHermesChannel: (id: number) => api.delete(`/config/hermes-channels/${id}`),
   testHermesChannel: (id: number) => api.post(`/config/hermes-channels/${id}/test`),
   batchTestHermes: () => api.post("/config/hermes-channels/batch-test"),
@@ -521,20 +548,20 @@ export const configApi = {
 
   // LLM 使用统计 & 记录
   getLLMUsageStats: () => api.get("/config/llm-usage-stats"),
-  listLLMUsageLogs: (params?: Record<string, any>) => api.get("/config/llm-usage-logs", { params }),
+  listLLMUsageLogs: (params?: Record<string, unknown>) => api.get("/config/llm-usage-logs", { params }),
 
   // 系统健康统计
   getSystemHealthStats: () => api.get("/config/system-health-stats"),
 
   // 操作日志
-  listOperationLogs: (params?: Record<string, any>) => api.get("/config/operation-logs", { params }),
+  listOperationLogs: (params?: Record<string, unknown>) => api.get("/config/operation-logs", { params }),
 
   // Pipeline步骤提示词配置
   listStepPromptConfigs: (page = 1, pageSize = 50) => api.get("/config/step-prompt-configs", { params: { page, page_size: pageSize } }),
   getStepPromptConfig: (id: number) => api.get(`/config/step-prompt-configs/${id}`),
   getStepPromptConfigByKey: (stepKey: string) => api.get(`/config/step-prompt-configs/by-key/${stepKey}`),
-  createStepPromptConfig: (data: any) => api.post("/config/step-prompt-configs", data),
-  updateStepPromptConfig: (id: number, data: any) => api.put(`/config/step-prompt-configs/${id}`, data),
+  createStepPromptConfig: (data: Partial<StepPromptConfig>) => api.post("/config/step-prompt-configs", data),
+  updateStepPromptConfig: (id: number, data: Partial<StepPromptConfig>) => api.put(`/config/step-prompt-configs/${id}`, data),
   deleteStepPromptConfig: (id: number) => api.delete(`/config/step-prompt-configs/${id}`),
   testStepPromptConfig: (id: number, data: { variables?: Record<string, string>; input_text?: string }) => api.post(`/config/step-prompt-configs/${id}/test`, data),
   initDefaultStepPromptConfigs: () => api.post("/config/step-prompt-configs/init-defaults"),
@@ -542,28 +569,28 @@ export const configApi = {
 
 // MCP Market API
 export const mcpMarketApi = {
-  listServices: (params?: Record<string, any>) => api.get("/mcp-marketplace/services", { params }),
+  listServices: (params?: Record<string, unknown>) => api.get("/mcp-marketplace/services", { params }),
   getService: (id: string) => api.get(`/mcp-marketplace/services/${id}`),
   listCategories: () => api.get("/mcp-marketplace/categories"),
-  installService: (data: { marketplace_id: string; name?: string; url?: string; config?: any }) =>
+  installService: (data: MCPMarketplaceService) =>
     api.post("/mcp-marketplace/install", data),
 }
 
 // Knowledge API
 export const knowledgeApi = {
   // 测试模式库
-  listTestPatterns: (params?: Record<string, any>) => api.get("/knowledge/test-patterns", { params }),
+  listTestPatterns: (params?: Record<string, unknown>) => api.get("/knowledge/test-patterns", { params }),
   getTestPattern: (id: number) => api.get(`/knowledge/test-patterns/${id}`),
-  createTestPattern: (data: any) => api.post("/knowledge/test-patterns", data),
-  updateTestPattern: (id: number, data: any) => api.put(`/knowledge/test-patterns/${id}`, data),
+  createTestPattern: (data: Partial<TestPattern>) => api.post("/knowledge/test-patterns", data),
+  updateTestPattern: (id: number, data: Partial<TestPattern>) => api.put(`/knowledge/test-patterns/${id}`, data),
   deleteTestPattern: (id: number) => api.delete(`/knowledge/test-patterns/${id}`),
   batchDeleteTestPatterns: (ids: number[]) => api.post("/knowledge/test-patterns/batch-delete", ids),
 
   // Bug知识库
-  listBugKnowledge: (params?: Record<string, any>) => api.get("/knowledge/bug-knowledge", { params }),
+  listBugKnowledge: (params?: Record<string, unknown>) => api.get("/knowledge/bug-knowledge", { params }),
   getBugKnowledge: (id: number) => api.get(`/knowledge/bug-knowledge/${id}`),
-  createBugKnowledge: (data: any) => api.post("/knowledge/bug-knowledge", data),
-  updateBugKnowledge: (id: number, data: any) => api.put(`/knowledge/bug-knowledge/${id}`, data),
+  createBugKnowledge: (data: Partial<BugKnowledge>) => api.post("/knowledge/bug-knowledge", data),
+  updateBugKnowledge: (id: number, data: Partial<BugKnowledge>) => api.put(`/knowledge/bug-knowledge/${id}`, data),
   deleteBugKnowledge: (id: number) => api.delete(`/knowledge/bug-knowledge/${id}`),
   batchDeleteBugKnowledge: (ids: number[]) => api.post("/knowledge/bug-knowledge/batch-delete", ids),
 
@@ -646,8 +673,8 @@ export const aiChatApi = {
       if (!doneCalled) {
         onDone()
       }
-    } catch (error: any) {
-      onError(error.message || "聊天请求失败")
+    } catch (error: unknown) {
+      onError(error instanceof Error ? error.message : "聊天请求失败")
     }
   },
 }
@@ -655,19 +682,19 @@ export const aiChatApi = {
 // Workflow API - 工作流编排
 export const workflowApi = {
   // 工作流 CRUD
-  listWorkflows: (params?: Record<string, any>) => api.get("/workflows", { params }),
+  listWorkflows: (params?: Record<string, unknown>) => api.get("/workflows", { params }),
   getWorkflow: (id: number) => api.get(`/workflows/${id}`),
-  createWorkflow: (data: { name: string; description?: string; tags?: any }) => api.post("/workflows", data),
-  updateWorkflow: (id: number, data: any) => api.put(`/workflows/${id}`, data),
+  createWorkflow: (data: { name: string; description?: string; tags?: string[] }) => api.post("/workflows", data),
+  updateWorkflow: (id: number, data: Partial<Workflow>) => api.put(`/workflows/${id}`, data),
   deleteWorkflow: (id: number) => api.delete(`/workflows/${id}`),
 
   // 画布全量保存
-  saveCanvas: (workflowId: number, data: { nodes: any[]; edges: any[] }) =>
+  saveCanvas: (workflowId: number, data: { nodes: WorkflowNode[]; edges: WorkflowEdge[] }) =>
     api.put(`/workflows/${workflowId}/canvas`, data),
 
   // 节点 CRUD
-  addNode: (workflowId: number, data: any) => api.post(`/workflows/${workflowId}/nodes`, data),
-  updateNode: (workflowId: number, nodeId: number, data: any) =>
+  addNode: (workflowId: number, data: Partial<WorkflowNode>) => api.post(`/workflows/${workflowId}/nodes`, data),
+  updateNode: (workflowId: number, nodeId: number, data: Partial<WorkflowNode>) =>
     api.put(`/workflows/${workflowId}/nodes/${nodeId}`, data),
   deleteNode: (workflowId: number, nodeId: number) =>
     api.delete(`/workflows/${workflowId}/nodes/${nodeId}`),
@@ -680,7 +707,7 @@ export const workflowApi = {
 
   // 执行
   executeWorkflow: (workflowId: number) => api.post(`/workflows/${workflowId}/execute`),
-  listExecutions: (workflowId: number, params?: Record<string, any>) =>
+  listExecutions: (workflowId: number, params?: Record<string, unknown>) =>
     api.get(`/workflows/${workflowId}/executions`, { params }),
   getExecution: (executionId: number) => api.get(`/workflows/executions/${executionId}`),
 }
@@ -732,6 +759,64 @@ export const dataFactoryApi = {
     api.post("/data-factory/generate", data),
   listLogs: (params?: Record<string, any>) => api.get("/data-factory/logs", { params }),
   deleteLog: (id: number) => api.delete(`/data-factory/logs/${id}`),
+}
+
+// ====== 序列执行调度 API（SPEC-001：免费=单任务串行 / 付费=并行×N） ======
+export interface ExecutionMode {
+  tier: "free" | "paid"
+  mode: "serial" | "parallel"
+  concurrency: number
+  model: string
+  provider_name: string
+  source: string
+  health?: { available: boolean; reason: string | null }
+}
+
+export interface SequenceTaskState {
+  order: number
+  lane: number | null
+  name: string
+  content_preview: string
+  status: "queued" | "waiting_slot" | "running" | "completed" | "failed" | "cancelled"
+  pipeline_record_id: number | null
+  duration: number
+  error: string | null
+  stages: { key: string; label: string; status: string; duration: number; error?: string }[]
+}
+
+export interface SequenceGroupState {
+  id: number
+  name: string
+  status: string
+  mode: "serial" | "parallel"
+  tier: "free" | "paid"
+  concurrency: number
+  model: string
+  simulated: boolean
+  total_tasks: number
+  done_tasks: number
+  failed_tasks: number
+  tasks: SequenceTaskState[]
+  total_duration: number | null
+  created_at?: string
+  event_count?: number
+}
+
+export const sequenceApi = {
+  getMode: (probe = false) =>
+    api.get("/sequence/mode", { params: probe ? { probe: true } : {} }) as Promise<{ data: ExecutionMode }>,
+  createRun: (data: {
+    name?: string
+    simulated?: boolean
+    project_id?: number | null
+    version_id?: number | null
+    tasks: { requirement_name: string; requirement_content: string; project_id?: number | null; version_id?: number | null }[]
+  }) => api.post("/sequence/runs", data) as Promise<{ data: SequenceGroupState }>,
+  listRuns: (params?: Record<string, unknown>) => api.get("/sequence/runs", { params }),
+  getRun: (id: number) => api.get(`/sequence/runs/${id}`) as Promise<{ data: SequenceGroupState }>,
+  cancelRun: (id: number) => api.post(`/sequence/runs/${id}/cancel`),
+  streamRun: (id: number, since = 0, signal?: AbortSignal) =>
+    apiFetch(`/api/v1/sequence/runs/${id}/stream?since=${since}`, { signal }),
 }
 
 export default api

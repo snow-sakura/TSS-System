@@ -333,7 +333,7 @@ export default function StepPromptConfigPage() {
                     <Icon className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 text-left truncate">{config.step_name}</span>
                     {config.is_default && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${isActive ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-500'}`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${isActive ? 'bg-white/20 text-white' : 'bg-info-light text-info'}`}>
                         默认
                       </span>
                     )}
@@ -449,8 +449,8 @@ export default function StepPromptConfigPage() {
                       用户提示词模板，支持变量占位符如 <code className="bg-cream px-1 rounded">{"{content}"}</code>、<code className="bg-cream px-1 rounded">{"{files_list}"}</code>。
                       这些变量会在执行时被实际内容替换。
                     </p>
-                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-3">
-                      <p className="text-xs text-blue-600">
+                    <div className="bg-info-light p-3 rounded-lg border border-info/20 mb-3">
+                      <p className="text-xs text-info">
                         <strong>可用变量:</strong>{" "}
                         {activeConfig.variables?.map(v => (
                           <span key={v.name} className="inline-block bg-white px-2 py-0.5 rounded mr-1 my-0.5 text-xs">
@@ -487,7 +487,7 @@ export default function StepPromptConfigPage() {
                       <div className="mb-6">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-xs font-medium text-ink-light flex items-center gap-2">
-                            <Wand2 className="w-3 h-3 text-purple-500" />
+                            <Wand2 className="w-3 h-3 text-warn" />
                             技能提示词
                           </h4>
                           <button
@@ -499,7 +499,7 @@ export default function StepPromptConfigPage() {
                           </button>
                         </div>
                         {previewMode.skill ? (
-                          <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                          <div className="bg-warn-light p-3 rounded-lg border border-warn/20">
                             {renderMarkdown(activeConfig.skill_prompt)}
                           </div>
                         ) : (
@@ -690,7 +690,7 @@ export default function StepPromptConfigPage() {
               {/* 技能提示词 */}
               <div>
                 <h3 className="text-sm font-medium text-ink mb-2 flex items-center gap-2">
-                  <Wand2 className="w-4 h-4 text-purple-500" />
+                  <Wand2 className="w-4 h-4 text-warn" />
                   技能提示词
                 </h3>
                 <textarea
@@ -737,7 +737,7 @@ export default function StepPromptConfigPage() {
                         <span className="text-xs font-medium text-muted">技能 {idx + 1}</span>
                         <button
                           onClick={() => removeSkill(idx)}
-                          className="text-rose-500 hover:text-rose-600"
+                          className="text-fail hover:text-fail/80"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -824,7 +824,7 @@ export default function StepPromptConfigPage() {
                       </label>
                       <button
                         onClick={() => removeVariable(idx)}
-                        className="text-rose-500 hover:text-rose-600"
+                        className="text-fail hover:text-fail/80"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -866,7 +866,7 @@ export default function StepPromptConfigPage() {
                           />
                           <button
                             onClick={() => removeLog(idx)}
-                            className="text-rose-500 hover:text-rose-600"
+                            className="text-fail hover:text-fail/80"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -890,7 +890,7 @@ export default function StepPromptConfigPage() {
             {/* 弹窗底部 */}
             <div className="px-6 py-4 border-t border-border flex items-center justify-between bg-cream/30">
               <div className="text-xs text-muted">
-                {editingConfig.is_default && <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded">系统默认配置</span>}
+                {editingConfig.is_default && <span className="bg-info-light text-info px-2 py-0.5 rounded">系统默认配置</span>}
               </div>
               <div className="flex gap-2">
                 <button
@@ -937,7 +937,7 @@ export default function StepPromptConfigPage() {
                   {editingConfig.variables?.map((variable) => (
                     <div key={variable.name}>
                       <label className="text-xs text-muted mb-1 block">
-                        {variable.name} {variable.required && <span className="text-rose-500">*</span>}
+                        {variable.name} {variable.required && <span className="text-fail">*</span>}
                       </label>
                       <input
                         type="text"

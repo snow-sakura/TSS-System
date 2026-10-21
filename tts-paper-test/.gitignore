@@ -51,3 +51,6 @@ backend/scripts/test-debug-hub.mjs
 test-results/
 frontend/test-results/
 e2e-report/
+
+# Keep documentation screenshots under version control
+!docs/screenshots/*.png

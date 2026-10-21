@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
-import { lifecycleApi, projectApi, usersApi } from "@/lib/api"
+import { lifecycleApi, usersApi } from "@/lib/api"
 import { formatDateTime } from "@/lib/utils"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
+import { useCrudPage } from "@/hooks/useCrudPage"
+import { useProjectOptions } from "@/hooks/useProjectOptions"
 
 interface TestPlan {
   id: number
@@ -28,8 +31,8 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   draft: { label: "草稿", color: "bg-cream text-muted border border-border" },
   active: { label: "进行中", color: "bg-info/10 text-info border border-info/20" },
   archived: { label: "已归档", color: "bg-pass/10 text-pass border border-pass/20" },
-  completed: { label: "已完成", color: "bg-emerald-100 text-emerald-700 border border-emerald-200" },
-  cancelled: { label: "已取消", color: "bg-red-100 text-red-600 border border-red-200" },
+  completed: { label: "已完成", color: "bg-pass-light text-pass border border-pass/20" },
+  cancelled: { label: "已取消", color: "bg-fail-light text-fail border border-fail/20" },
 }
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
@@ -58,39 +61,39 @@ const columns: CrudColumn[] = [
   {
     key: "name",
     title: "方案标题",
-    width: "min-w-[160px]",
-    align: "center",
+    width: "w-[220px]",
+    align: "left",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[110px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "status",
     title: "状态",
-    width: "w-28",
+    width: "w-[80px]",
     align: "center",
     render: (v: string) => {
       const cfg = statusConfig[v]
-      if (cfg) return <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+      if (cfg) return <span className={`text-xs px-1.5 py-0.5 rounded ${cfg.color}`}>{cfg.label}</span>
       return <span className="text-muted">{v || "—"}</span>
     },
   },
   {
     key: "priority",
     title: "优先级",
-    width: "w-28",
+    width: "w-[90px]",
     align: "center",
     render: (v: string) => {
       const cfg = priorityConfig[v]
@@ -101,14 +104,14 @@ const columns: CrudColumn[] = [
   {
     key: "owner_name",
     title: "负责人",
-    width: "min-w-[100px]",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[140px]",
     align: "center",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
@@ -118,54 +121,46 @@ const columns: CrudColumn[] = [
 
 export default function PlansPage() {
   const toast = useToast()
-  const [data, setData] = useState<TestPlan[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [versionFilter, setVersionFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
 
-  const [projects, setProjects] = useState<any[]>([])
-  const [versions, setVersions] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
-  const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
-
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
   const [editingPlan, setEditingPlan] = useState<TestPlan | null>(null)
 
+  // 用户列表（仅用于表单选择）
+  const [users, setUsers] = useState<any[]>([])
   useEffect(() => {
-    projectApi
-      .listProjects()
-      .then((res) => setProjects(res?.data?.items || []))
-      .catch(() => {})
-    projectApi
-      .listVersions()
-      .then((res) => setVersions(res?.data?.items || []))
-      .catch(() => {})
-    usersApi
-      .listUsers()
-      .then((res) => setUsers(res?.data?.items || res?.data || []))
-      .catch(() => {})
+    usersApi.listUsers().then((res) => setUsers(res?.data?.items || res?.data || [])).catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (!editingPlan?.project_id) {
-      setVersionOptions(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
-    } else {
-      setVersionOptions(
-        versions
-          .filter((v: any) => v.project_id === editingPlan.project_id)
-          .map((v: any) => ({ label: v.name, value: String(v.id) }))
-      )
-    }
-  }, [versions, editingPlan])
+  const fetchFn = useCallback(
+    (params: Record<string, any>) => lifecycleApi.listTestPlans(params),
+    [],
+  )
 
-  const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
+  const {
+    data, total, page, setPage, pageSize, setPageSize,
+    loading, searchTerm, setSearchTerm, reload,
+  } = useCrudPage<TestPlan>({ fetchFn })
+
+  const {
+    projectOptions,
+    getVersionOptionsForProject,
+  } = useProjectOptions()
+
+  const dialogVersionOptions = useMemo(
+    () => getVersionOptionsForProject(editingPlan?.project_id),
+    [getVersionOptionsForProject, editingPlan?.project_id],
+  )
+
+  const filterVersionOptions = useMemo(
+    () => getVersionOptionsForProject(projectFilter || undefined),
+    [getVersionOptionsForProject, projectFilter],
+  )
+
   const userOptions = users.map((u: any) => ({
     label: u.display_name || u.username || u.name || String(u.id),
     value: String(u.id),
@@ -175,12 +170,12 @@ export default function PlansPage() {
     { key: "search", label: "搜索方案标题...", type: "search" },
     { key: "status", label: "全部状态", type: "select", options: statusOptions },
     { key: "project", label: "全部项目", type: "select", options: projectOptions },
-    { key: "version", label: "全部版本", type: "select", options: versionOptions },
+    { key: "version", label: "全部版本", type: "select", options: filterVersionOptions },
   ]
 
   const fields: CrudField[] = [
     { key: "project_id", label: "项目", type: "select", options: projectOptions },
-    { key: "version_id", label: "版本", type: "select", options: versionOptions },
+    { key: "version_id", label: "版本", type: "select", options: dialogVersionOptions },
     { key: "name", label: "方案标题", type: "text", required: true, placeholder: "请输入方案标题" },
     { key: "description", label: "描述", type: "textarea", placeholder: "请输入方案描述" },
     { key: "status", label: "状态", type: "select", options: statusOptions, default: "draft" },
@@ -188,49 +183,17 @@ export default function PlansPage() {
     { key: "created_by", label: "负责人", type: "select", options: userOptions, placeholder: "请选择负责人" },
   ]
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (statusFilter) params.status = statusFilter
-      if (projectFilter) params.project_id = projectFilter
-      if (versionFilter) params.version_id = versionFilter
-      const res = await lifecycleApi.listTestPlans(params)
-      const payload = res?.data
-      const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
-      const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
-      setData(list)
-      setTotal(totalCount)
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, statusFilter, projectFilter, versionFilter])
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
   const handleSearch = useCallback((value: string) => {
     setSearchTerm(value)
     setPage(1)
-  }, [])
+  }, [setSearchTerm, setPage])
 
   const handleFilterChange = useCallback((key: string, value: string) => {
-    if (key === "status") {
-      setStatusFilter(value)
-      setPage(1)
-    } else if (key === "project") {
-      setProjectFilter(value)
-      setPage(1)
-    } else if (key === "version") {
-      setVersionFilter(value)
-      setPage(1)
-    }
-  }, [])
+    if (key === "status") setStatusFilter(value)
+    else if (key === "project") setProjectFilter(value)
+    else if (key === "version") setVersionFilter(value)
+    setPage(1)
+  }, [setPage])
 
   const handleCreate = useCallback(() => {
     setDialogMode("create")
@@ -252,31 +215,44 @@ export default function PlansPage() {
 
   const handleDelete = useCallback(
     async (row: TestPlan) => {
-      if (!window.confirm(`确定要删除方案「${row.name}」吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "确认删除",
+        message: "确定要删除该方案吗？删除后不可恢复。",
+        itemName: row.name,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.deleteTestPlan(row.id)
         toast.success("删除成功")
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload],
   )
 
   const handleBatchDelete = useCallback(
     async (ids: (string | number)[]) => {
-      if (!window.confirm(`确定要删除选中的 ${ids.length} 个方案吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "批量删除",
+        message: `确定要删除选中的 ${ids.length} 个方案吗？删除后不可恢复。`,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.batchDeleteTestPlans(ids as number[])
         toast.success("批量删除成功")
         setSelectedIds(new Set())
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "批量删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload],
   )
 
   const handleSubmit = useCallback(
@@ -290,18 +266,16 @@ export default function PlansPage() {
           toast.success("方案更新成功")
         }
         setDialogOpen(false)
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "操作失败")
       }
     },
-    [dialogMode, editingPlan, toast, loadData]
+    [dialogMode, editingPlan, toast, reload],
   )
 
   const handleViewEdit = useCallback(() => {
-    if (editingPlan) {
-      setDialogMode("edit")
-    }
+    if (editingPlan) setDialogMode("edit")
   }, [editingPlan])
 
   const dialogTitle =

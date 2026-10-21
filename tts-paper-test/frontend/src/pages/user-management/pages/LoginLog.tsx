@@ -82,15 +82,15 @@ export default function LoginLog() {
       ) : (
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
               <thead><tr className="border-b border-border bg-cream/50">
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">ID</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">用户名</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">登录时间</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">IP地址</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">设备/浏览器</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">结果</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">操作</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-10">ID</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[120px]">用户名</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[160px]">登录时间</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[120px]">IP地址</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[150px]">设备/浏览器</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">结果</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[60px]">操作</th>
               </tr></thead>
               <tbody>
                 {logs.length === 0 ? (
@@ -99,13 +99,13 @@ export default function LoginLog() {
                   const { device, browser } = parseDevice(log.user_agent)
                   return (
                     <tr key={log.id} className={`border-b border-border/50 last:border-b-0 ${idx % 2 === 1 ? "bg-cream/30" : ""} hover:bg-cream/50`}>
-                      <td className="px-4 py-3 text-center text-muted">{log.id}</td>
-                      <td className="px-4 py-3 text-center font-medium text-ink">{log.username}</td>
-                      <td className="px-4 py-3 text-center text-xs text-muted">{log.created_at ? new Date(log.created_at).toLocaleString("zh-CN") : "-"}</td>
-                      <td className="px-4 py-3 text-center text-xs text-muted font-mono">{log.ip_address || "-"}</td>
-                      <td className="px-4 py-3 text-center text-xs text-muted">{device} / {browser}</td>
-                      <td className="px-4 py-3 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${log.status === "success" ? "bg-pass/10 text-pass border border-pass/20" : "bg-fail/10 text-fail border border-fail/20"}`}>{log.status === "success" ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}{log.status === "success" ? "成功" : "失败"}</span></td>
-                      <td className="px-4 py-3 text-center"><button onClick={() => setPreviewLog(log)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors"><Eye className="w-4 h-4" /></button></td>
+                      <td className="px-3 py-2.5 text-center text-muted">{log.id}</td>
+                      <td className="px-3 py-2.5 text-center font-medium text-ink truncate">{log.username}</td>
+                      <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{log.created_at ? new Date(log.created_at).toLocaleString("zh-CN") : "-"}</td>
+                      <td className="px-3 py-2.5 text-center text-xs text-muted font-mono truncate">{log.ip_address || "-"}</td>
+                      <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{device} / {browser}</td>
+                      <td className="px-3 py-2.5 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${log.status === "success" ? "bg-pass/10 text-pass border border-pass/20" : "bg-fail/10 text-fail border border-fail/20"}`}>{log.status === "success" ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}{log.status === "success" ? "成功" : "失败"}</span></td>
+                      <td className="px-3 py-2.5 text-center"><button onClick={() => setPreviewLog(log)} className="p-1.5 rounded-lg hover:bg-info/10 text-muted hover:text-info transition-colors"><Eye className="w-4 h-4" /></button></td>
                     </tr>
                   )
                 })}

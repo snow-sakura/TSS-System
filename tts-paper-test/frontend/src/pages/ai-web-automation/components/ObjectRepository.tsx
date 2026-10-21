@@ -328,11 +328,11 @@ export default function ObjectRepository() {
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button onClick={() => openEdit(page.id, el)} title="编辑"
-                                className="p-1 rounded-md hover:bg-cream text-ink-light hover:text-info transition-colors">
+                                className="p-1.5 rounded-lg hover:bg-cream text-ink-light hover:text-info transition-colors">
                                 <Pencil className="w-3 h-3" />
                               </button>
                               <button onClick={() => handleDelete(page.id, el.id)} title={confirmDeleteId === el.id ? "再次点击确认删除" : "删除"}
-                                className={`p-1 rounded-md transition-colors ${confirmDeleteId === el.id ? "bg-fail/10 text-fail" : "hover:bg-cream text-ink-light hover:text-fail"}`}>
+                                className={`p-1.5 rounded-lg transition-colors ${confirmDeleteId === el.id ? "bg-fail/10 text-fail" : "hover:bg-cream text-ink-light hover:text-fail"}`}>
                                 <Trash2 className="w-3 h-3" />
                               </button>
                             </div>

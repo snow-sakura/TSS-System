@@ -9,7 +9,7 @@
  * 3. 依次执行：URL 探索(SSE) → 用例生成(SSE) → 测试执行(REST)
  * 4. 实时展示进度 + 最终测试报告
  */
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, memo } from "react"
 import {
   Sparkles, Send, Square, Loader2, CheckCircle2, XCircle, AlertTriangle,
   Clock, Bot, Brain, Target, FileText, Play, BarChart3, ChevronRight,
@@ -111,7 +111,9 @@ async function readSSEStream(
   }
 }
 
-export default function AiAgentPanel() {
+type TabType = "chat" | "plan"
+
+function AiAgentPanel() {
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const [isRunning, setIsRunning] = useState(false)
@@ -120,6 +122,7 @@ export default function AiAgentPanel() {
   const [showIntro, setShowIntro] = useState(true)
   const [projects, setProjects] = useState<any[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<TabType>("chat")
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef(false)
@@ -200,6 +203,7 @@ export default function AiAgentPanel() {
     const steps = buildPlan(prompt)
     setPlan(steps)
     setActiveStepId("plan")
+    setActiveTab("plan")
 
     try {
       // === Step 1: AI 规划 ===
@@ -368,11 +372,13 @@ export default function AiAgentPanel() {
     setPlan([])
     setShowIntro(true)
     setActiveStepId(null)
+    setActiveTab("chat")
     toast.success("对话已清除")
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 gap-4">
+    <div className="flex flex-col h-full">
+      {/* 标题 */}
       <div className="mb-1">
         <h2 className="text-base font-semibold text-ink flex items-center gap-2">
           AI 智能体 <Bot className="w-4 h-4 text-amber" />
@@ -403,145 +409,157 @@ export default function AiAgentPanel() {
         )}
       </div>
 
-      <div className="flex-1 grid grid-cols-1 gap-4 min-h-0">
-        {/* 对话 + 计划（整行；容器窄时自然堆叠其下区块） */}
-        <div className="flex flex-col min-h-0 gap-4">
-          {/* 对话区 */}
-          <div className="flex-1 bg-white rounded-2xl border border-border shadow-card flex flex-col min-h-0">
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-ink flex items-center gap-1.5">
-                <MessageSquare className="w-4 h-4 text-amber" />
-                对话
-              </h3>
-              <div className="flex items-center gap-2">
-                {messages.length > 0 && (
-                  <button onClick={handleClear} className="text-[10px] text-muted hover:text-ink transition-colors px-2 py-1 rounded-lg hover:bg-cream">
-                    清除对话
-                  </button>
-                )}
-                <span className="text-[11px] text-muted">{messages.length} 条消息</span>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* 引导界面 */}
-              {showIntro && messages.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber to-orange-400 flex items-center justify-center shadow-lg mb-4">
-                    <Bot className="w-7 h-7 text-white" />
-                  </div>
-                  <h3 className="text-base font-bold text-ink mb-1">AI 测试智能体</h3>
-                  <p className="text-xs text-muted max-w-md mb-6">
-                    描述你想要测试的场景，AI 会自动规划测试策略、生成测试用例并执行。
-                  </p>
-
-                  {/* 预设场景 */}
-                  <div className="w-full max-w-lg">
-                    <p className="text-[11px] text-muted font-medium mb-2 flex items-center gap-1">
-                      <Lightbulb className="w-3.5 h-3.5" /> 快速开始 — 选择一个场景
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {PRESET_SCENARIOS.map((scenario, i) => (
-                        <button
-                          key={i}
-                          onClick={() => applyScenario(scenario.prompt)}
-                          className="text-left p-3 rounded-xl border border-border hover:border-amber/40 hover:shadow-sm bg-white transition-all group"
-                        >
-                          <p className="text-xs font-semibold text-ink group-hover:text-amber transition-colors">{scenario.title}</p>
-                          <p className="text-[10px] text-muted mt-1 line-clamp-2">{scenario.prompt}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 消息列表 */}
-              {messages.map((msg, i) => (
-                <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
-                  {msg.role !== "user" && (
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      msg.role === "system" ? "bg-cream" : "bg-gradient-to-br from-amber to-orange-400"
-                    }`}>
-                      {msg.role === "system" ? <Clock className="w-3.5 h-3.5 text-muted" /> : <Bot className="w-3.5 h-3.5 text-white" />}
-                    </div>
-                  )}
-                  <div className={`max-w-[85%] rounded-xl px-4 py-2.5 text-xs leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-amber text-white rounded-tr-sm"
-                      : msg.role === "system"
-                      ? "bg-cream/60 text-ink-light border border-border/50"
-                      : "bg-cream/30 text-ink-light border border-border/30"
+      {/* TAB容器 */}
+      <div className="flex-1 bg-white rounded-2xl border border-border shadow-card flex flex-col min-h-0">
+        {/* TAB头部 */}
+        <div className="flex border-b border-border">
+          {[
+            { key: "chat" as TabType, label: "对话", count: messages.length },
+            { key: "plan" as TabType, label: "执行计划", count: plan.length },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
+                activeTab === tab.key
+                  ? "text-amber"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                {tab.label}
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                    activeTab === tab.key ? "bg-amber/10 text-amber" : "bg-cream text-muted"
                   }`}>
-                    {msg.role === "user" ? (
-                      <div className="whitespace-pre-wrap">{msg.content}</div>
-                    ) : (
-                      <MarkdownPreview content={msg.content} />
-                    )}
-                    <p className={`text-[10px] mt-1.5 opacity-60 ${msg.role === "user" ? "text-white/70" : "text-muted"}`}>
-                      {msg.timestamp}
-                    </p>
-                  </div>
-                  {msg.role === "user" && (
-                    <div className="w-7 h-7 rounded-lg bg-ink flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="text-[10px] text-white font-bold">U</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* 输入区 */}
-            <div className="p-4 border-t border-border">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={inputRef as any}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSubmit()
-                      }
-                    }}
-                    placeholder={isRunning ? "正在执行..." : "描述测试场景，如「测试登录页，用正确和错误的密码分别登录」..."}
-                    disabled={isRunning}
-                    rows={2}
-                    className="w-full px-3 py-2.5 rounded-xl border border-border text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-amber/30 focus:border-amber/50 resize-none disabled:opacity-50"
-                  />
-                </div>
-                <button
-                  onClick={handleSubmit}
-                  disabled={!isRunning && (!input.trim() || !selectedProjectId)}
-                  className={`h-10 px-4 rounded-xl flex items-center gap-1.5 text-sm font-medium transition-all shadow-sm ${
-                    isRunning
-                      ? "bg-fail text-white hover:bg-fail/90"
-                      : "bg-gradient-to-r from-amber to-orange-400 text-white hover:shadow-md disabled:opacity-50"
-                  }`}
-                >
-                  {isRunning ? (
-                    <><Square className="w-4 h-4" /> 停止</>
-                  ) : (
-                    <><Send className="w-4 h-4" /> 发送</>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+                    {tab.count}
+                  </span>
+                )}
+              </span>
+              {activeTab === tab.key && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber" />
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* 右侧 1/3：执行计划 */}
-        <div className="flex flex-col min-h-0">
-          <div className="flex-1 bg-white rounded-2xl border border-border shadow-card flex flex-col min-h-0">
-            <div className="px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold text-ink flex items-center gap-1.5">
-                <ListChecks className="w-4 h-4 text-amber" />
-                执行计划
-              </h3>
+        {/* TAB内容 */}
+        <div className="flex-1 overflow-y-auto">
+          {/* ====== 对话TAB ====== */}
+          {activeTab === "chat" && (
+            <div className="flex flex-col h-full">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {/* 引导界面 */}
+                {showIntro && messages.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber to-orange-400 flex items-center justify-center shadow-lg mb-4">
+                      <Bot className="w-7 h-7 text-white" />
+                    </div>
+                    <h3 className="text-base font-bold text-ink mb-1">AI 测试智能体</h3>
+                    <p className="text-xs text-muted max-w-md mb-6">
+                      描述你想要测试的场景，AI 会自动规划测试策略、生成测试用例并执行。
+                    </p>
+
+                    {/* 预设场景 */}
+                    <div className="w-full max-w-lg">
+                      <p className="text-[11px] text-muted font-medium mb-2 flex items-center gap-1">
+                        <Lightbulb className="w-3.5 h-3.5" /> 快速开始 — 选择一个场景
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {PRESET_SCENARIOS.map((scenario, i) => (
+                          <button
+                            key={i}
+                            onClick={() => applyScenario(scenario.prompt)}
+                            className="text-left p-3 rounded-xl border border-border hover:border-amber/40 hover:shadow-sm bg-white transition-all group"
+                          >
+                            <p className="text-xs font-semibold text-ink group-hover:text-amber transition-colors">{scenario.title}</p>
+                            <p className="text-[10px] text-muted mt-1 line-clamp-2">{scenario.prompt}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 消息列表 */}
+                {messages.map((msg, i) => (
+                  <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                    {msg.role !== "user" && (
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        msg.role === "system" ? "bg-cream" : "bg-gradient-to-br from-amber to-orange-400"
+                      }`}>
+                        {msg.role === "system" ? <Clock className="w-3.5 h-3.5 text-muted" /> : <Bot className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    )}
+                    <div className={`max-w-[85%] rounded-xl px-4 py-2.5 text-xs leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-amber text-white rounded-tr-sm"
+                        : msg.role === "system"
+                        ? "bg-cream/60 text-ink-light border border-border/50"
+                        : "bg-cream/30 text-ink-light border border-border/30"
+                    }`}>
+                      {msg.role === "user" ? (
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      ) : (
+                        <MarkdownPreview content={msg.content} />
+                      )}
+                      <p className={`text-[10px] mt-1.5 opacity-60 ${msg.role === "user" ? "text-white/70" : "text-muted"}`}>
+                        {msg.timestamp}
+                      </p>
+                    </div>
+                    {msg.role === "user" && (
+                      <div className="w-7 h-7 rounded-lg bg-ink flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span className="text-[10px] text-white font-bold">U</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* 输入区 */}
+              <div className="p-4 border-t border-border">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={inputRef as any}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSubmit()
+                        }
+                      }}
+                      placeholder={isRunning ? "正在执行..." : "描述测试场景，如「测试登录页，用正确和错误的密码分别登录」..."}
+                      disabled={isRunning}
+                      rows={2}
+                      className="w-full px-3 py-2.5 rounded-xl border border-border text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-amber/30 focus:border-amber/50 resize-none disabled:opacity-50"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!isRunning && (!input.trim() || !selectedProjectId)}
+                    className={`h-10 px-4 rounded-xl flex items-center gap-1.5 text-sm font-medium transition-all shadow-sm ${
+                      isRunning
+                        ? "bg-fail text-white hover:bg-fail/90"
+                        : "bg-gradient-to-r from-amber to-orange-400 text-white hover:shadow-md disabled:opacity-50"
+                    }`}
+                  >
+                    {isRunning ? (
+                      <><Square className="w-4 h-4" /> 停止</>
+                    ) : (
+                      <><Send className="w-4 h-4" /> 发送</>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          )}
+
+          {/* ====== 执行计划TAB ====== */}
+          {activeTab === "plan" && (
+            <div className="p-4 space-y-3">
               {plan.length === 0 ? (
                 <div className="text-center py-8 text-muted">
                   <Brain className="w-8 h-8 mx-auto mb-2 text-muted-light" />
@@ -621,9 +639,11 @@ export default function AiAgentPanel() {
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
+
+export default memo(AiAgentPanel)

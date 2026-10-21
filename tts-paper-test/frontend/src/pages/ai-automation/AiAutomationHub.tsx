@@ -36,7 +36,7 @@ function AiAutomationHub() {
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
+      <div className="px-4 sm:px-6 lg:px-10 xl:px-16 py-6">
         {/* 概览统计 */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[

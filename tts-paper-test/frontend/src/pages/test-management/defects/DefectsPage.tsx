@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useSearchParams } from "react-router-dom"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
-import { lifecycleApi, projectApi } from "@/lib/api"
+import { lifecycleApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
 import { LayoutList, LayoutGrid } from "lucide-react"
 import KanbanPage from "../kanban/KanbanPage"
+import { useCrudPage } from "@/hooks/useCrudPage"
+import { useProjectOptions } from "@/hooks/useProjectOptions"
 
 interface Defect {
   id: number
@@ -29,7 +32,6 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   fixing: { label: "修复中", color: "bg-amber/10 text-amber border border-amber/20" },
   fixed: { label: "已修复", color: "bg-pass/10 text-pass border border-pass/20" },
   closed: { label: "已关闭", color: "bg-cream text-muted border border-border" },
-  // 历史遗留状态值兼容（旧枚举）
   open: { label: "打开", color: "bg-cream text-muted border border-border" },
   resolved: { label: "已解决", color: "bg-pass/10 text-pass border border-pass/20" },
   in_progress: { label: "处理中", color: "bg-amber/10 text-amber border border-amber/20" },
@@ -40,7 +42,6 @@ const severityColors: Record<string, string> = {
   high: "bg-fail/80 text-white",
   medium: "bg-amber text-white",
   low: "bg-cream text-muted",
-  // 历史遗留严重度值兼容（旧枚举）
   fatal: "bg-fail text-white",
   major: "bg-fail/80 text-white",
   minor: "bg-cream text-muted",
@@ -51,7 +52,6 @@ const severityLabels: Record<string, string> = {
   high: "严重",
   medium: "一般",
   low: "轻微",
-  // 历史遗留严重度值兼容（旧枚举）
   fatal: "致命",
   major: "严重",
   minor: "轻微",
@@ -73,49 +73,44 @@ const severityOptions = [
 ]
 
 const columns: CrudColumn[] = [
-  { key: "title", title: "缺陷标题", width: "min-w-[160px]", align: "center" },
+  { key: "title", title: "缺陷标题", width: "w-[220px]", align: "left" },
   {
     key: "severity",
     title: "严重度",
-    width: "w-28",
+    width: "w-[80px]",
     align: "center",
     render: (v: string) => (
-      <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${severityColors[v] || severityColors.low}`}>
+      <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${severityColors[v] || severityColors.low}`}>
         {severityLabels[v] || (v ? (/[\u4e00-\u9fa5]/.test(v) ? v : "—") : "—")}
       </span>
     ),
   },
-  {
-    key: "status",
-    title: "状态",
-    width: "w-28",
-    align: "center",
-  },
+  { key: "status", title: "状态", width: "w-[80px]", align: "center" },
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[110px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "assignee",
     title: "责任人",
-    width: "min-w-[100px]",
+    width: "w-[90px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[140px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
@@ -123,40 +118,27 @@ const columns: CrudColumn[] = [
 
 export default function DefectsPage() {
   const toast = useToast()
-  // 视图切换：列表 / 看板（兼容 ?view=kanban 直达）
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list")
   const [viewSearchParams] = useSearchParams()
   useEffect(() => {
     if (viewSearchParams.get("view") === "kanban") setViewMode("kanban")
   }, [viewSearchParams])
-  const [data, setData] = useState<Defect[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
+
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
   const [statusFilter, setStatusFilter] = useState("")
   const [severityFilter, setSeverityFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [versionFilter, setVersionFilter] = useState("")
-  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
-
-  const [projects, setProjects] = useState<any[]>([])
-  const [versions, setVersions] = useState<any[]>([])
-  const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
   const [editingDefect, setEditingDefect] = useState<Defect | null>(null)
-  /** 一键提交缺陷的预填数据（来自用例详情页跳转） */
   const [prefill, setPrefill] = useState<Record<string, any> | null>(null)
 
-  // 支持从用例详情页/执行失败记录跳转预填创建（?new=1&case_id=xx&case_title=xx&project_id=xx&version_id=xx&execution_id=xx&execution_name=xx）
   const [searchParams, setSearchParams] = useSearchParams()
   useEffect(() => {
     if (searchParams.get("new") !== "1") return
     const next: Record<string, any> = {}
-    // 执行失败记录一键提交缺陷：优先关联执行
     const execId = searchParams.get("execution_id")
     const execName = searchParams.get("execution_name")
     if (execId) {
@@ -164,7 +146,6 @@ export default function DefectsPage() {
       next.title = `[执行] ${execName || `执行#${execId}`}`
       next.description = `关联执行 #${execId}（${execName || ""}）失败的缺陷`
     }
-    // 用例详情页一键提交缺陷：关联用例
     const caseId = searchParams.get("case_id")
     const caseTitle = searchParams.get("case_title")
     if (caseTitle) next.title = `[用例] ${caseTitle}`
@@ -180,123 +161,90 @@ export default function DefectsPage() {
     setDialogMode("create")
     setEditingDefect(null)
     setDialogOpen(true)
-    // 清理 URL 参数，避免刷新后重复弹出
     setSearchParams({}, { replace: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    projectApi
-      .listProjects()
-      .then((res) => setProjects(res?.data?.items || []))
-      .catch(() => {})
-    projectApi
-      .listVersions()
-      .then((res) => setVersions(res?.data?.items || []))
-      .catch(() => {})
-  }, [])
+  const fetchFn = useCallback(
+    (params: Record<string, any>) => lifecycleApi.listDefects(params),
+    [],
+  )
 
-  useEffect(() => {
-    if (!editingDefect?.project_id) {
-      setVersionOptions(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
-    } else {
-      setVersionOptions(
-        versions
-          .filter((v: any) => v.project_id === editingDefect.project_id)
-          .map((v: any) => ({ label: v.name, value: String(v.id) }))
-      )
-    }
-  }, [versions, editingDefect])
+  // 额外筛选条件对象（传入 hook 自动合并到请求参数）
+  const extraFilters: Record<string, string | undefined> = {}
+  if (statusFilter) extraFilters.status = statusFilter
+  if (severityFilter) extraFilters.severity = severityFilter
+  if (projectFilter) extraFilters.project_id = projectFilter
+  if (versionFilter) extraFilters.version_id = versionFilter
 
-  const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
+  const {
+    data, total, page, setPage, pageSize, setPageSize,
+    loading, searchTerm, setSearchTerm, reload,
+  } = useCrudPage<Defect>({ fetchFn, extraFilters })
+
+  const {
+    projectOptions,
+    getVersionOptionsForProject,
+  } = useProjectOptions()
+
+  const dialogVersionOptions = useMemo(
+    () => getVersionOptionsForProject(editingDefect?.project_id || prefill?.project_id),
+    [getVersionOptionsForProject, editingDefect?.project_id, prefill?.project_id],
+  )
+
+  const filterVersionOptions = useMemo(
+    () => getVersionOptionsForProject(projectFilter || undefined),
+    [getVersionOptionsForProject, projectFilter],
+  )
 
   const filters: CrudFilter[] = [
     { key: "search", label: "搜索缺陷标题...", type: "search" },
     { key: "status", label: "全部状态", type: "select", options: statusOptions },
     { key: "severity", label: "全部严重度", type: "select", options: severityOptions },
     { key: "project", label: "全部项目", type: "select", options: projectOptions },
-    { key: "version", label: "全部版本", type: "select", options: versionOptions },
+    { key: "version", label: "全部版本", type: "select", options: filterVersionOptions },
   ]
 
   const fields: CrudField[] = [
     { key: "project_id", label: "项目", type: "select", options: projectOptions },
-    { key: "version_id", label: "版本", type: "select", options: versionOptions },
+    { key: "version_id", label: "版本", type: "select", options: dialogVersionOptions },
     { key: "title", label: "缺陷标题", type: "text", required: true, placeholder: "请输入缺陷标题" },
     { key: "description", label: "描述", type: "textarea", placeholder: "请输入缺陷描述" },
     { key: "status", label: "状态", type: "select", options: statusOptions, default: "new" },
     { key: "severity", label: "严重度", type: "select", options: severityOptions, default: "medium" },
     { key: "assignee", label: "责任人", type: "text", placeholder: "请输入责任人姓名" },
-    // 一键提交缺陷：关联执行 ID 隐藏展示（禁用输入）
     ...(prefill?.execution_id
-      ? ([
-          {
-            key: "execution_id",
-            label: "关联执行ID",
-            type: "text" as const,
-            disabled: true,
-            helpText: "该缺陷由失败执行一键提交，自动关联",
-          },
-        ] as CrudField[])
+      ? ([{
+          key: "execution_id",
+          label: "关联执行ID",
+          type: "text" as const,
+          disabled: true,
+          helpText: "该缺陷由失败执行一键提交，自动关联",
+        }] as CrudField[])
       : []),
-    // 一键提交缺陷：关联用例 ID 隐藏展示（禁用输入）
     ...(prefill?.test_case_id
-      ? ([
-          {
-            key: "test_case_id",
-            label: "关联用例ID",
-            type: "text" as const,
-            disabled: true,
-            helpText: "该缺陷由用例一键提交，自动关联",
-          },
-        ] as CrudField[])
+      ? ([{
+          key: "test_case_id",
+          label: "关联用例ID",
+          type: "text" as const,
+          disabled: true,
+          helpText: "该缺陷由用例一键提交，自动关联",
+        }] as CrudField[])
       : []),
   ]
-
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (statusFilter) params.status = statusFilter
-      if (severityFilter) params.severity = severityFilter
-      if (projectFilter) params.project_id = projectFilter
-      if (versionFilter) params.version_id = versionFilter
-      const res = await lifecycleApi.listDefects(params)
-      const list = res?.data?.items || res?.data || (Array.isArray(res) ? res : [])
-      setData(Array.isArray(list) ? list : [])
-      setTotal(res?.data?.total ?? (Array.isArray(list) ? list.length : 0))
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, statusFilter, severityFilter, projectFilter, versionFilter])
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
 
   const handleSearch = useCallback((value: string) => {
     setSearchTerm(value)
     setPage(1)
-  }, [])
+  }, [setSearchTerm, setPage])
 
   const handleFilterChange = useCallback((key: string, value: string) => {
-    if (key === "status") {
-      setStatusFilter(value)
-      setPage(1)
-    } else if (key === "severity") {
-      setSeverityFilter(value)
-      setPage(1)
-    } else if (key === "project") {
-      setProjectFilter(value)
-      setPage(1)
-    } else if (key === "version") {
-      setVersionFilter(value)
-      setPage(1)
-    }
-  }, [])
+    if (key === "status") setStatusFilter(value)
+    else if (key === "severity") setSeverityFilter(value)
+    else if (key === "project") setProjectFilter(value)
+    else if (key === "version") setVersionFilter(value)
+    setPage(1)
+  }, [setPage])
 
   const handleCreate = useCallback(() => {
     setDialogMode("create")
@@ -318,31 +266,44 @@ export default function DefectsPage() {
 
   const handleDelete = useCallback(
     async (row: Defect) => {
-      if (!window.confirm(`确定要删除缺陷「${row.title}」吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "确认删除",
+        message: "确定要删除该缺陷吗？删除后不可恢复。",
+        itemName: row.title,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.deleteDefect(row.id)
         toast.success("删除成功")
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload],
   )
 
   const handleBatchDelete = useCallback(
     async (ids: (string | number)[]) => {
-      if (!window.confirm(`确定要删除选中的 ${ids.length} 个缺陷吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "批量删除",
+        message: `确定要删除选中的 ${ids.length} 个缺陷吗？删除后不可恢复。`,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.batchDeleteDefects(ids as number[])
         toast.success("批量删除成功")
         setSelectedIds(new Set())
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "批量删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload],
   )
 
   const handleSubmit = useCallback(
@@ -356,18 +317,16 @@ export default function DefectsPage() {
           toast.success("缺陷更新成功")
         }
         setDialogOpen(false)
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "操作失败")
       }
     },
-    [dialogMode, editingDefect, toast, loadData]
+    [dialogMode, editingDefect, toast, reload],
   )
 
   const handleViewEdit = useCallback(() => {
-    if (editingDefect) {
-      setDialogMode("edit")
-    }
+    if (editingDefect) setDialogMode("edit")
   }, [editingDefect])
 
   const dialogTitle =
@@ -375,7 +334,6 @@ export default function DefectsPage() {
 
   return (
     <div>
-      {/* 视图切换：列表 / 看板 */}
       <div className="flex items-center gap-1 mb-4">
         {([
           { key: "list" as const, label: "列表视图", icon: LayoutList },
@@ -400,47 +358,45 @@ export default function DefectsPage() {
         })}
       </div>
 
-      {/* 列表视图（保持挂载，切换不丢筛选状态） */}
       <div className={viewMode === "list" ? "" : "hidden"}>
-      <CrudTable
-        title="缺陷管理"
-        subtitle="管理所有缺陷"
-        columns={columns}
-        filters={filters}
-        data={data}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        loading={loading}
-        selectedIds={selectedIds}
-        statusConfig={statusConfig}
-        onSearch={handleSearch}
-        onFilterChange={handleFilterChange}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        onSelectionChange={setSelectedIds}
-        onCreate={handleCreate}
-        onEdit={handleEdit}
-        onView={handleView}
-        onDelete={handleDelete}
-        onBatchDelete={handleBatchDelete}
-        emptyText="暂无缺陷数据"
-        createButtonText="新建缺陷"
-      />
+        <CrudTable
+          title="缺陷管理"
+          subtitle="管理所有缺陷"
+          columns={columns}
+          filters={filters}
+          data={data}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          loading={loading}
+          selectedIds={selectedIds}
+          statusConfig={statusConfig}
+          onSearch={handleSearch}
+          onFilterChange={handleFilterChange}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          onSelectionChange={setSelectedIds}
+          onCreate={handleCreate}
+          onEdit={handleEdit}
+          onView={handleView}
+          onDelete={handleDelete}
+          onBatchDelete={handleBatchDelete}
+          emptyText="暂无缺陷数据"
+          createButtonText="新建缺陷"
+        />
 
-      <CrudDialog
-        open={dialogOpen}
-        mode={dialogMode}
-        title={dialogTitle}
-        fields={fields}
-        initialData={editingDefect || prefill || {}}
-        onClose={() => setDialogOpen(false)}
-        onSubmit={handleSubmit}
-        onViewEdit={handleViewEdit}
-      />
+        <CrudDialog
+          open={dialogOpen}
+          mode={dialogMode}
+          title={dialogTitle}
+          fields={fields}
+          initialData={editingDefect || prefill || {}}
+          onClose={() => setDialogOpen(false)}
+          onSubmit={handleSubmit}
+          onViewEdit={handleViewEdit}
+        />
       </div>
 
-      {/* 看板视图 */}
       {viewMode === "kanban" && <KanbanPage />}
     </div>
   )

@@ -162,29 +162,29 @@ export default function UserList() {
       {loading ? (
         <div className="flex items-center justify-center h-48"><Skeleton className="h-4 w-48" count={3} /></div>
       ) : (
-        <div className="flex-1 overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-border bg-cream/50">
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">ID</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">用户名</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">邮箱</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">角色</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">状态</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">创建时间</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">操作</th>
+        <div className="flex-1 min-h-0 overflow-y-auto bg-white rounded-2xl border border-border shadow-card">
+          <table className="w-full text-sm table-fixed">
+             <thead><tr className="border-b border-border bg-cream/50">
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-10">ID</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[180px]">用户名</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[200px]">邮箱</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[110px]">角色</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">状态</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[120px]">创建时间</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">操作</th>
             </tr></thead>
             <tbody>
               {users.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-muted">暂无用户数据</td></tr>
               ) : users.map((u) => (
                 <tr key={u.id} className="border-b border-border/50 hover:bg-cream/30 transition-colors">
-                  <td className="px-4 py-3 text-center text-xs text-muted">{u.id}</td>
-                  <td className="px-4 py-3 text-center"><div className="flex items-center justify-center gap-2"><div className="w-7 h-7 rounded-full bg-amber/10 flex items-center justify-center"><span className="text-xs font-medium text-amber">{u.username[0]?.toUpperCase()}</span></div><span className="text-sm font-medium text-ink">{u.username}</span></div></td>
-                  <td className="px-4 py-3 text-center text-xs text-ink-light">{u.email}</td>
-                  <td className="px-4 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${roleColor(u.role)}`}>{roleLabels[u.role] || u.role}</span></td>
-                  <td className="px-4 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${u.status === "active" ? "bg-pass/10 text-pass" : "bg-cream text-muted"}`}>{statusLabels[u.status] || u.status}</span></td>
-                  <td className="px-4 py-3 text-center text-xs text-muted">{u.created_at ? new Date(u.created_at).toLocaleDateString("zh-CN") : "-"}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{u.id}</td>
+                  <td className="px-3 py-2.5"><div className="flex items-center gap-2 min-w-0"><div className="w-7 h-7 rounded-full bg-amber/10 flex items-center justify-center flex-shrink-0"><span className="text-xs font-medium text-amber">{u.username[0]?.toUpperCase()}</span></div><span className="text-sm font-medium text-ink truncate">{u.username}</span></div></td>
+                   <td className="px-3 py-2.5 text-xs text-muted truncate">{u.email}</td>
+                  <td className="px-3 py-2.5 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${roleColor(u.role)}`}>{roleLabels[u.role] || u.role}</span></td>
+                  <td className="px-3 py-2.5 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${u.status === "active" ? "bg-pass/10 text-pass" : "bg-cream text-muted"}`}>{statusLabels[u.status] || u.status}</span></td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{u.created_at ? new Date(u.created_at).toLocaleDateString("zh-CN") : "-"}</td>
+                  <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button onClick={() => openEdit(u)} className="p-1.5 rounded-lg hover:bg-amber-light text-ink-light hover:text-amber-700 transition-colors" title="编辑"><Edit className="w-4 h-4" /></button>
                       <button onClick={() => handleDelete(u)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors" title="删除"><Trash2 className="w-4 h-4" /></button>

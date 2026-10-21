@@ -11,12 +11,98 @@ import PreviewModal from "../components/PreviewModal"
 import DataTable, { type ColumnDef } from "../components/DataTable"
 import { useConfirmStore } from "@/stores/confirmStore"
 
+// ============================
+// 类型定义
+// ============================
+
+/** 后端 API 返回的评审原始数据 */
+interface ApiReviewItem {
+  id: number
+  title?: string
+  review_type?: string
+  status?: string
+  reviewer?: string
+  reviewer2?: string
+  source?: string
+  case_count?: number
+  passed_count?: number
+  rejected_count?: number
+  summary?: string
+  comments?: string
+  created_at?: string
+  completed_at?: string
+  [key: string]: unknown
+}
+
+/** 后端 API 返回的分页结构 */
+interface ApiReviewListResponse {
+  items?: ApiReviewItem[]
+  data?: ApiReviewItem[]
+  total?: number
+}
+
+/** UI 展示格式的评审数据 */
+interface ReviewItem {
+  id: number
+  title: string
+  type: string
+  status: string
+  reviewer: string
+  reviewer2: string
+  source: string
+  caseCount: number
+  passed: number
+  rejected: number
+  summary: string
+  comments: string
+  createdAt: string
+  completedAt: string
+}
+
+/** 表单数据 */
+interface ReviewForm {
+  title: string
+  type: string
+  status: string
+  reviewer: string
+  summary: string
+  comments: string
+}
+
+/** 后端 API 提交的评审 payload */
+interface ReviewPayload {
+  title: string
+  review_type: string
+  status: string
+  source: string
+  reviewer: string
+  reviewer2: string
+  summary: string
+  comments: string
+}
+
+/** AI 评审问题项 */
+interface AiReviewIssue {
+  severity: string
+  description: string
+  suggestion: string
+}
+
+/** AI 评审结果 */
+interface AiReviewResult {
+  title: string
+  totalCases: number
+  qualityScore: number
+  issues: AiReviewIssue[]
+  summary: string
+}
+
 const typeOptions = ["用例评审", "方案评审", "报告评审", "AI自动评审"]
 const statusOptions = ["草稿", "待审", "已通过", "已驳回", "已取消"]
 const reviewerOptions = ["admin", "zhangsan", "wangwu", "lisi", "zhaoliu"]
 
 /** 后端 API 评审 → UI 展示格式 */
-function apiToReview(item: any) {
+function apiToReview(item: ApiReviewItem): ReviewItem {
   return {
     id: item.id,
     title: item.title || "",
@@ -36,57 +122,64 @@ function apiToReview(item: any) {
 }
 
 /** UI 格式 → 后端 API payload */
-function formToPayload(form: any) {
+function formToPayload(form: ReviewForm): ReviewPayload {
   const statusMap: Record<string, string> = { "草稿": "draft", "待审": "pending", "已通过": "approved", "已驳回": "rejected", "已取消": "cancelled" }
   return {
     title: form.title || "",
     review_type: form.type || "用例评审",
     status: statusMap[form.status] || form.status || "draft",
-    source: form.source === "AI自动评审" ? "ai" : "manual",
+    source: "manual",
     reviewer: form.reviewer || "",
-    reviewer2: form.reviewer2 || "",
+    reviewer2: "",
     summary: form.summary || "",
     comments: form.comments || "",
   }
 }
 
+/** 从 unknown 类型安全提取错误消息 */
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message
+  if (typeof e === "string") return e
+  return "未知错误"
+}
+
 export default function ReviewsList() {
-  const [reviews, setReviews] = useState<any[]>([])
+  const [reviews, setReviews] = useState<ReviewItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [previewReview, setPreviewReview] = useState<any>(null)
+  const [previewReview, setPreviewReview] = useState<ReviewItem | null>(null)
   const [showDialog, setShowDialog] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
-  const [editingReview, setEditingReview] = useState<any>(null)
-  const [form, setForm] = useState<Record<string, string>>({ title: "", type: "用例评审", status: "草稿", reviewer: "", summary: "", comments: "" })
+  const [editingReview, setEditingReview] = useState<ReviewItem | null>(null)
+  const [form, setForm] = useState<ReviewForm>({ title: "", type: "用例评审", status: "草稿", reviewer: "", summary: "", comments: "" })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const pageSize = 10
 
   // AI评审弹窗
   const [showAiReview, setShowAiReview] = useState(false)
   const [aiReviewing, setAiReviewing] = useState(false)
-  const [aiReviewResult, setAiReviewResult] = useState<any>(null)
+  const [aiReviewResult, setAiReviewResult] = useState<AiReviewResult | null>(null)
 
   const fetchReviews = useCallback(async () => {
     setLoading(true)
     try {
-      const params: Record<string, any> = { page: currentPage, page_size: pageSize }
+      const params: Record<string, string | number> = { page: currentPage, page_size: pageSize }
       if (typeFilter) params.type = typeFilter
       if (statusFilter) {
         const m: Record<string, string> = { "草稿": "draft", "待审": "pending", "已通过": "approved", "已驳回": "rejected", "已取消": "cancelled" }
         params.status = m[statusFilter] || statusFilter
       }
-      const res: any = await lifecycleApi.listReviews(params)
-      const data = res?.data || res
-      const items = data?.items || data?.data || []
+      const res = await lifecycleApi.listReviews(params)
+      const data: ApiReviewListResponse = (res as { data?: ApiReviewListResponse })?.data || (res as unknown as ApiReviewListResponse)
+      const items: ApiReviewItem[] = data?.items || data?.data || []
       setReviews(items.map(apiToReview))
       setTotal(data?.total || items.length)
-    } catch (e: any) {
-      toast.error("加载评审列表失败: " + (e?.message || "未知错误"))
+    } catch (e: unknown) {
+      toast.error("加载评审列表失败: " + getErrorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -99,21 +192,21 @@ export default function ReviewsList() {
     { key: "title", label: "评审标题", width: "25%", render: (v) => (
       <div className="flex items-center justify-center gap-1.5 min-w-0">
         <CheckCircle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
-        <span className="text-sm font-medium text-ink truncate max-w-[200px]">{v}</span>
+        <span className="text-sm font-medium text-ink truncate max-w-[200px]">{v as string}</span>
       </div>
     )},
     { key: "type", label: "类型", width: "12%", render: (v) => (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${typeColor(v)}`}>{v}</span>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${typeColor(v as string)}`}>{v as string}</span>
     )},
     { key: "status", label: "状态", width: "10%", render: (v) => (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(v)}`}>{v}</span>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(v as string)}`}>{v as string}</span>
     )},
     { key: "reviewer", label: "评审人", width: "10%", render: (v) => (
-      <div className="flex items-center justify-center gap-1"><User className="w-3 h-3 text-muted" /><span className="text-xs text-muted">{v}</span></div>
+      <div className="flex items-center justify-center gap-1"><User className="w-3 h-3 text-muted" /><span className="text-xs text-muted">{v as string}</span></div>
     )},
     { key: "caseCount", label: "用例数", width: "8%" },
-    { key: "passed", label: "通过/驳回", width: "10%", render: (v, r) => (
-      <div className="flex items-center justify-center gap-1.5"><span className="text-xs text-pass">{r.passed}✓</span><span className="text-xs text-fail">{r.rejected}✗</span></div>
+    { key: "passed", label: "通过/驳回", width: "10%", render: (_v, r) => (
+      <div className="flex items-center justify-center gap-1.5"><span className="text-xs text-pass">{(r as ReviewItem).passed}✓</span><span className="text-xs text-fail">{(r as ReviewItem).rejected}✗</span></div>
     )},
   ]
 
@@ -143,20 +236,20 @@ export default function ReviewsList() {
       }
       setShowDialog(false)
       fetchReviews()
-    } catch (e: any) {
-      toast.error("保存失败: " + (e?.message || "未知错误"))
+    } catch (e: unknown) {
+      toast.error("保存失败: " + getErrorMessage(e))
     }
   }
 
-  const handleDelete = async (r: any) => {
+  const handleDelete = async (r: ReviewItem) => {
     const confirmed = await useConfirmStore.getState().confirm({ title: "确认删除", message: `确定删除评审「${r.title}」？`, danger: true, confirmText: "删除" })
     if (!confirmed) return
     try {
       await lifecycleApi.deleteReview(r.id)
       toast.success("评审已删除")
       fetchReviews()
-    } catch (e: any) {
-      toast.error("删除失败: " + (e?.message || "未知错误"))
+    } catch (e: unknown) {
+      toast.error("删除失败: " + getErrorMessage(e))
     }
   }
 
@@ -183,7 +276,7 @@ export default function ReviewsList() {
   }
 
   // 审批操作
-  const handleApprove = async (r: any) => {
+  const handleApprove = async (r: ReviewItem) => {
     try {
       await lifecycleApi.updateReview(r.id, {
         status: "approved",
@@ -191,12 +284,12 @@ export default function ReviewsList() {
       })
       toast.success(`评审「${r.title}」已通过`)
       fetchReviews()
-    } catch (e: any) {
-      toast.error("操作失败: " + (e?.message || "未知错误"))
+    } catch (e: unknown) {
+      toast.error("操作失败: " + getErrorMessage(e))
     }
   }
 
-  const handleReject = async (r: any) => {
+  const handleReject = async (r: ReviewItem) => {
     const comment = prompt("请输入驳回原因：")
     if (comment === null) return
     try {
@@ -207,8 +300,8 @@ export default function ReviewsList() {
       })
       toast.success(`评审「${r.title}」已驳回`)
       fetchReviews()
-    } catch (e: any) {
-      toast.error("操作失败: " + (e?.message || "未知错误"))
+    } catch (e: unknown) {
+      toast.error("操作失败: " + getErrorMessage(e))
     }
   }
 
@@ -231,7 +324,7 @@ export default function ReviewsList() {
   }
 
   const openCreate = () => { setDialogMode("create"); setEditingReview(null); setForm({ title: "", type: "用例评审", status: "草稿", reviewer: "", summary: "", comments: "" }); setFormErrors({}); setShowDialog(true) }
-  const openEdit = (r: any) => { setDialogMode("edit"); setEditingReview(r); setForm({ title: r.title, type: r.type, status: r.status, reviewer: r.reviewer || "", summary: r.summary || "", comments: r.comments || "" }); setFormErrors({}); setShowDialog(true) }
+  const openEdit = (r: ReviewItem) => { setDialogMode("edit"); setEditingReview(r); setForm({ title: r.title, type: r.type, status: r.status, reviewer: r.reviewer || "", summary: r.summary || "", comments: r.comments || "" }); setFormErrors({}); setShowDialog(true) }
 
   const statusColor = (s: string) => {
     if (s === "已通过") return "bg-pass/10 text-pass border border-pass/20"
@@ -290,10 +383,10 @@ export default function ReviewsList() {
         onRowClick={setPreviewReview}
         renderActions={(r) => (
           <>
-            {r.status === "待审" && (
+            {(r as ReviewItem).status === "待审" && (
               <>
-                <button onClick={() => handleApprove(r)} className="p-1.5 rounded-lg hover:bg-pass/10 text-ink-light hover:text-pass transition-colors" title="通过"><CheckCircle className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleReject(r)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors" title="驳回"><XCircle className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleApprove(r as ReviewItem)} className="p-1.5 rounded-lg hover:bg-pass/10 text-ink-light hover:text-pass transition-colors" title="通过"><CheckCircle className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleReject(r as ReviewItem)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors" title="驳回"><XCircle className="w-3.5 h-3.5" /></button>
               </>
             )}
           </>
@@ -368,7 +461,7 @@ export default function ReviewsList() {
                     <div>
                       <h4 className="text-xs font-semibold text-ink mb-2">发现的问题</h4>
                       <div className="space-y-2">
-                        {aiReviewResult.issues.map((issue: any, idx: number) => (
+                        {aiReviewResult.issues.map((issue: AiReviewIssue, idx: number) => (
                           <div key={idx} className="p-3 bg-amber-light/30 rounded-xl border border-amber/20">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-warn/10 text-warn">{issue.severity}</span>

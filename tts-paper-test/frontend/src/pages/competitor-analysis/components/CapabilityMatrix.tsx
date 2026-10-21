@@ -23,13 +23,13 @@ export default function CapabilityMatrix({ rows, scope }: Props) {
       </div>
       <div className="overflow-x-auto">
         <div className="max-h-[calc(100vh-320px)] min-h-[240px] overflow-y-auto">
-        <table className="w-full text-left">
+        <table className="w-full table-fixed text-left">
           <thead className="sticky top-0 z-10">
             <tr className="bg-cream border-b border-border">
-              <th className="px-4 py-2.5 text-[11px] font-medium text-ink-light whitespace-nowrap w-28">维度</th>
-              <th className="px-4 py-2.5 text-[11px] font-medium text-ink-light whitespace-nowrap w-[38%]">竞品 TestHub</th>
-              <th className="px-4 py-2.5 text-[11px] font-medium text-ink-light whitespace-nowrap w-[38%]">TSS 本地</th>
-              <th className="px-4 py-2.5 text-[11px] font-medium text-ink-light whitespace-nowrap">差距</th>
+              <th className="px-3 py-2.5 text-xs font-semibold text-ink whitespace-nowrap w-28">维度</th>
+              <th className="px-3 py-2.5 text-xs font-semibold text-ink whitespace-nowrap w-[38%]">竞品 TestHub</th>
+              <th className="px-3 py-2.5 text-xs font-semibold text-ink whitespace-nowrap w-[38%]">TSS 本地</th>
+              <th className="px-3 py-2.5 text-xs font-semibold text-ink whitespace-nowrap">差距</th>
             </tr>
           </thead>
           <tbody>
@@ -37,18 +37,18 @@ export default function CapabilityMatrix({ rows, scope }: Props) {
               const meta = GAP_META[row.gap]
               return (
                 <tr key={row.id} className="border-b border-border/60 last:border-b-0 hover:bg-cream/30 transition-colors align-top bg-white">
-                  <td className="px-4 py-3">
+                   <td className="px-3 py-2.5">
                     <p className="text-xs font-medium text-ink">{row.dimension}</p>
                     <p className="text-[10px] text-muted mt-0.5">{MODULE_META[row.module].label}</p>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="text-[11px] text-ink-light leading-relaxed">{row.competitor}</p>
+                  <td className="px-3 py-2.5">
+                    <p className="text-[11px] text-muted leading-relaxed">{row.competitor}</p>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="text-[11px] text-ink-light leading-relaxed">{row.local}</p>
+                  <td className="px-3 py-2.5">
+                    <p className="text-[11px] text-muted leading-relaxed">{row.local}</p>
                     {row.note && <p className="text-[10px] text-muted mt-1 italic">注：{row.note}</p>}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1.5">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium whitespace-nowrap ${meta.badge}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />

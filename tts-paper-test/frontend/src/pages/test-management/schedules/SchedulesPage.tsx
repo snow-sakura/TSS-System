@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Plus, Edit2, Trash2, Play, Pause, X } from "lucide-react"
 import { lifecycleApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
 
 interface Schedule {
   id: number
@@ -99,7 +100,14 @@ export default function SchedulesPage() {
   }
 
   const handleDelete = async (s: Schedule) => {
-    if (!window.confirm(`确认删除调度「${s.name}」？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: "确定要删除该调度吗？删除后不可恢复。",
+      itemName: s.name,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await lifecycleApi.deleteSchedule(s.id)
       toast?.success?.("调度已删除")
@@ -151,35 +159,35 @@ export default function SchedulesPage() {
         {loading ? (
           <div className="p-8 text-center text-muted text-sm">加载中...</div>
         ) : (
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
-              <tr className="border-b border-border bg-cream/50">
-                <th className="px-5 py-3 text-left text-xs font-semibold text-ink-light">调度名称</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-ink-light">Cron表达式</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-ink-light">状态</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold text-ink-light">描述</th>
-                <th className="px-5 py-3 text-right text-xs font-semibold text-ink-light w-36">操作</th>
+               <tr className="border-b border-border bg-cream/50">
+                <th className="px-3 py-2.5 text-left text-xs font-semibold text-ink w-[220px]">调度名称</th>
+                <th className="px-3 py-2.5 text-left text-xs font-semibold text-ink w-[160px]">Cron表达式</th>
+                <th className="px-3 py-2.5 text-left text-xs font-semibold text-ink w-[80px]">状态</th>
+                <th className="px-3 py-2.5 text-left text-xs font-semibold text-ink">描述</th>
+                <th className="px-3 py-2.5 text-right text-xs font-semibold text-ink w-[100px]">操作</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-muted">暂无调度，点击右上角「新建调度」创建</td></tr>
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted">暂无调度，点击右上角「新建调度」创建</td></tr>
               ) : filtered.map(s => (
                 <tr key={s.id} className="border-b border-border/50 last:border-0 hover:bg-cream/50">
-                  <td className="px-5 py-3.5 text-sm font-medium text-ink">{s.name}</td>
-                  <td className="px-5 py-3.5">
-                    <code className="px-2 py-1 rounded bg-cream text-xs text-info">{s.cron_expr}</code>
+                   <td className="px-3 py-2.5 text-xs font-medium text-ink whitespace-nowrap overflow-hidden text-ellipsis">{s.name}</td>
+                  <td className="px-3 py-2.5">
+                    <code className="px-1.5 py-0.5 rounded bg-cream text-xs text-info">{s.cron_expr}</code>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs ${
+                  <td className="px-3 py-2.5">
+                    <span className={`inline-flex px-1.5 py-0.5 rounded text-xs ${
                       s.status === "running" ? "bg-pass/10 text-pass" : "bg-cream text-muted"
                     }`}>
                       {STATUS_LABELS[s.status] || s.status}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-muted max-w-[280px] truncate">{s.description || "-"}</td>
-                  <td className="px-5 py-3.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                  <td className="px-3 py-2.5 text-xs text-muted whitespace-nowrap overflow-hidden text-ellipsis">{s.description || "—"}</td>
+                  <td className="px-3 py-2.5 text-right">
+                    <div className="flex items-center justify-end gap-0.5">
                       <button
                         onClick={() => handleToggle(s)}
                         className={`p-1.5 rounded-lg hover:bg-cream ${s.status === "running" ? "text-amber" : "text-pass"}`}

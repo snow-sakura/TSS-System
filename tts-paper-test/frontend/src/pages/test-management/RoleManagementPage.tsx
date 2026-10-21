@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
@@ -6,6 +6,8 @@ import type { CrudField } from "@/components/crud/CrudDialog"
 import { rolesApi } from "@/lib/api"
 import { formatDateTime } from "@/lib/utils"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
+import { useCrudPage } from "@/hooks/useCrudPage"
 
 interface Role {
   id: number
@@ -31,12 +33,10 @@ const fields: CrudField[] = [
 
 export default function RoleManagementPage() {
   const toast = useToast()
-  const [data, setData] = useState<Role[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
+  const { data, total, page, setPage, pageSize, setPageSize, loading, searchTerm, setSearchTerm, reload } = useCrudPage<Role>({
+    fetchFn: useCallback((params) => rolesApi.listRoles(params), []),
+  })
+
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
 
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -58,35 +58,9 @@ export default function RoleManagementPage() {
     },
   ]
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      const res = await rolesApi.listRoles(params)
-      const payload = res?.data
-      const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
-      const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
-      setData(list)
-      setTotal(totalCount)
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm])
-
-  useEffect(() => { loadData() }, [loadData])
-
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value)
+  const handleFilterChange = useCallback((_key: string, _value: string) => {
     setPage(1)
-  }, [])
-
-  const handleFilterChange = useCallback((key: string, value: string) => {
-    setPage(1)
-  }, [])
+  }, [setPage])
 
   const handleCreate = useCallback(() => {
     setDialogMode("create")
@@ -107,31 +81,43 @@ export default function RoleManagementPage() {
   }, [])
 
   const handleDelete = useCallback(async (row: Role) => {
-    if (!window.confirm(`确定要删除角色「${row.name}」吗？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: "确定要删除该角色吗？删除后不可恢复。",
+      itemName: row.name,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await rolesApi.deleteRole(row.id)
       toast.success("角色删除成功")
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || e?.message || "删除失败")
     }
-  }, [toast, loadData])
+  }, [toast, reload])
 
   const handleBatchDelete = useCallback(async (ids: (string | number)[]) => {
-    if (!window.confirm(`确定要删除选中的 ${ids.length} 个角色吗？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "批量删除",
+      message: `确定要删除选中的 ${ids.length} 个角色吗？删除后不可恢复。`,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await rolesApi.batchDeleteRoles(ids as number[])
       toast.success("批量删除成功")
       setSelectedIds(new Set())
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || e?.message || "批量删除失败")
     }
-  }, [toast, loadData])
+  }, [toast, reload])
 
   const handleSubmit = useCallback(async (formData: Record<string, any>) => {
     try {
-      // 移除空字符串字段
       const submitData: Record<string, any> = { ...formData }
       Object.keys(submitData).forEach(key => {
         if (submitData[key] === "" || submitData[key] === null) {
@@ -147,11 +133,11 @@ export default function RoleManagementPage() {
         toast.success("角色更新成功")
       }
       setDialogOpen(false)
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || e?.message || "操作失败")
     }
-  }, [dialogMode, editingRole, toast, loadData])
+  }, [dialogMode, editingRole, toast, reload])
 
   const handleViewEdit = useCallback(() => {
     if (editingRole) {
@@ -177,7 +163,7 @@ export default function RoleManagementPage() {
         loading={loading}
         selectedIds={selectedIds}
         statusConfig={statusConfig}
-        onSearch={handleSearch}
+        onSearch={setSearchTerm}
         onFilterChange={handleFilterChange}
         onPageChange={setPage}
         onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}

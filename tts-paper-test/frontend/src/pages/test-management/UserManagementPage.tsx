@@ -242,6 +242,7 @@ export default function UserManagementPage() {
     {
       key: "username",
       title: "用户名",
+      width: "w-[180px]",
       render: (_: any, row: UserItem) => (
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-amber/10 flex items-center justify-center flex-shrink-0">
@@ -253,11 +254,12 @@ export default function UserManagementPage() {
         </div>
       ),
     },
-    { key: "email", title: "邮箱" },
-    { key: "display_name", title: "显示名" },
+    { key: "email", title: "邮箱", width: "w-[200px]" },
+    { key: "display_name", title: "显示名", width: "w-[120px]" },
     {
       key: "role",
       title: "角色",
+      width: "w-[120px]",
       render: (value: string) => {
         if (!value) return <span className="text-muted">—</span>
         const label = roleLabels[value]
@@ -281,7 +283,7 @@ export default function UserManagementPage() {
         )
       },
     },
-    { key: "status", title: "状态" },
+    { key: "status", title: "状态", width: "w-[80px]" },
     { key: "last_login_at", title: "最后登录时间", width: "min-w-[160px]", align: "center",
       render: (value: string) => (
         <span className="text-xs text-ink font-mono">

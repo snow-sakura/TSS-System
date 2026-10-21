@@ -335,6 +335,7 @@ async def get_pipeline_stages(
 # 上传文件存储目录
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads" / "requirements"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB 文件大小上限
 
 
 # ============ 需求分析 (增强) ============
@@ -473,11 +474,18 @@ async def upload_requirement_document(
             detail=f"不支持的文件格式: {ext}。支持的格式: {SUPPORTED_EXTENSIONS_LABEL}",
         )
 
+    # 校验文件大小（先读取内容再检查，避免大文件 OOM）
+    content = await file.read()
+    file_size = len(content)
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"文件大小超出限制（最大 50MB），当前文件: {file_size / 1024 / 1024:.1f}MB",
+        )
+
     # 保存文件
     file_id = f"{uuid.uuid4().hex}{ext}"
     file_path = UPLOAD_DIR / file_id
-    content = await file.read()
-    file_size = len(content)
     with open(file_path, "wb") as f:
         f.write(content)
 

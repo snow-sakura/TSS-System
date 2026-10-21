@@ -22,6 +22,7 @@ AsyncSessionLocal = async_sessionmaker(
 
 class Base(DeclarativeBase):
     """ORM 基类"""
+
     pass
 
 
@@ -35,6 +36,6 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db():
-    """初始化数据库表"""
+    """初始化数据库表（增量列补丁见 main._patch_legacy_columns）"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

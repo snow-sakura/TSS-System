@@ -10,8 +10,9 @@ import {
   Home, FileText, ClipboardList, Target, FlaskConical, CheckCircle,
   Play, Bug, BarChart3, Sparkles, ChevronDown, ChevronRight,
   ArrowLeft, Search, Bell, GitCompare, Settings, FolderKanban, Tags, Users,
-  Kanban, CalendarClock,
+  Kanban, CalendarClock, Menu,
 } from "lucide-react"
+import { prefetchRoute, cancelPrefetch } from "@/lib/routePrefetch"
 
 // ── 菜单配置 ──────────────────────────────────────────────
 interface MenuItem {
@@ -35,7 +36,7 @@ const menuGroups: MenuGroup[] = [
     key: "flow",
     label: "测试流程",
     icon: FileText,
-    gradient: "from-blue-500 to-indigo-600",
+    gradient: "from-info to-info/80",
     children: [
       { key: "pipeline", label: "AI全流程", path: "pipeline", icon: Sparkles },
       { key: "requirements", label: "需求管理", path: "requirements", icon: FileText },
@@ -51,7 +52,7 @@ const menuGroups: MenuGroup[] = [
     key: "defect",
     label: "缺陷管理",
     icon: Bug,
-    gradient: "from-rose-500 to-red-600",
+    gradient: "from-fail to-fail/80",
     children: [
       { key: "defects", label: "缺陷列表", path: "defects", icon: Bug },
       { key: "kanban", label: "缺陷看板", path: "kanban", icon: Kanban },
@@ -63,7 +64,7 @@ const menuGroups: MenuGroup[] = [
     key: "report",
     label: "分析报告",
     icon: BarChart3,
-    gradient: "from-teal-500 to-emerald-600",
+    gradient: "from-pass to-pass/80",
     children: [
       { key: "reports", label: "报告列表", path: "reports", icon: BarChart3 },
       { key: "ai-report", label: "AI生成报告", path: "ai-report", icon: Sparkles },
@@ -164,7 +165,7 @@ export default function TestManagementLayout() {
             </div>
             <button className="relative p-2 rounded-xl hover:bg-cream transition-colors">
               <Bell className="w-5 h-5 text-ink-light" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-fail rounded-full flex items-center justify-center text-[10px] font-bold text-white">
                 3
               </span>
             </button>
@@ -186,11 +187,7 @@ export default function TestManagementLayout() {
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="lg:hidden fixed bottom-20 left-4 z-50 w-12 h-12 rounded-2xl gradient-amber flex items-center justify-center shadow-lg text-white"
         >
-          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
+          <Menu className="w-6 h-6" />
         </button>
 
         {/* 移动端遮罩 */}
@@ -268,6 +265,8 @@ export default function TestManagementLayout() {
                           <button
                             key={item.key}
                             onClick={() => handleNavigate(item.path)}
+                            onMouseEnter={() => prefetchRoute(`/test-management/${item.path}`)}
+                            onMouseLeave={cancelPrefetch}
                             className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${
                               isActive
                                 ? "bg-amber text-white font-semibold shadow-sm"
@@ -292,8 +291,6 @@ export default function TestManagementLayout() {
               )
             })}
           </nav>
-
-          
         </aside>
 
         {/* 主内容区：可滚动容器，列表数据超过一屏时可下拉查看全部（含分页栏） */}
@@ -309,6 +306,8 @@ export default function TestManagementLayout() {
                     <button
                       key={tab.key}
                       onClick={() => { navigate(`/test-management/${tab.path}`); setSidebarOpen(false) }}
+                      onMouseEnter={() => prefetchRoute(`/test-management/${tab.path}`)}
+                      onMouseLeave={cancelPrefetch}
                       className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                         isActive
                           ? "bg-amber text-white shadow-sm"

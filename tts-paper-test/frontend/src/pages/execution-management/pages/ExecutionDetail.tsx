@@ -120,30 +120,30 @@ export default function ExecutionDetail() {
       {/* 列表 */}
       <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden flex-1">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead><tr className="border-b border-border bg-cream/50">
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">执行批次</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">用例ID</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">用例标题</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">模块</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">结果</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">耗时</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">执行时间</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">操作</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[140px]">执行批次</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[70px]">用例ID</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[220px]">用例标题</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[100px]">模块</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">结果</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">耗时</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[140px]">执行时间</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[60px]">操作</th>
             </tr></thead>
             <tbody>
               {paged.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-16 text-center text-muted"><Play className="w-10 h-10 mx-auto mb-2 text-muted-light" /><p className="text-sm font-medium">暂无执行详情</p></td></tr>
               ) : paged.map((d, idx) => (
                 <tr key={d.id} className={`border-b border-border/50 last:border-b-0 ${idx % 2 === 1 ? "bg-cream/30" : ""} hover:bg-cream/50 transition-colors`}>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{d.execName}</td>
-                  <td className="px-3 py-3 text-center"><span className="text-xs font-mono text-ink">{d.caseId}</span></td>
-                  <td className="px-3 py-3 text-center"><span className="text-sm font-medium text-ink truncate max-w-[180px] block">{d.caseTitle}</span></td>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{d.module}</td>
-                  <td className="px-3 py-3 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${resultColor(d.result)}`}>{d.result === "通过" ? <CheckCircle className="w-3 h-3" /> : d.result === "失败" ? <XCircle className="w-3 h-3" /> : <SkipForward className="w-3 h-3" />}{d.result}</span></td>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{d.duration}</td>
-                  <td className="px-3 py-3 text-center text-[11px] text-muted">{d.executedAt}</td>
-                  <td className="px-3 py-3 text-center"><button onClick={() => setPreviewDetail(d)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors"><Eye className="w-4 h-4" /></button></td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{d.execName}</td>
+                  <td className="px-3 py-2.5 text-center"><span className="text-xs font-mono text-ink">{d.caseId}</span></td>
+                  <td className="px-3 py-2.5"><span className="text-sm font-medium text-ink truncate block">{d.caseTitle}</span></td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{d.module}</td>
+                  <td className="px-3 py-2.5 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${resultColor(d.result)}`}>{d.result === "通过" ? <CheckCircle className="w-3 h-3" /> : d.result === "失败" ? <XCircle className="w-3 h-3" /> : <SkipForward className="w-3 h-3" />}{d.result}</span></td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted whitespace-nowrap">{d.duration}</td>
+                  <td className="px-3 py-2.5 text-center text-[11px] text-muted truncate">{d.executedAt}</td>
+                  <td className="px-3 py-2.5 text-center"><button onClick={() => setPreviewDetail(d)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors"><Eye className="w-4 h-4" /></button></td>
                 </tr>
               ))}
             </tbody>

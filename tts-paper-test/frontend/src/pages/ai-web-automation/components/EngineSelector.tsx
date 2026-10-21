@@ -140,7 +140,7 @@ export default function EngineSelector() {
             <>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] text-muted font-medium">可用引擎 ({engines.length})</span>
-                <button onClick={fetchEngines} className="p-1 rounded-md hover:bg-cream transition-colors" title="刷新">
+                <button onClick={fetchEngines} className="p-1.5 rounded-lg hover:bg-cream transition-colors" title="刷新">
                   <RefreshCw className="w-3.5 h-3.5 text-muted" />
                 </button>
               </div>

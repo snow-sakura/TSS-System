@@ -13,7 +13,10 @@ class EnvironmentBase(BaseModel):
     redis_url: Optional[str] = None
     description: Optional[str] = None
 
-class EnvironmentCreate(EnvironmentBase): pass
+
+class EnvironmentCreate(EnvironmentBase):
+    pass
+
 
 class EnvironmentUpdate(BaseModel):
     name: Optional[str] = None
@@ -21,6 +24,7 @@ class EnvironmentUpdate(BaseModel):
     db_url: Optional[str] = None
     redis_url: Optional[str] = None
     description: Optional[str] = None
+
 
 class EnvironmentResponse(EnvironmentBase):
     id: int
@@ -43,8 +47,13 @@ class LLMProviderBase(BaseModel):
     type: str = "Chat模型"
     max_tokens: int = 128000
     temperature: float = 0.7
+    tier: str = "free"  # free=免费(单任务串行) / paid=付费(可并行)
+    max_concurrency: int = 1  # 并行序列上限
 
-class LLMProviderCreate(LLMProviderBase): pass
+
+class LLMProviderCreate(LLMProviderBase):
+    pass
+
 
 class LLMProviderUpdate(BaseModel):
     name: Optional[str] = None
@@ -54,6 +63,9 @@ class LLMProviderUpdate(BaseModel):
     type: Optional[str] = None
     max_tokens: Optional[int] = None
     temperature: Optional[float] = None
+    tier: Optional[str] = None
+    max_concurrency: Optional[int] = None
+
 
 class LLMProviderResponse(LLMProviderBase):
     id: int
@@ -77,7 +89,10 @@ class PromptTemplateBase(BaseModel):
     description: Optional[str] = None
     variables: Optional[dict] = None
 
-class PromptTemplateCreate(PromptTemplateBase): pass
+
+class PromptTemplateCreate(PromptTemplateBase):
+    pass
+
 
 class PromptTemplateUpdate(BaseModel):
     name: Optional[str] = None
@@ -87,6 +102,7 @@ class PromptTemplateUpdate(BaseModel):
     description: Optional[str] = None
     variables: Optional[dict] = None
     status: Optional[str] = None
+
 
 class PromptTemplateResponse(PromptTemplateBase):
     id: int
@@ -106,7 +122,10 @@ class DeAIStyleBase(BaseModel):
     sample_input: Optional[str] = None
     sample_output: Optional[str] = None
 
-class DeAIStyleCreate(DeAIStyleBase): pass
+
+class DeAIStyleCreate(DeAIStyleBase):
+    pass
+
 
 class DeAIStyleUpdate(BaseModel):
     name: Optional[str] = None
@@ -115,6 +134,7 @@ class DeAIStyleUpdate(BaseModel):
     sample_input: Optional[str] = None
     sample_output: Optional[str] = None
     status: Optional[str] = None
+
 
 class DeAIStyleResponse(DeAIStyleBase):
     id: int
@@ -134,7 +154,10 @@ class MCPServiceBase(BaseModel):
     service_type: str = "工具"
     config: Optional[dict] = None
 
-class MCPServiceCreate(MCPServiceBase): pass
+
+class MCPServiceCreate(MCPServiceBase):
+    pass
+
 
 class MCPServiceUpdate(BaseModel):
     name: Optional[str] = None
@@ -142,6 +165,7 @@ class MCPServiceUpdate(BaseModel):
     description: Optional[str] = None
     service_type: Optional[str] = None
     config: Optional[dict] = None
+
 
 class MCPServiceResponse(MCPServiceBase):
     id: int
@@ -162,7 +186,10 @@ class SkillBase(BaseModel):
     category: str = "通用"
     content: Optional[dict] = None
 
-class SkillCreate(SkillBase): pass
+
+class SkillCreate(SkillBase):
+    pass
+
 
 class SkillUpdate(BaseModel):
     name: Optional[str] = None
@@ -171,6 +198,7 @@ class SkillUpdate(BaseModel):
     category: Optional[str] = None
     content: Optional[dict] = None
     status: Optional[str] = None
+
 
 class SkillResponse(SkillBase):
     id: int
@@ -189,13 +217,17 @@ class HermesChannelBase(BaseModel):
     config: Optional[dict] = None
     description: Optional[str] = None
 
-class HermesChannelCreate(HermesChannelBase): pass
+
+class HermesChannelCreate(HermesChannelBase):
+    pass
+
 
 class HermesChannelUpdate(BaseModel):
     name: Optional[str] = None
     channel_type: Optional[str] = None
     config: Optional[dict] = None
     description: Optional[str] = None
+
 
 class HermesChannelResponse(HermesChannelBase):
     id: int
@@ -209,30 +241,40 @@ class HermesChannelResponse(HermesChannelBase):
 
 # ====== 专用操作 Request/Response ======
 
+
 class PromptTestRequest(BaseModel):
     """提示词模板测试请求"""
+
     variables: dict = {}
     input_text: str = ""
 
+
 class PromptTestResponse(BaseModel):
     """提示词模板测试响应"""
+
     prompt_id: int
     prompt_name: str
     rendered: str
     variables_used: list[str]
     simulated_response: str
 
+
 class DeAITestRequest(BaseModel):
     """去AI味测试请求"""
+
     input_text: str
+
 
 class SkillExecuteRequest(BaseModel):
     """技能执行请求"""
+
     params: dict = {}
     input_text: str = ""
 
+
 class SkillExecuteResponse(BaseModel):
     """技能执行响应"""
+
     skill_id: int
     skill_name: str
     success: bool
@@ -241,12 +283,16 @@ class SkillExecuteResponse(BaseModel):
     deps_healthy: int
     deps_total: int
 
+
 class HermesSendRequest(BaseModel):
     """Hermes消息发送请求"""
+
     message: str
+
 
 class HermesSendResponse(BaseModel):
     """Hermes消息发送响应"""
+
     channel_id: int
     channel_name: str
     success: bool
@@ -257,6 +303,7 @@ class HermesSendResponse(BaseModel):
 # ====== Pipeline步骤提示词配置 ======
 class StepPromptConfigBase(BaseModel):
     """步骤提示词配置基础字段"""
+
     step_key: str
     step_name: str
     step_order: int = 0
@@ -270,8 +317,10 @@ class StepPromptConfigBase(BaseModel):
     variables: Optional[list] = None
     output_logs_template: Optional[list] = None
 
+
 class StepPromptConfigCreate(StepPromptConfigBase):
     pass
+
 
 class StepPromptConfigUpdate(BaseModel):
     step_name: Optional[str] = None
@@ -287,6 +336,7 @@ class StepPromptConfigUpdate(BaseModel):
     output_logs_template: Optional[list] = None
     status: Optional[str] = None
 
+
 class StepPromptConfigResponse(StepPromptConfigBase):
     id: int
     is_default: bool
@@ -297,8 +347,10 @@ class StepPromptConfigResponse(StepPromptConfigBase):
     class Config:
         from_attributes = True
 
+
 class StepPromptTestRequest(BaseModel):
     """步骤提示词测试请求"""
+
     variables: dict = {}
     input_text: str = ""
     step_context: Optional[dict] = None

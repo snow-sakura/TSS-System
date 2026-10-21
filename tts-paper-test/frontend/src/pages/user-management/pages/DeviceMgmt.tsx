@@ -117,34 +117,34 @@ export default function DeviceMgmt() {
       ) : (
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
               <thead><tr className="border-b border-border bg-cream/50">
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">ID</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">用户名</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">设备名称</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">操作系统</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">浏览器</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">最后活跃</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">状态</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">操作</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-10">ID</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[110px]">用户名</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[200px]">设备名称</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[110px]">操作系统</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[100px]">浏览器</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[140px]">最后活跃</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">状态</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[100px]">操作</th>
               </tr></thead>
               <tbody>
                 {devices.length === 0 ? (
                   <tr><td colSpan={8} className="px-4 py-16 text-center text-muted"><Smartphone className="w-10 h-10 mx-auto mb-2 text-muted-light" /><p className="text-sm font-medium">暂无设备数据</p></td></tr>
                 ) : devices.map((d, idx) => (
                   <tr key={d.id} className={`border-b border-border/50 last:border-b-0 ${idx % 2 === 1 ? "bg-cream/30" : ""} hover:bg-cream/50`}>
-                    <td className="px-4 py-3 text-center text-muted">{d.id}</td>
-                    <td className="px-4 py-3 text-center font-medium text-ink">{d.username}</td>
-                    <td className="px-4 py-3 text-center"><div className="flex items-center justify-center gap-2">{getDeviceIcon(d.os)}<span className="text-sm text-ink truncate max-w-[180px]">{d.device_name}</span></div></td>
-                    <td className="px-4 py-3 text-center text-xs text-muted">{d.os || "-"}</td>
-                    <td className="px-4 py-3 text-center text-xs text-muted">{d.browser || "-"}</td>
-                    <td className="px-4 py-3 text-center text-xs text-muted">{d.last_active_at ? new Date(d.last_active_at).toLocaleString("zh-CN") : "-"}</td>
-                    <td className="px-4 py-3 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(d.status)}`}>{d.status === "可信" ? <ShieldCheck className="w-3 h-3" /> : d.status === "已封禁" ? <ShieldOff className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}{d.status}</span></td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-2.5 text-center text-muted">{d.id}</td>
+                    <td className="px-3 py-2.5 text-center font-medium text-ink truncate">{d.username}</td>
+                    <td className="px-3 py-2.5"><div className="flex items-center justify-center gap-2 min-w-0">{getDeviceIcon(d.os)}<span className="text-sm text-ink truncate">{d.device_name}</span></div></td>
+                    <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{d.os || "-"}</td>
+                    <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{d.browser || "-"}</td>
+                    <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{d.last_active_at ? new Date(d.last_active_at).toLocaleString("zh-CN") : "-"}</td>
+                    <td className="px-3 py-2.5 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${statusColor(d.status)}`}>{d.status === "可信" ? <ShieldCheck className="w-3 h-3" /> : d.status === "已封禁" ? <ShieldOff className="w-3 h-3" /> : <ShieldAlert className="w-3 h-3" />}{d.status}</span></td>
+                    <td className="px-3 py-2.5 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        {d.status !== "可信" && <button onClick={() => handleTrust(d.id)} className="p-1.5 rounded-lg hover:bg-pass/10 text-ink-light hover:text-pass transition-colors" title="标记可信"><ShieldCheck className="w-4 h-4" /></button>}
-                        {d.status !== "已封禁" && <button onClick={() => handleBan(d.id)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors" title="封禁"><ShieldOff className="w-4 h-4" /></button>}
-                        <button onClick={() => handleDelete(d.id)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors" title="删除"><Trash2 className="w-4 h-4" /></button>
+                        {d.status !== "可信" && <button onClick={() => handleTrust(d.id)} className="p-1.5 rounded-lg hover:bg-pass/10 text-muted hover:text-pass transition-colors" title="标记可信"><ShieldCheck className="w-4 h-4" /></button>}
+                        {d.status !== "已封禁" && <button onClick={() => handleBan(d.id)} className="p-1.5 rounded-lg hover:bg-fail/10 text-muted hover:text-fail transition-colors" title="封禁"><ShieldOff className="w-4 h-4" /></button>}
+                        <button onClick={() => handleDelete(d.id)} className="p-1.5 rounded-lg hover:bg-fail/10 text-muted hover:text-fail transition-colors" title="删除"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>

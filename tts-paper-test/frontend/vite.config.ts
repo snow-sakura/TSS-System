@@ -11,11 +11,27 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: Number(process.env.VITE_PORT) || 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,
+      },
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react'
+            }
+            if (id.includes('@tanstack/react-query') || id.includes('zustand')) {
+              return 'vendor-data'
+            }
+          }
+        },
       },
     },
   },

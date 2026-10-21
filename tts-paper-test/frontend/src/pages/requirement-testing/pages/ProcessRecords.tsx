@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Plus, Search, Edit, Trash2, Eye, X, AlertTriangle, Download, RotateCcw,
-  Clock, CheckCircle2, Loader2, FileText, Play, ChevronLeft, ChevronRight
+  Clock, CheckCircle2, Loader2, FileText, Play, ChevronLeft, ChevronRight, Radio
 } from "lucide-react"
 import { useAutomationStore } from "@/stores/automationStore"
 import { lifecycleApi } from "@/lib/api"
@@ -20,18 +20,19 @@ interface ProcessRecord {
   name: string
   description: string
   requirementContent: string
-  status: "草稿" | "执行中" | "已完成" | "失败"
+  status: "草稿" | "执行中" | "已完成" | "失败" | "已取消"
   createdAt: string
   updatedAt: string
   stagesCompleted: number
   totalStages: number
 }
 
-const statusToCn: Record<string, "草稿" | "执行中" | "已完成" | "失败"> = {
+const statusToCn: Record<string, "草稿" | "执行中" | "已完成" | "失败" | "已取消"> = {
   draft: "草稿",
   running: "执行中",
   completed: "已完成",
   failed: "失败",
+  cancelled: "已取消",
 }
 
 const cnToStatus: Record<string, string> = {
@@ -39,6 +40,7 @@ const cnToStatus: Record<string, string> = {
   "执行中": "running",
   "已完成": "completed",
   "失败": "failed",
+  "已取消": "cancelled",
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -46,6 +48,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   "执行中": { label: "执行中", color: "bg-amber-light text-warn" },
   "已完成": { label: "已完成", color: "bg-pass/15 text-pass" },
   "失败": { label: "失败", color: "bg-fail/15 text-fail" },
+  "已取消": { label: "已取消", color: "bg-cream text-muted-light" },
 }
 
 function apiToRecord(item: any): ProcessRecord {
@@ -110,7 +113,9 @@ export default function ProcessRecords() {
       if (searchTerm) params.search = searchTerm
       if (statusFilter) params.status = cnToStatus[statusFilter] || statusFilter
       const res = await lifecycleApi.listPipelineRecords(params)
-      const data = res?.data || {}
+      // 后端直接返回 {items,total,...}；兼容包裹在 data 下的旧格式
+      const raw: any = res || {}
+      const data: any = Array.isArray(raw.items) ? raw : raw.data || {}
       const items: any[] = data.items || []
       setRecords(items.map(apiToRecord))
     } catch {
@@ -270,52 +275,55 @@ export default function ProcessRecords() {
         </div>
       ) : pagedRecords.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-ink-light">
-          <FileText className="w-12 h-12 mb-3 text-gray-300" />
+          <FileText className="w-12 h-12 mb-3 text-border" />
           <p className="text-sm font-medium">{searchTerm || statusFilter ? "没有匹配的记录" : "暂无流程记录"}</p>
-          <p className="text-xs mt-1 text-gray-400">运行流水线将自动创建流程记录</p>
+          <p className="text-xs mt-1 text-muted">运行流水线将自动创建流程记录</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-          <table className="w-full">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="border-b border-border bg-cream/30">
-                <th className="px-4 py-3 w-10 text-center"><input type="checkbox" checked={pagedRecords.length > 0 && pagedRecords.every((r) => selectedIds.has(r.id))} onChange={toggleSelectAll} className="w-4 h-4 rounded border-gray-300 text-amber focus:ring-amber" /></th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-ink-light uppercase">ID</th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-ink-light uppercase">记录名称</th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-ink-light uppercase">状态</th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-ink-light uppercase">进度</th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-ink-light uppercase">创建时间</th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-ink-light uppercase">更新时间</th>
-                <th className="px-5 py-3 text-center text-xs font-semibold text-ink-light uppercase">操作</th>
+                <th className="px-3 py-2.5 w-10 text-center"><input type="checkbox" checked={pagedRecords.length > 0 && pagedRecords.every((r) => selectedIds.has(r.id))} onChange={toggleSelectAll} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink uppercase w-[60px]">ID</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink uppercase w-[220px]">记录名称</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink uppercase w-[100px]">状态</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink uppercase w-[120px]">进度</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink uppercase w-[140px]">创建时间</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink uppercase w-[140px]">更新时间</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink uppercase w-[100px]">操作</th>
               </tr>
             </thead>
             <tbody>
               {pagedRecords.map((record) => (
                 <tr key={record.id} onClick={() => jumpToAutomation(record)} className="border-b border-border/50 last:border-0 hover:bg-cream/50 cursor-pointer transition-colors">
-                  <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={selectedIds.has(record.id)} onChange={() => toggleSelect(record.id)} className="w-4 h-4 rounded border-gray-300 text-amber focus:ring-amber" />
+                   <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(record.id)} onChange={() => toggleSelect(record.id)} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" />
                   </td>
-                  <td className="px-5 py-3 text-center text-sm text-ink-light">{record.id}</td>
-                  <td className="px-5 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{record.id}</td>
+                  <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <span className="text-sm font-medium text-ink truncate max-w-[200px]" title={record.name}>{record.name.length > 15 ? record.name.slice(0, 15) + "..." : record.name}</span>
+                      <span className="text-xs font-medium text-ink truncate max-w-[200px]" title={record.name}>{record.name.length > 15 ? record.name.slice(0, 15) + "..." : record.name}</span>
                     </div>
-                    <p className="text-xs text-ink-light truncate max-w-[200px] mt-0.5" title={record.description}>{record.description.length > 20 ? record.description.slice(0, 20) + "..." : record.description}</p>
+                    <p className="text-xs text-muted truncate max-w-[200px] mt-0.5" title={record.description}>{record.description.length > 20 ? record.description.slice(0, 20) + "..." : record.description}</p>
                   </td>
-                  <td className="px-5 py-3 text-center"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[record.status]?.color}`}>{record.status}</span></td>
-                  <td className="px-5 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[record.status]?.color}`}>{record.status}</span></td>
+                  <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full gradient-amber rounded-full" style={{ width: `${record.totalStages > 0 ? (record.stagesCompleted / record.totalStages) * 100 : 0}%` }} /></div>
-                      <span className="text-xs text-ink-light">{record.stagesCompleted}/{record.totalStages}</span>
+                      <div className="w-20 h-1.5 bg-cream rounded-full overflow-hidden"><div className="h-full gradient-amber rounded-full" style={{ width: `${record.totalStages > 0 ? (record.stagesCompleted / record.totalStages) * 100 : 0}%` }} /></div>
+                      <span className="text-xs text-muted">{record.stagesCompleted}/{record.totalStages}</span>
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-center text-xs text-ink-light">{record.createdAt}</td>
-                  <td className="px-5 py-3 text-center text-xs text-ink-light">{record.updatedAt}</td>
-                  <td className="px-5 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center text-xs text-muted whitespace-nowrap">{record.createdAt}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted whitespace-nowrap">{record.updatedAt}</td>
+                  <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => setPreviewRecord(record)} className="p-1.5 rounded-md hover:bg-cream transition-colors" title="预览"><Eye className="w-4 h-4 text-ink-light" /></button>
-                      <button onClick={() => openEdit(record)} className="p-1.5 rounded-md hover:bg-cream transition-colors" title="编辑"><Edit className="w-4 h-4 text-ink-light" /></button>
-                      <button onClick={() => { setDeletingRecord(record); setShowDeleteConfirm(true) }} className="p-1.5 rounded-md hover:bg-red-50 transition-colors" title="删除"><Trash2 className="w-4 h-4 text-red-500" /></button>
+                      <button onClick={() => setPreviewRecord(record)} className="p-1.5 rounded-lg hover:bg-cream transition-colors" title="预览"><Eye className="w-4 h-4 text-muted" /></button>
+                      {record.status === "执行中" && (
+                        <button onClick={() => navigate(`/requirement-testing?menu=pipeline&recordId=${record.id}&mode=replay`)} className="p-1.5 rounded-lg hover:bg-amber-light transition-colors" title="查看实时进度（断线续传）"><Radio className="w-4 h-4 text-warn" /></button>
+                      )}
+                      <button onClick={() => openEdit(record)} className="p-1.5 rounded-lg hover:bg-cream transition-colors" title="编辑"><Edit className="w-4 h-4 text-muted" /></button>
+                      <button onClick={() => { setDeletingRecord(record); setShowDeleteConfirm(true) }} className="p-1.5 rounded-lg hover:bg-fail/10 transition-colors" title="删除"><Trash2 className="w-4 h-4 text-fail" /></button>
                     </div>
                   </td>
                 </tr>
@@ -410,7 +418,7 @@ export default function ProcessRecords() {
               <div>
                 <h4 className="text-sm font-semibold text-ink mb-2">执行进度</h4>
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full gradient-amber rounded-full" style={{ width: `${previewRecord.totalStages > 0 ? (previewRecord.stagesCompleted / previewRecord.totalStages) * 100 : 0}%` }} /></div>
+                  <div className="flex-1 h-2 bg-cream rounded-full overflow-hidden"><div className="h-full gradient-amber rounded-full" style={{ width: `${previewRecord.totalStages > 0 ? (previewRecord.stagesCompleted / previewRecord.totalStages) * 100 : 0}%` }} /></div>
                   <span className="text-sm text-ink">{previewRecord.stagesCompleted}/{previewRecord.totalStages}</span>
                 </div>
               </div>

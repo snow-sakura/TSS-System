@@ -155,7 +155,7 @@ function StepSidebarInner({
 
       {/* 步骤卡片（等分高度，内容溢出隐藏） */}
       <nav className="flex-1 flex flex-col p-3 gap-2 overflow-hidden">
-        {steps.map((step) => {
+        {steps.map((step, idx) => {
           const meta = STEP_META[step.key]
           const Icon = meta?.icon || FileText
           const isSelected = step.key === selectedStepKey
@@ -189,6 +189,19 @@ function StepSidebarInner({
               <div className="flex-1 min-w-0 ml-2.5 flex flex-col justify-center overflow-hidden">
                 {/* 标题 + 状态图标 */}
                 <div className="flex items-center gap-1">
+                  {/* 序列序号：循环严格按序列推进 */}
+                  <span
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 border ${
+                      step.status === "completed"
+                        ? "bg-emerald-500 text-white border-emerald-500"
+                        : step.status === "running"
+                          ? "bg-blue-500 text-white border-blue-500"
+                          : "bg-white text-muted border-border"
+                    }`}
+                    title={`序列 ${idx + 1}/${steps.length}`}
+                  >
+                    {idx + 1}
+                  </span>
                   <span
                     className={`text-sm font-bold truncate leading-tight ${
                       isWaiting ? "text-muted" : "text-ink"

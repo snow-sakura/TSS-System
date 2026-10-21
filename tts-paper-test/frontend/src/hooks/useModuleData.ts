@@ -6,6 +6,25 @@ import { useState, useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import api from "@/lib/api"
 
+/** API 错误响应结构（Axios 拦截器格式） */
+interface ApiErrorResponse {
+  response?: { data?: { detail?: string } }
+  message?: string
+}
+
+/** 类型守卫：判断 unknown 是否为 API 错误对象 */
+function isApiError(e: unknown): e is ApiErrorResponse {
+  return typeof e === "object" && e !== null && ("message" in e || "response" in e)
+}
+
+/** 从 API 错误中提取可读的错误消息 */
+function getApiErrorMessage(e: unknown, fallback = "未知错误"): string {
+  if (isApiError(e)) {
+    return e.response?.data?.detail || e.message || fallback
+  }
+  return fallback
+}
+
 /** 分页元信息（对应后端 PageModel） */
 export interface PageMeta {
   total: number
@@ -70,9 +89,9 @@ const REVERSE_FIELD_MAP: Record<string, Record<string, string>> = Object.fromEnt
 
 
 // 字段转换：将通用字段名转换为API字段名
-function toApiFields(menuKey: string, data: Record<string, any>): Record<string, any> {
+function toApiFields(menuKey: string, data: Record<string, unknown>): Record<string, unknown> {
   const fieldMap = FIELD_MAP[menuKey] || {}
-  const result: Record<string, any> = {}
+  const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(data)) {
     const apiKey = fieldMap[key] || key
     result[apiKey] = value
@@ -81,9 +100,9 @@ function toApiFields(menuKey: string, data: Record<string, any>): Record<string,
 }
 
 // 字段转换：将API字段名转换为通用字段名
-function fromApiFields(menuKey: string, data: Record<string, any>): Record<string, any> {
+function fromApiFields(menuKey: string, data: Record<string, unknown>): Record<string, unknown> {
   const reverseMap = REVERSE_FIELD_MAP[menuKey] || {}
-  const result: Record<string, any> = { ...data }
+  const result: Record<string, unknown> = { ...data }
   for (const [apiKey, genericKey] of Object.entries(reverseMap)) {
     if (apiKey in data) {
       result[genericKey] = data[apiKey]
@@ -96,7 +115,7 @@ function fromApiFields(menuKey: string, data: Record<string, any>): Record<strin
 }
 
 export function useModuleData(initialMenu: string) {
-  const [data, setData] = useState<Record<string, any[]>>({})
+  const [data, setData] = useState<Record<string, Record<string, unknown>[]>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [meta, setMeta] = useState<Record<string, PageMeta>>({})
   // metaRef 保证 fetchData 闭包读取最新分页状态（避免 useCallback 依赖重载）
@@ -118,15 +137,19 @@ export function useModuleData(initialMenu: string) {
 
     setLoading((prev) => ({ ...prev, [menuKey]: true }))
     try {
-      const res: any = await api.get(config.base, { params: { page, page_size: pageSize } })
-      const payload = res?.data || res || {}
-      const items = Array.isArray(payload) ? payload : payload.items || []
-      const total = typeof payload?.total === "number" ? payload.total : items.length
-      const normalized = Array.isArray(items) ? items.map((item: any) => fromApiFields(menuKey, item)) : []
+      const rawRes: unknown = await api.get(config.base, { params: { page, page_size: pageSize } })
+      const apiBody = (typeof rawRes === "object" && rawRes !== null ? rawRes : {}) as Record<string, unknown>
+      const payload: unknown = apiBody.data ?? rawRes
+      const payloadObj = (typeof payload === "object" && payload !== null && !Array.isArray(payload) ? payload : {}) as Record<string, unknown>
+      const items: Record<string, unknown>[] = Array.isArray(payload)
+        ? (payload as Record<string, unknown>[])
+        : Array.isArray(payloadObj.items) ? (payloadObj.items as Record<string, unknown>[]) : []
+      const total = typeof payloadObj.total === "number" ? (payloadObj.total as number) : items.length
+      const normalized = items.map((item) => fromApiFields(menuKey, item))
       setData((prev) => ({ ...prev, [menuKey]: normalized }))
       applyMeta(menuKey, { total, page, pageSize })
-    } catch (e: any) {
-      toast.error(`加载失败: ${e?.response?.data?.detail || e?.message || "未知错误"}`)
+    } catch (e: unknown) {
+      toast.error(`加载失败: ${getApiErrorMessage(e)}`)
     } finally {
       setLoading((prev) => ({ ...prev, [menuKey]: false }))
     }
@@ -156,7 +179,7 @@ export function useModuleData(initialMenu: string) {
     return data[menuKey] || []
   }, [data])
 
-  const create = useCallback(async (menuKey: string, item: any) => {
+  const create = useCallback(async (menuKey: string, item: Record<string, unknown>) => {
     const config = API_MAP[menuKey]
     if (!config) {
       toast.error("不支持的模块")
@@ -168,12 +191,12 @@ export function useModuleData(initialMenu: string) {
       await api.post(config.base, apiData)
       toast.success("创建成功")
       fetchData(menuKey)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || e?.message || "创建失败")
+    } catch (e: unknown) {
+      toast.error(getApiErrorMessage(e, "创建失败"))
     }
   }, [fetchData])
 
-  const update = useCallback(async (menuKey: string, id: number, item: any) => {
+  const update = useCallback(async (menuKey: string, id: number, item: Record<string, unknown>) => {
     const config = API_MAP[menuKey]
     if (!config) {
       toast.error("不支持的模块")
@@ -185,8 +208,8 @@ export function useModuleData(initialMenu: string) {
       await api.put(`${config.base}/${id}`, apiData)
       toast.success("保存成功")
       fetchData(menuKey)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || e?.message || "保存失败")
+    } catch (e: unknown) {
+      toast.error(getApiErrorMessage(e, "保存失败"))
     }
   }, [fetchData])
 
@@ -201,8 +224,8 @@ export function useModuleData(initialMenu: string) {
       await api.delete(`${config.base}/${id}`)
       toast.success("删除成功")
       fetchData(menuKey)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || e?.message || "删除失败")
+    } catch (e: unknown) {
+      toast.error(getApiErrorMessage(e, "删除失败"))
     }
   }, [fetchData])
 
@@ -219,8 +242,8 @@ export function useModuleData(initialMenu: string) {
       }
       toast.success(`已删除 ${ids.size} 条数据`)
       fetchData(menuKey)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.detail || e?.message || "批量删除失败")
+    } catch (e: unknown) {
+      toast.error(getApiErrorMessage(e, "批量删除失败"))
     }
   }, [fetchData])
 

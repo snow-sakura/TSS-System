@@ -119,7 +119,7 @@ function DataFactoryPage() {
         </div>
       </div>
 
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6">
+      <div className="px-4 sm:px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
           {/* ── 左侧：生成器列表 ── */}
           <div className="bg-white rounded-2xl border border-border shadow-card p-4 h-fit">
@@ -230,25 +230,25 @@ function DataFactoryPage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                  <table className="w-full table-fixed text-left">
                     <thead>
-                      <tr className="border-b border-border/60 text-[11px] text-muted">
-                        <th className="py-2 pr-3 font-medium">生成器</th>
-                        <th className="py-2 pr-3 font-medium">数量</th>
-                        <th className="py-2 pr-3 font-medium">预览</th>
-                        <th className="py-2 pr-3 font-medium">时间</th>
-                        <th className="py-2 font-medium text-right">操作</th>
+                      <tr className="bg-cream/50 border-b border-border/60">
+                        <th className="px-3 py-2.5 text-xs font-semibold text-ink w-[150px] whitespace-nowrap">生成器</th>
+                        <th className="px-3 py-2.5 text-xs font-semibold text-ink w-[80px] text-center whitespace-nowrap">数量</th>
+                        <th className="px-3 py-2.5 text-xs font-semibold text-ink whitespace-nowrap">预览</th>
+                        <th className="px-3 py-2.5 text-xs font-semibold text-ink w-[150px] whitespace-nowrap">时间</th>
+                        <th className="px-3 py-2.5 text-xs font-semibold text-ink text-right w-[60px] whitespace-nowrap">操作</th>
                       </tr>
                     </thead>
                     <tbody>
                       {logs.map((log) => (
                         <tr key={log.id} className="border-b border-border/40 hover:bg-cream/40 transition-colors">
-                          <td className="py-2.5 pr-3 text-xs font-medium text-ink">{log.generator_name}</td>
-                          <td className="py-2.5 pr-3 text-xs text-ink-light">{log.count}</td>
-                          <td className="py-2.5 pr-3">
+                          <td className="px-3 py-2.5 text-xs font-medium text-ink truncate min-w-0">{log.generator_name}</td>
+                          <td className="px-3 py-2.5 text-xs text-muted text-center">{log.count}</td>
+                          <td className="px-3 py-2.5">
                             <div className="flex flex-wrap gap-1 max-w-[380px]">
                               {(log.preview ?? []).slice(0, 3).map((p, i) => (
-                                <span key={i} className="px-1.5 py-0.5 rounded bg-cream border border-border/60 text-[10px] font-mono text-ink-light truncate max-w-[160px]">
+                                <span key={i} className="px-1.5 py-0.5 rounded bg-cream border border-border/60 text-[10px] font-mono text-muted truncate max-w-[160px]">
                                   {p}
                                 </span>
                               ))}
@@ -257,8 +257,8 @@ function DataFactoryPage() {
                               )}
                             </div>
                           </td>
-                          <td className="py-2.5 pr-3 text-[11px] text-muted whitespace-nowrap">{log.created_at}</td>
-                          <td className="py-2.5 text-right">
+                          <td className="px-3 py-2.5 text-xs text-muted whitespace-nowrap">{log.created_at}</td>
+                          <td className="px-3 py-2.5 text-right">
                             <button
                               onClick={() => handleDeleteLog(log.id)}
                               className="p-1.5 rounded-lg text-muted hover:text-fail hover:bg-fail/10 transition-colors"

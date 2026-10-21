@@ -221,17 +221,17 @@ export default function CaseList() {
       {/* 用例表格 */}
       <div className="flex-1 bg-white rounded-2xl border border-border shadow-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="bg-cream/50 border-b border-border">
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink w-12">ID</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">用例标题</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink w-24">模块</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink w-16">优先级</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink w-20">状态</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink w-16">来源</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink w-28">创建时间</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink w-24">操作</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-10">ID</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[240px]">用例标题</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[100px]">模块</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">优先级</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">状态</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">来源</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[110px]">创建时间</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[100px]">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -242,27 +242,27 @@ export default function CaseList() {
                 </td></tr>
               ) : paged.map((c, idx) => (
                 <tr key={c.id} className={`border-b border-border/50 last:border-b-0 ${idx % 2 === 1 ? "bg-cream/20" : ""} hover:bg-cream/40`}>
-                  <td className="px-4 py-3 text-center text-muted">{c.id}</td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
+                  <td className="px-3 py-2.5 text-center text-muted">{c.id}</td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <FlaskConical className="w-3.5 h-3.5 text-pass flex-shrink-0" />
-                      <span className="text-sm font-medium text-ink truncate max-w-[200px]">{c.title}</span>
+                      <span className="text-sm font-medium text-ink truncate">{c.title}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center text-xs text-muted">{c.module}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{c.module}</td>
+                  <td className="px-3 py-2.5 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${priorityStyle(c.priority)}`}>{c.priority}</span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${statusStyle(c.status)}`}>{c.status}</span>
                   </td>
-                  <td className="px-4 py-3 text-center text-xs text-muted">{c.source}</td>
-                  <td className="px-4 py-3 text-center text-xs text-muted">{c.createdAt}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{c.source}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{c.createdAt}</td>
+                  <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => setPreviewCase(c)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info"><Eye className="w-4 h-4" /></button>
-                      <button onClick={() => { setEditMode("edit"); setEditForm({ title: c.title, module: c.module, priority: c.priority, steps: c.steps, expected: c.expected }); setShowEditDialog(true) }} className="p-1.5 rounded-lg hover:bg-amber-light text-ink-light hover:text-amber"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteTarget(c)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => setPreviewCase(c)} className="p-1.5 rounded-lg hover:bg-info/10 text-muted hover:text-info"><Eye className="w-4 h-4" /></button>
+                      <button onClick={() => { setEditMode("edit"); setEditForm({ title: c.title, module: c.module, priority: c.priority, steps: c.steps, expected: c.expected }); setShowEditDialog(true) }} className="p-1.5 rounded-lg hover:bg-amber-light text-muted hover:text-amber"><Edit className="w-4 h-4" /></button>
+                      <button onClick={() => setDeleteTarget(c)} className="p-1.5 rounded-lg hover:bg-fail/10 text-muted hover:text-fail"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>

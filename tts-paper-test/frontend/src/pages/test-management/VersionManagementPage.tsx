@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
 import { projectApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
+import { useCrudPage } from "@/hooks/useCrudPage"
 
 interface Version {
   id: number
@@ -38,7 +40,7 @@ const columns: CrudColumn[] = [
   { key: "version_no", title: "版本号", width: "min-w-[110px]", align: "center" },
   { key: "description", title: "描述", width: "min-w-[180px]", align: "center", render: (v: string) => v || "—" },
   { key: "status", title: "状态", width: "w-28", align: "center" },
-  { key: "release_date", title: "发布日期", width: "min-w-[110px]", align: "center", render: (v: string) => v || "—" },
+  { key: "release_date", title: "发布日期", width: "min-w-[110px]", align: "center", render: (v: string) => v ? new Date(v).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }) : "—" },
 ]
 
 const filters: CrudFilter[] = [
@@ -58,12 +60,6 @@ const fields: CrudField[] = [
 
 export default function VersionManagementPage() {
   const toast = useToast()
-  const [data, setData] = useState<Version[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
@@ -73,6 +69,19 @@ export default function VersionManagementPage() {
   const [editingVersion, setEditingVersion] = useState<Version | null>(null)
 
   const [projectOptions, setProjectOptions] = useState<{ label: string; value: string }[]>([])
+
+  const fetchFn = useCallback((params: Record<string, any>) => projectApi.listVersions(params), [])
+
+  const extraFilters = useMemo(
+    () => ({
+      project_id: projectFilter || undefined,
+      status: statusFilter || undefined,
+    }),
+    [projectFilter, statusFilter],
+  )
+
+  const { data, total, page, setPage, pageSize, setPageSize, loading, searchTerm, setSearchTerm, reload } =
+    useCrudPage<Version>({ fetchFn, extraFilters })
 
   const loadProjects = useCallback(async () => {
     try {
@@ -86,37 +95,9 @@ export default function VersionManagementPage() {
     } catch {}
   }, [])
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (projectFilter) params.project_id = projectFilter
-      if (statusFilter) params.status = statusFilter
-      const res = await projectApi.listVersions(params)
-      const payload = res?.data
-      const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
-      const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
-      setData(list)
-      setTotal(totalCount)
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, projectFilter, statusFilter])
-
   useEffect(() => {
     loadProjects()
   }, [loadProjects])
-
-  useEffect(() => { loadData() }, [loadData])
-
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value)
-    setPage(1)
-  }, [])
 
   const handleFilterChange = useCallback((key: string, value: string) => {
     if (key === "project_id") {
@@ -126,7 +107,7 @@ export default function VersionManagementPage() {
       setStatusFilter(value)
       setPage(1)
     }
-  }, [])
+  }, [setPage])
 
   const handleCreate = useCallback(() => {
     setDialogMode("create")
@@ -147,27 +128,40 @@ export default function VersionManagementPage() {
   }, [])
 
   const handleDelete = useCallback(async (row: Version) => {
-    if (!window.confirm(`确定要删除版本「${row.name}」吗？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: "确定要删除该版本吗？删除后不可恢复。",
+      itemName: row.name,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await projectApi.deleteVersion(row.id)
       toast.success("删除成功")
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.message || "删除失败")
     }
-  }, [toast, loadData])
+  }, [toast, reload])
 
   const handleBatchDelete = useCallback(async (ids: (string | number)[]) => {
-    if (!window.confirm(`确定要删除选中的 ${ids.length} 个版本吗？`)) return
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "批量删除",
+      message: `确定要删除选中的 ${ids.length} 个版本吗？删除后不可恢复。`,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await projectApi.batchDeleteVersions(ids as number[])
       toast.success("批量删除成功")
       setSelectedIds(new Set())
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.message || "批量删除失败")
     }
-  }, [toast, loadData])
+  }, [toast, reload])
 
   const handleSubmit = useCallback(async (formData: Record<string, any>) => {
     try {
@@ -179,11 +173,11 @@ export default function VersionManagementPage() {
         toast.success("版本更新成功")
       }
       setDialogOpen(false)
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.message || "操作失败")
     }
-  }, [dialogMode, editingVersion, toast, loadData])
+  }, [dialogMode, editingVersion, toast, reload])
 
   const handleViewEdit = useCallback(() => {
     if (editingVersion) {
@@ -218,7 +212,7 @@ export default function VersionManagementPage() {
         loading={loading}
         selectedIds={selectedIds}
         statusConfig={statusConfig}
-        onSearch={handleSearch}
+        onSearch={setSearchTerm}
         onFilterChange={handleFilterChange}
         onPageChange={setPage}
         onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}

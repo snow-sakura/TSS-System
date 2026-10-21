@@ -168,13 +168,16 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
   const [projects, setProjects] = useState<any[]>([])
   const [versions, setVersions] = useState<any[]>([])
 
-  /* ─── 继续执行模式（URL 参数 recordId + mode=continue） ─── */
+  /* ─── 继续执行模式（URL 参数 recordId + mode=continue/replay） ─── */
   const [searchParams] = useSearchParams()
   const recordId = searchParams.get("recordId")
   const mode = searchParams.get("mode")
   const isContinueMode = mode === "continue" && !!recordId
+  const isReplayMode = mode === "replay" && !!recordId
   const [resumeFrom, setResumeFrom] = useState<string | null>(null)
   const [loadingRecord, setLoadingRecord] = useState(false)
+  /* 本次运行的 record_id（SSE record_created 事件写入，用于重连） */
+  const [liveRecordId, setLiveRecordId] = useState<number | null>(null)
 
   /* ─── 派生：当前选中项目名/版本名（用于回显条） ─── */
   const selectedProjectName = useMemo(
@@ -277,18 +280,34 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
             }
           }
         }
-        // 继续执行模式：状态设为 failed（待继续）；查看模式：根据原状态
-        setPipelineStatus(
-          isContinueMode
-            ? "failed"
-            : data.status === "completed"
-              ? "completed"
-              : "idle"
-        )
+        // 继续执行模式：状态设为 failed（待继续）；执行中：重连实时流；查看模式：按原状态
+        if (data.status === "running") {
+          setPipelineStatus("running")
+          setLiveRecordId(Number(recordId))
+          if (isReplayMode || isContinueMode) {
+            // 后端执行仍在进行（SPEC-001 断连不终止）：重连接续传
+            const controller = new AbortController()
+            abortRef.current = controller
+            lifecycleApi
+              .reconnectPipelineSSE(Number(recordId), 0, controller.signal)
+              .then((res) => {
+                if (res.ok) setSseResponse(res)
+              })
+              .catch(() => {})
+          }
+        } else {
+          setPipelineStatus(
+            isContinueMode
+              ? "failed"
+              : data.status === "completed"
+                ? "completed"
+                : "idle"
+          )
+        }
       })
       .catch(() => {})
       .finally(() => setLoadingRecord(false))
-  }, [recordId, isContinueMode])
+  }, [recordId, isContinueMode, isReplayMode])
 
   /* ─── 步骤操作 ─── */
   const updateStage = useCallback(
@@ -368,6 +387,13 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
         }
 
         switch (eventType) {
+          case "record_created": {
+            // 后端已落库 running 记录：保存用于断线重连定位
+            if (data.record_id) setLiveRecordId(data.record_id)
+            pushLog("info", `💾 执行记录已创建 #${data.record_id}（刷新/断线不丢失进度）`, "pipeline")
+            break
+          }
+
           case "stage_start": {
             // 保存上一步完成的内容到缓存
             const prevContent = stageStates.find((s) => s.key === stage)?.content
@@ -396,15 +422,16 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
           }
 
           case "stage_log": {
+            const lvl = String(data.level || "").toLowerCase()
             const level: LogEntry["level"] =
-              data.level === "error"
+              lvl === "error"
                 ? "error"
-                : data.level === "warn"
+                : lvl === "warn"
                   ? "warn"
-                  : data.level === "agent"
+                  : lvl === "agent"
                     ? "agent"
                     : "info"
-            pushLog(level, data.content?.slice(0, 500) || "", stage)
+            pushLog(level, data.message?.slice(0, 500) || data.content?.slice(0, 500) || "", stage)
             break
           }
 
@@ -517,6 +544,7 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
     if (!isContinueMode) {
       setSelectedStepKey(null)
     }
+    setLiveRecordId(null)
     setPipelineStatus("running")
     setLogs([])
 
@@ -537,6 +565,20 @@ export default function AIPipeline({ onStageUpdate }: AIPipelineProps) {
         },
         controller.signal
       )
+      // 启动即失败（如 424 模型不可用）：明确提示，不进入静默失败
+      if (!response.ok) {
+        let detail = `HTTP ${response.status}`
+        try {
+          const body = await response.json()
+          detail = body?.detail || detail
+        } catch { /* 忽略解析失败 */ }
+        setPipelineStatus("failed")
+        pushLog("error", `❌ 启动失败: ${detail}`)
+        if (response.status === 424) {
+          pushLog("warn", "💡 可在「系统管理→模型配置」更新密钥/模型，或使用「序列任务中心→模拟执行」演示调度流程")
+        }
+        return
+      }
       setSseResponse(response)
     } catch (err: any) {
       if (err.name !== "AbortError") {

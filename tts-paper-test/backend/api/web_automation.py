@@ -812,7 +812,12 @@ async def list_projects_for_workflow(
     items = result.get("items", []) if isinstance(result, dict) else []
     return ResponseModel(
         data=[
-            {"id": p.id, "name": p.name, "target_url": p.target_url, "status": p.status}
+            {
+                "id": p.get("id"),
+                "name": p.get("name"),
+                "target_url": p.get("target_url"),
+                "status": p.get("status"),
+            }
             for p in items
         ]
     )

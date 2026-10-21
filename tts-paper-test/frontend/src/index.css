@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* 拍立得暖色调 */
+  /* ── 拍立得暖色主题 ── */
   --color-ink: #1A0F08;
   --color-ink-light: #4A3828;
   --color-paper: #FAF5F0;
@@ -27,10 +27,8 @@
   /* 中性色 */
   --color-muted: #5A4D42;
   --color-muted-light: #8A7C70;
-  --color-border: #E8DDD0;
-  --color-border-light: #F0E8DE;
 
-  /* shadcn语义色 */
+  /* shadcn 语义色 */
   --color-background: #FAF5F0;
   --color-foreground: #2C1810;
   --color-card: #FFFFFF;
@@ -57,7 +55,7 @@
   --radius: 0.75rem;
 }
 
-/* ========== 全局基础 ========== */
+/* ── 全局基础 ── */
 * { box-sizing: border-box; }
 
 body {
@@ -68,13 +66,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ========== 滚动条 ========== */
+/* ── 滚动条 ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #D4C8BC; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #9C8E82; }
 
-/* ========== 拍立得阴影系统 ========== */
+/* ── 拍立得阴影系统 ── */
 .shadow-card {
   box-shadow: 0 2px 8px rgba(139, 105, 20, 0.08), 0 1px 3px rgba(0,0,0,0.06);
 }
@@ -85,7 +83,7 @@ body {
   box-shadow: 0 12px 40px rgba(139, 105, 20, 0.15), 0 4px 12px rgba(0,0,0,0.1);
 }
 
-/* ========== 侧边栏菜单 ========== */
+/* ── 侧边栏菜单 ── */
 .sidebar-item {
   display: flex;
   align-items: center;
@@ -108,14 +106,36 @@ body {
   font-weight: 500;
 }
 
-/* ========== 动画 ========== */
+/* ── 动画 ── */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in-up { animation: fadeInUp 0.4s ease-out; }
 
-/* ========== 渐变背景 ========== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in { animation: scaleIn 0.2s ease-out; }
+
+@keyframes blinkCursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.animate-blink-cursor {
+  animation: blinkCursor 1s step-end infinite;
+  display: inline-block;
+  vertical-align: text-bottom;
+}
+
+/* ── 渐变背景 ── */
 .gradient-brand {
   background: linear-gradient(135deg, #2C1810 0%, #4A3228 40%, #6B4C3B 100%);
 }
@@ -123,7 +143,41 @@ body {
   background: linear-gradient(135deg, #D4A574 0%, #B8860B 100%);
 }
 
-/* ========== AI标识 ========== */
+/* ── 交互效果 ── */
+.btn-click:active { transform: scale(0.98); }
+
+.input-focus {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input-focus:focus {
+  border-color: #D4A574;
+  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.1);
+}
+
+/* ── 表格 ── */
+.table-row-hover {
+  transition: background-color 0.15s ease;
+}
+.table-row-hover:hover {
+  background-color: #FAF5F0;
+}
+
+.table-truncate td > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.table-truncate td { max-width: 0; }
+
+/* ── 紧凑表单 ── */
+.compact-form input,
+.compact-form select,
+.compact-form textarea {
+  font-size: 0.875rem;
+  height: 2rem;
+}
+
+/* ── AI徽章 ── */
 .ai-badge {
   display: inline-flex;
   align-items: center;
@@ -137,74 +191,13 @@ body {
   border: 1px solid #E8DDD0;
 }
 
-/* ========== 加载动画 ========== */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
+/* ── 薄滚动条 ── */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #D4C8BC; border-radius: 2px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #9C8E82; }
 
-/* ========== 淡入动画 ========== */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
-}
-
-/* ========== 缩放动画 ========== */
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-.animate-scale-in {
-  animation: scaleIn 0.2s ease-out;
-}
-
-/* ========== 按钮点击效果 ========== */
-.btn-click:active {
-  transform: scale(0.98);
-}
-
-/* ========== 表格行悬浮效果 ========== */
-.table-row-hover {
-  transition: background-color 0.15s ease;
-}
-.table-row-hover:hover {
-  background-color: #FAF5F0;
-}
-
-/* ========== 输入框聚焦效果 ========== */
-.input-focus {
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.input-focus:focus {
-  border-color: #D4A574;
-  box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.1);
-}
-
-/* ========== 表格截断 ========== */
-.table-truncate td > div {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.table-truncate td {
-  max-width: 0;
-}
-
-/* ========== 紧凑表单 ========== */
-.compact-form input,
-.compact-form select,
-.compact-form textarea {
-  font-size: 0.875rem;
-  height: 2rem;
-}
-
-/* ========== Pipeline Markdown 渲染 ========== */
+/* ── Pipeline Markdown 渲染 ── */
 .pipeline-markdown {
   font-size: 0.75rem;
   line-height: 1.6;
@@ -222,17 +215,9 @@ body {
 .pipeline-markdown h2 { font-size: 1rem; border-bottom: 1px solid #E8DDD0; padding-bottom: 0.25rem; }
 .pipeline-markdown h3 { font-size: 0.9rem; color: #B8860B; }
 .pipeline-markdown h4 { font-size: 0.85rem; }
-
-.pipeline-markdown p {
-  margin: 0.4rem 0;
-  line-height: 1.6;
-}
-
+.pipeline-markdown p { margin: 0.4rem 0; line-height: 1.6; }
 .pipeline-markdown ul,
-.pipeline-markdown ol {
-  margin: 0.4rem 0;
-  padding-left: 1.25rem;
-}
+.pipeline-markdown ol { margin: 0.4rem 0; padding-left: 1.25rem; }
 .pipeline-markdown ul { list-style: disc; }
 .pipeline-markdown ol { list-style: decimal; }
 .pipeline-markdown li { margin: 0.15rem 0; }
@@ -249,14 +234,8 @@ body {
   padding: 0.35rem 0.5rem;
   text-align: left;
 }
-.pipeline-markdown th {
-  background: #F3EDE4;
-  font-weight: 600;
-  color: #4A3828;
-}
-.pipeline-markdown tr:nth-child(even) {
-  background: #FAF5F0;
-}
+.pipeline-markdown th { background: #F3EDE4; font-weight: 600; color: #4A3828; }
+.pipeline-markdown tr:nth-child(even) { background: #FAF5F0; }
 
 .pipeline-markdown code {
   background: #F3EDE4;
@@ -266,7 +245,6 @@ body {
   font-size: 0.7rem;
   font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
 }
-
 .pipeline-markdown pre {
   background: #2C1810;
   color: #D4C8BC;
@@ -276,12 +254,7 @@ body {
   margin: 0.5rem 0;
   font-size: 0.65rem;
 }
-.pipeline-markdown pre code {
-  background: transparent;
-  color: inherit;
-  padding: 0;
-  font-size: inherit;
-}
+.pipeline-markdown pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; }
 
 .pipeline-markdown blockquote {
   border-left: 3px solid #D4A574;
@@ -290,46 +263,6 @@ body {
   color: #5A4D42;
   font-style: italic;
 }
-
-.pipeline-markdown hr {
-  border: none;
-  border-top: 1px solid #E8DDD0;
-  margin: 0.75rem 0;
-}
-
-.pipeline-markdown strong {
-  color: #2C1810;
-  font-weight: 600;
-}
-
-.pipeline-markdown a {
-  color: #B8860B;
-  text-decoration: underline;
-}
-
-/* ========== 闪烁光标 ========== */
-@keyframes blinkCursor {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-.animate-blink-cursor {
-  animation: blinkCursor 1s step-end infinite;
-  display: inline-block;
-  vertical-align: text-bottom;
-}
-
-/* ========== 薄滚动条 ========== */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #D4C8BC;
-  border-radius: 2px;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #9C8E82;
-}
+.pipeline-markdown hr { border: none; border-top: 1px solid #E8DDD0; margin: 0.75rem 0; }
+.pipeline-markdown strong { color: #2C1810; font-weight: 600; }
+.pipeline-markdown a { color: #B8860B; text-decoration: underline; }

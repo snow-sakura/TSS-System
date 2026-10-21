@@ -22,6 +22,7 @@ import CasesList from "./pages/CasesList"
 import ReviewsList from "./pages/ReviewsList"
 import AIPipeline from "./pages/AIPipeline"
 import ProcessRecords from "./pages/ProcessRecords"
+import SequenceCenter from "./pages/SequenceCenter"
 import { useAutomationStore } from "@/stores/automationStore"
 
 // 主流程菜单：每个节点都是必需的
@@ -31,6 +32,7 @@ const MENU_ITEMS: SidebarItem[] = [
   { key: "cases", label: "用例管理", icon: "cases" },
   { key: "reviews", label: "评审管理", icon: "records" },
   { key: "pipeline", label: "AI自动化", icon: "pipeline" },
+  { key: "sequence", label: "序列任务", icon: "pipeline" },
   { key: "records", label: "流程记录", icon: "plans" },
 ]
 
@@ -69,6 +71,7 @@ function RequirementTestingPage() {
       case "cases": return <CasesList />
       case "reviews": return <ReviewsList />
       case "pipeline": return <AIPipeline key={currentRecord?.id || "empty"} onStageUpdate={handleStageUpdate} />
+      case "sequence": return <SequenceCenter />
       case "records": return <ProcessRecords />
       default: return <AIPipeline key={currentRecord?.id || "empty"} onStageUpdate={handleStageUpdate} />
     }

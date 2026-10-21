@@ -332,24 +332,24 @@ export default function TestCaseManager() {
         ) : paged.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-muted"><FlaskConical className="w-8 h-8 mb-2 text-muted-light" /><p className="text-sm">暂无测试用例</p></div>
         ) : (
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-border bg-cream/50">
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light w-12">ID</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light">标题</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light w-16">优先级</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light w-20">状态</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light w-16">来源</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-ink-light w-32">操作</th>
+          <table className="w-full text-sm table-fixed">
+             <thead><tr className="border-b border-border bg-cream/50">
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-10">ID</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[220px]">标题</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">优先级</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">状态</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[70px]">来源</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[140px]">操作</th>
             </tr></thead>
             <tbody>
               {paged.map((c) => (
                 <tr key={c.id} className="border-b border-border/50 hover:bg-cream/30 transition-colors">
-                  <td className="px-4 py-3 text-center text-xs text-muted">{c.id}</td>
-                  <td className="px-4 py-3 text-center"><span className="text-sm font-medium text-ink truncate max-w-[200px] block">{c.title}</span></td>
-                  <td className="px-4 py-3 text-center"><span className={`text-xs font-semibold ${priorityColors[c.priority] || "text-muted"}`}>{c.priority}</span></td>
-                  <td className="px-4 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColors[c.status] || "bg-cream text-muted"}`}>{statusLabels[c.status] || c.status}</span></td>
-                  <td className="px-4 py-3 text-center">{c.ai_generated ? <span className="px-1.5 py-0.5 rounded bg-amber-light text-[10px] font-medium text-amber">AI</span> : <span className="text-[11px] text-muted">手动</span>}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{c.id}</td>
+                  <td className="px-3 py-2.5"><span className="text-sm font-medium text-ink truncate block">{c.title}</span></td>
+                  <td className="px-3 py-2.5 text-center"><span className={`text-xs font-semibold whitespace-nowrap ${priorityColors[c.priority] || "text-muted"}`}>{c.priority}</span></td>
+                  <td className="px-3 py-2.5 text-center"><span className={`px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${statusColors[c.status] || "bg-cream text-muted"}`}>{statusLabels[c.status] || c.status}</span></td>
+                  <td className="px-3 py-2.5 text-center">{c.ai_generated ? <span className="px-1.5 py-0.5 rounded bg-amber-light text-[10px] font-medium text-amber">AI</span> : <span className="text-[11px] text-muted">手动</span>}</td>
+                  <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button onClick={() => setPreviewCase(c)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors" title="预览"><Eye className="w-3.5 h-3.5" /></button>
                       <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg hover:bg-amber-light text-ink-light hover:text-amber-700 transition-colors" title="编辑"><Edit className="w-3.5 h-3.5" /></button>

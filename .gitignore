@@ -47,3 +47,9 @@ tss.db
 
 # Logs
 *.log
+
+# Browser verification temp artifacts (session-scoped)
+/.playwright-mcp/
+
+# Keep documentation screenshots under version control
+!tts-paper-test/docs/screenshots/*.png

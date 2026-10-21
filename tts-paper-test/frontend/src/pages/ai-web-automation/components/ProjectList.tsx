@@ -190,7 +190,7 @@ export default function ProjectList() {
                 <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-amber-light text-ink-light hover:text-amber-hover transition-colors"><Edit className="w-4 h-4" /></button>
                 <button onClick={() => handleDelete(p)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail transition-colors"><Trash2 className="w-4 h-4" /></button>
               </div>
-              <span className="text-[11px] text-muted">{p.created_at}</span>
+              <span className="text-[11px] text-muted">{p.created_at ? new Date(p.created_at).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"}</span>
             </div>
           </div>
         ))}
@@ -240,7 +240,7 @@ export default function ProjectList() {
             <div className="px-6 py-5 space-y-3">
               <div className="grid grid-cols-2 gap-3 text-sm"><div><span className="text-muted">状态：</span><span className={`ml-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(previewProject.status)}`}>{previewProject.status}</span></div><div><span className="text-muted">URL：</span><span className="ml-1 text-ink font-mono text-xs">{previewProject.target_url}</span></div></div>
               <div className="text-sm"><span className="text-muted">描述：</span><p className="text-ink mt-1">{previewProject.description || "暂无描述"}</p></div>
-              <div className="grid grid-cols-3 gap-3 text-center"><div><p className="text-lg font-bold text-ink">{previewProject.page_count || 0}</p><p className="text-[11px] text-muted">页面</p></div><div><p className="text-lg font-bold text-ink">{previewProject.test_case_count || 0}</p><p className="text-[11px] text-muted">用例</p></div><div><p className="text-lg font-bold text-ink">{previewProject.created_at}</p><p className="text-[11px] text-muted">创建时间</p></div></div>
+              <div className="grid grid-cols-3 gap-3 text-center"><div><p className="text-lg font-bold text-ink">{previewProject.page_count || 0}</p><p className="text-[11px] text-muted">页面</p></div><div><p className="text-lg font-bold text-ink">{previewProject.test_case_count || 0}</p><p className="text-[11px] text-muted">用例</p></div><div><p className="text-lg font-bold text-ink">{previewProject.created_at ? new Date(previewProject.created_at).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"}</p><p className="text-[11px] text-muted">创建时间</p></div></div>
             </div>
           </div>
         </div>

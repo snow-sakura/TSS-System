@@ -59,6 +59,7 @@ from .app_automation import (
 )
 from .ai_test_task import TestTask
 from .data_factory import DataFactoryLog
+from .sequence import SequenceGroup
 
 __all__ = [
     "Base",
@@ -110,4 +111,5 @@ __all__ = [
     "AppCrashLog",
     "TestTask",
     "DataFactoryLog",
+    "SequenceGroup",
 ]

@@ -202,18 +202,18 @@ export default function ReportList() {
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 text-amber animate-spin" /></div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="bg-cream/30 border-b border-border">
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-10">ID</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">报告标题</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">类型</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">状态</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">用例数</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">通过率</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">缺陷数</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">作者</th>
-                <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-24">操作</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-10">ID</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-[220px]">报告标题</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-[90px]">类型</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-[80px]">状态</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-[70px]">用例数</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-[70px]">通过率</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-[70px]">缺陷数</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-[90px]">作者</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-ink w-[100px]">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -225,21 +225,21 @@ export default function ReportList() {
                 const statusInfo = STATUS_MAP[r.status]
                 return (
                   <tr key={r.id} className="border-b border-border/50 hover:bg-cream/20 transition-colors">
-                    <td className="px-4 py-2.5 text-[11px] text-muted font-mono">#{r.id}</td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
+                    <td className="px-3 py-2.5 text-[11px] text-muted font-mono">#{r.id}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
                         <FileText className="w-3.5 h-3.5 text-teal-500 flex-shrink-0" />
-                        <span className="text-sm font-medium text-ink truncate max-w-[200px]">{r.title}</span>
-                        {r.ai_generated && <span className="px-1 py-0.5 rounded bg-amber/10 text-amber text-[9px] font-medium">AI</span>}
+                        <span className="text-sm font-medium text-ink truncate">{r.title}</span>
+                        {r.ai_generated && <span className="px-1 py-0.5 rounded bg-amber/10 text-amber text-[9px] font-medium flex-shrink-0">AI</span>}
                       </div>
                     </td>
-                    <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${typeInfo?.color || "bg-cream text-muted"}`}>{typeInfo?.label || r.type}</span></td>
-                    <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${statusInfo?.color || "bg-cream text-muted"}`}>{statusInfo?.label || r.status}</span></td>
-                    <td className="px-4 py-2.5 text-[11px] text-ink">{r.totalCases}</td>
-                    <td className="px-4 py-2.5"><span className={`text-[11px] font-medium ${passRate >= 90 ? "text-pass" : passRate >= 70 ? "text-warn" : "text-fail"}`}>{r.totalCases ? `${passRate}%` : "-"}</span></td>
-                    <td className="px-4 py-2.5 text-[11px] text-ink">{r.defects}</td>
-                    <td className="px-4 py-2.5 text-[11px] text-muted">{r.author}</td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${typeInfo?.color || "bg-cream text-muted"}`}>{typeInfo?.label || r.type}</span></td>
+                    <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-medium ${statusInfo?.color || "bg-cream text-muted"}`}>{statusInfo?.label || r.status}</span></td>
+                    <td className="px-3 py-2.5 text-[11px] text-ink">{r.totalCases}</td>
+                    <td className="px-3 py-2.5"><span className={`text-[11px] font-medium ${passRate >= 90 ? "text-pass" : passRate >= 70 ? "text-warn" : "text-fail"}`}>{r.totalCases ? `${passRate}%` : "-"}</span></td>
+                    <td className="px-3 py-2.5 text-[11px] text-ink">{r.defects}</td>
+                    <td className="px-3 py-2.5 text-[11px] text-muted truncate">{r.author}</td>
+                    <td className="px-3 py-2.5">
                       <div className="flex items-center gap-0.5">
                         <button onClick={() => setPreviewReport(r)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => { setDialogMode("edit"); setEditingReport(r); setForm({ title: r.title, type: r.type, summary: r.summary }); setShowDialog(true) }} className="p-1.5 rounded-lg hover:bg-amber-light text-ink-light hover:text-amber-hover transition-colors"><Edit className="w-4 h-4" /></button>

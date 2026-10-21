@@ -18,13 +18,13 @@ export class TestManagementHubPage {
   /** 通过左侧导航进入测试管理 Hub */
   async gotoViaNav() {
     await this.navItem.first().click()
-    await this.page.waitForURL(/\/test-management-hub/, { timeout: 10_000 })
+    await this.page.waitForURL(/\/test-management/, { timeout: 10_000 })
     await this.page.waitForLoadState("networkidle")
   }
 
   /** 直接导航到测试管理 Hub */
   async goto() {
-    await this.page.goto("/test-management-hub")
+    await this.page.goto("/test-management")
     await this.page.waitForLoadState("networkidle")
   }
 

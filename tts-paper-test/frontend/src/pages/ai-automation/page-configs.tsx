@@ -2,7 +2,7 @@
  * 各测试类型的子页面配置
  * 定义每个子页面的表格列、Mock数据、统计卡片、操作按钮
  */
-import { CheckCircle, XCircle, Clock, Play, Eye, Edit, Trash2, Download, Pause, AlertTriangle, Shield, Loader2 } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Play, Eye, Edit, Pause, AlertTriangle, Shield, Loader2 } from "lucide-react"
 import type { Column, StatCard, Action } from "./components/GenericTestPage"
 
 // ════════════════════════════════════════
@@ -155,7 +155,6 @@ export const API_PAGES = {
     ],
     actions: [
       { label: "查看", icon: Eye, onClick: () => {} },
-      { label: "下载", icon: Download, onClick: () => {} },
     ],
   },
 }
@@ -424,7 +423,6 @@ export const PERF_PAGES = {
     ],
     actions: [
       { label: "查看", icon: Eye, onClick: () => {} },
-      { label: "下载", icon: Download, onClick: () => {} },
     ],
   },
 }
@@ -563,7 +561,7 @@ export const SEC_PAGES = {
     ],
     actions: [
       { label: "查看", icon: Eye, onClick: () => {} },
-      { label: "下载", icon: Download, onClick: () => {} },
+      { label: "修复建议", icon: Shield, onClick: () => {} },
     ],
   },
 }
@@ -607,7 +605,7 @@ export const COMPAT_PAGES = {
     { key: "generatedAt", label: "生成时间" },
   ], data: [
     { id: 1, name: "兼容性测试报告-0722", score: "95.8%", generatedAt: "2026-07-22 14:00" },
-  ], actions: [{ label: "查看", icon: Eye, onClick: () => {} }, { label: "下载", icon: Download, onClick: () => {} }] },
+  ], actions: [{ label: "查看", icon: Eye, onClick: () => {} }] },
 }
 
 // ════════════════════════════════════════
@@ -648,7 +646,7 @@ export const REG_PAGES = {
     { key: "id", label: "ID", width: "60px" }, { key: "name", label: "报告名称" }, { key: "generatedAt", label: "生成时间" },
   ], data: [
     { id: 1, name: "回归测试报告-0722", generatedAt: "2026-07-22 16:00" },
-  ], actions: [{ label: "查看", icon: Eye, onClick: () => {} }, { label: "下载", icon: Download, onClick: () => {} }] },
+  ], actions: [{ label: "查看", icon: Eye, onClick: () => {} }] },
 }
 
 // ════════════════════════════════════════
@@ -685,7 +683,7 @@ export const EXP_PAGES = {
     { key: "id", label: "ID", width: "60px" }, { key: "name", label: "报告名称" }, { key: "generatedAt", label: "生成时间" },
   ], data: [
     { id: 1, name: "探索性测试报告-0722", generatedAt: "2026-07-22 15:00" },
-  ], actions: [{ label: "查看", icon: Eye, onClick: () => {} }, { label: "下载", icon: Download, onClick: () => {} }] },
+  ], actions: [{ label: "查看", icon: Eye, onClick: () => {} }] },
 }
 
 // ════════════════════════════════════════
@@ -723,7 +721,7 @@ export const WEB_PAGES = {
     { key: "id", label: "ID", width: "60px" }, { key: "name", label: "报告名称" }, { key: "generatedAt", label: "生成时间" },
   ], data: [
     { id: 1, name: "Web测试报告-0722", generatedAt: "2026-07-22 16:30" },
-  ], actions: [{ label: "查看", icon: Eye, onClick: () => {} }, { label: "下载", icon: Download, onClick: () => {} }] },
+  ], actions: [{ label: "查看", icon: Eye, onClick: () => {} }] },
 }
 
 // ════════════════════════════════════════

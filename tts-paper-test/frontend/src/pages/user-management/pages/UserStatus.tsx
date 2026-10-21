@@ -107,15 +107,15 @@ export default function UserStatus() {
 
       {/* 表格 */}
       <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden flex-1">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed">
           <thead>
             <tr className="bg-cream/30 border-b border-border">
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">用户名</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">状态</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">最后活跃</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">IP地址</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink">浏览器</th>
-              <th className="text-left px-4 py-2.5 text-[11px] font-semibold text-ink w-24">操作</th>
+              <th className="text-center px-3 py-2.5 text-xs font-semibold text-ink w-[160px]">用户名</th>
+              <th className="text-center px-3 py-2.5 text-xs font-semibold text-ink w-[80px]">状态</th>
+              <th className="text-center px-3 py-2.5 text-xs font-semibold text-ink w-[150px]">最后活跃</th>
+              <th className="text-center px-3 py-2.5 text-xs font-semibold text-ink w-[120px]">IP地址</th>
+              <th className="text-center px-3 py-2.5 text-xs font-semibold text-ink w-[140px]">浏览器</th>
+              <th className="text-center px-3 py-2.5 text-xs font-semibold text-ink w-[80px]">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -125,17 +125,17 @@ export default function UserStatus() {
               <tr><td colSpan={6} className="text-center py-12 text-muted">暂无数据</td></tr>
             ) : data.map((u) => (
               <tr key={u.id} className="border-b border-border/50 hover:bg-cream/20 transition-colors">
-                <td className="px-4 py-2.5 text-sm font-medium text-ink">{u.username}</td>
-                <td className="px-4 py-2.5">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium ${u.status === "在线" ? "bg-pass/10 text-pass" : "bg-cream text-muted"}`}>
+                <td className="px-3 py-2.5 text-sm font-medium text-ink truncate">{u.username}</td>
+                <td className="px-3 py-2.5">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${u.status === "在线" ? "bg-pass/10 text-pass" : "bg-cream text-muted"}`}>
                     {u.status === "在线" ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
                     {u.status}
                   </span>
                 </td>
-                <td className="px-4 py-2.5 text-[11px] text-muted">{u.last_login_at}</td>
-                <td className="px-4 py-2.5 text-[11px] text-ink font-mono">{u.ip}</td>
-                <td className="px-4 py-2.5 text-[11px] text-muted">{u.browser}</td>
-                <td className="px-4 py-2.5">
+                <td className="px-3 py-2.5 text-[11px] text-muted truncate">{u.last_login_at && u.last_login_at !== "-" ? new Date(u.last_login_at).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
+                <td className="px-3 py-2.5 text-[11px] text-ink font-mono truncate">{u.ip}</td>
+                <td className="px-3 py-2.5 text-[11px] text-muted truncate">{u.browser}</td>
+                <td className="px-3 py-2.5">
                   {u.status === "在线" && (
                     <button onClick={() => handleForceOffline(u)} className="px-2 py-1 rounded-lg text-[10px] font-medium bg-fail/10 text-fail hover:bg-fail/20 transition-colors">
                       强制下线

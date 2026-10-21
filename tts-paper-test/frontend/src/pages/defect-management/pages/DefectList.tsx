@@ -318,32 +318,32 @@ export default function DefectList() {
       {/* 表格 */}
       <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden flex-1">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead><tr className="border-b border-border bg-cream/50">
-              <th className="px-3 py-3 w-10"><input type="checkbox" checked={paged.length > 0 && paged.every((d) => selectedIds.has(String(d.id)))} onChange={() => { if (paged.every((d) => selectedIds.has(String(d.id)))) { const n = new Set(selectedIds); paged.forEach((d) => n.delete(String(d.id))); setSelectedIds(n) } else { const n = new Set(selectedIds); paged.forEach((d) => n.add(String(d.id))); setSelectedIds(n) } }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink w-10">ID</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber" onClick={() => handleSort("title")}>缺陷标题 {sortKey === "title" && (sortDir === "asc" ? "↑" : "↓")}</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">模块</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber" onClick={() => handleSort("severity")}>严重程度 {sortKey === "severity" && (sortDir === "asc" ? "↑" : "↓")}</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber" onClick={() => handleSort("priority")}>优先级 {sortKey === "priority" && (sortDir === "asc" ? "↑" : "↓")}</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink cursor-pointer hover:text-amber" onClick={() => handleSort("status")}>状态 {sortKey === "status" && (sortDir === "asc" ? "↑" : "↓")}</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">指派人</th>
-              <th className="px-3 py-3 text-center text-xs font-bold text-ink">操作</th>
+              <th className="px-3 py-2.5 w-10"><input type="checkbox" checked={paged.length > 0 && paged.every((d) => selectedIds.has(String(d.id)))} onChange={() => { if (paged.every((d) => selectedIds.has(String(d.id)))) { const n = new Set(selectedIds); paged.forEach((d) => n.delete(String(d.id))); setSelectedIds(n) } else { const n = new Set(selectedIds); paged.forEach((d) => n.add(String(d.id))); setSelectedIds(n) } }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-10">ID</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[220px] cursor-pointer hover:text-amber" onClick={() => handleSort("title")}>缺陷标题 {sortKey === "title" && (sortDir === "asc" ? "↑" : "↓")}</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[100px]">模块</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[90px] cursor-pointer hover:text-amber" onClick={() => handleSort("severity")}>严重程度 {sortKey === "severity" && (sortDir === "asc" ? "↑" : "↓")}</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px] cursor-pointer hover:text-amber" onClick={() => handleSort("priority")}>优先级 {sortKey === "priority" && (sortDir === "asc" ? "↑" : "↓")}</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px] cursor-pointer hover:text-amber" onClick={() => handleSort("status")}>状态 {sortKey === "status" && (sortDir === "asc" ? "↑" : "↓")}</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[90px]">指派人</th>
+              <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[120px]">操作</th>
             </tr></thead>
             <tbody>
               {paged.length === 0 ? (
                 <tr><td colSpan={9} className="px-4 py-16 text-center text-muted"><Bug className="w-10 h-10 mx-auto mb-2 text-muted-light" /><p className="text-sm font-medium">暂无缺陷</p><p className="text-xs mt-1">点击「新建缺陷」添加</p></td></tr>
               ) : paged.map((d, idx) => (
                 <tr key={d.id} className={`border-b border-border/50 last:border-b-0 transition-colors ${selectedIds.has(String(d.id)) ? "bg-amber-light/40" : idx % 2 === 1 ? "bg-cream/30" : "bg-white"} hover:bg-cream/50`}>
-                  <td className="px-3 py-3"><input type="checkbox" checked={selectedIds.has(String(d.id))} onChange={() => { const n = new Set(selectedIds); if (n.has(String(d.id))) n.delete(String(d.id)); else n.add(String(d.id)); setSelectedIds(n) }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></td>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{d.id}</td>
-                  <td className="px-3 py-3 text-center"><div className="flex items-center justify-center gap-1.5 min-w-0"><Bug className="w-3.5 h-3.5 text-fail flex-shrink-0" /><span className="text-sm font-medium text-ink truncate max-w-[220px]">{d.title}</span>{d.aiAnalysis && <span className="text-[10px] text-amber font-medium">AI</span>}</div></td>
-                  <td className="px-3 py-3 text-center text-xs text-muted">{d.module}</td>
-                  <td className="px-3 py-3 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${severityColor(d.severity)}`}>{d.severity}</span></td>
-                  <td className="px-3 py-3 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${priorityColor(d.priority)}`}>{d.priority}</span></td>
-                  <td className="px-3 py-3 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(d.status)}`}>{d.status}</span></td>
-                  <td className="px-3 py-3 text-center"><span className="text-xs text-muted">{d.assignee || <span className="text-fail">未分配</span>}</span></td>
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-3 py-2.5"><input type="checkbox" checked={selectedIds.has(String(d.id))} onChange={() => { const n = new Set(selectedIds); if (n.has(String(d.id))) n.delete(String(d.id)); else n.add(String(d.id)); setSelectedIds(n) }} className="w-4 h-4 rounded border-border text-amber focus:ring-amber" /></td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{d.id}</td>
+                  <td className="px-3 py-2.5"><div className="flex items-center gap-1.5 min-w-0"><Bug className="w-3.5 h-3.5 text-fail flex-shrink-0" /><span className="text-sm font-medium text-ink truncate">{d.title}</span>{d.aiAnalysis && <span className="text-[10px] text-amber font-medium flex-shrink-0">AI</span>}</div></td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{d.module}</td>
+                  <td className="px-3 py-2.5 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${severityColor(d.severity)}`}>{d.severity}</span></td>
+                  <td className="px-3 py-2.5 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${priorityColor(d.priority)}`}>{d.priority}</span></td>
+                  <td className="px-3 py-2.5 text-center"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColor(d.status)}`}>{d.status}</span></td>
+                  <td className="px-3 py-2.5 text-center"><span className="text-xs text-muted truncate block">{d.assignee || <span className="text-fail">未分配</span>}</span></td>
+                  <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-0.5">
                       <button onClick={() => setPreviewDefect(d)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info transition-colors" title="预览"><Eye className="w-4 h-4" /></button>
                       <button onClick={() => handleAiAnalyze(d)} className="p-1.5 rounded-lg hover:bg-amber-light text-ink-light hover:text-amber-hover transition-colors" title="AI分析"><Sparkles className="w-4 h-4" /></button>

@@ -5,7 +5,7 @@
  */
 import { useState, useCallback, useRef, memo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { ArrowLeft, Globe, FileText, ClipboardList, Target, Play, BarChart3, CheckCircle } from "lucide-react"
+import { ArrowLeft, Globe, FileText, ClipboardList, Target, Play, BarChart3, CheckCircle, GitBranch, Bot } from "lucide-react"
 import { toast } from "sonner"
 import Sidebar, { type SidebarItem } from "../requirement-testing/components/Sidebar"
 import FlowChart from "./components/FlowChart"
@@ -268,20 +268,47 @@ function AiWebAutomationPage() {
     setFlowStatus((prev) => ({ ...prev, ...status }))
   }, [])
 
+  // AI探索页内的子TAB状态
+  const [exploreTab, setExploreTab] = useState<"explore" | "agent">("explore")
+
   const renderContent = () => {
     switch (activeMenu) {
       case "wa-projects":
         return <ProjectList />
       case "wa-explore":
-        // AI智能体并入 AI探索：左「探索任务」右「AI智能体」，双栏并排
-        // 右栏限高 + 内滚，首屏完整可见，整页不再纵向拉伸
+        // AI探索 + AI智能体：TAB切换，单屏显示
         return (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
-            <AiExploration onStatusChange={handleStatusChange} />
-            <div className="xl:sticky xl:top-2">
-              <div className="xl:max-h-[calc(100vh-140px)] xl:overflow-y-auto">
+          <div className="flex flex-col h-full">
+            {/* 子TAB切换 */}
+            <div className="flex border-b border-border mb-3">
+              {[
+                { key: "explore" as const, label: "AI探索", icon: Target },
+                { key: "agent" as const, label: "AI智能体", icon: Bot },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setExploreTab(tab.key)}
+                  className={`flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition-colors relative ${
+                    exploreTab === tab.key
+                      ? "text-amber"
+                      : "text-muted hover:text-ink"
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  {tab.label}
+                  {exploreTab === tab.key && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber" />
+                  )}
+                </button>
+              ))}
+            </div>
+            {/* 内容区域 - 填充剩余空间 */}
+            <div className="flex-1 min-h-0">
+              {exploreTab === "explore" ? (
+                <AiExploration onStatusChange={handleStatusChange} />
+              ) : (
                 <AiAgentPanel />
-              </div>
+              )}
             </div>
           </div>
         )
@@ -297,7 +324,7 @@ function AiWebAutomationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col">
+    <div className="h-screen bg-paper flex flex-col overflow-hidden">
       <div className="bg-white border-b border-border px-4 md:px-6 py-3 flex-shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate("/")} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-cream border border-border/60 transition-all group">
@@ -312,6 +339,14 @@ function AiWebAutomationPage() {
             <h1 className="text-sm font-bold text-ink truncate" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>AI Web自动化</h1>
             <p className="text-[11px] text-muted truncate">视觉驱动的网页自动化测试，AI自动探索与执行</p>
           </div>
+          {/* 工作流编排跳转 */}
+          <button
+            onClick={() => navigate("/workflow-orchestration")}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-cream border border-border/60 transition-all group text-xs text-ink-light hover:text-ink"
+          >
+            <GitBranch className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">工作流编排</span>
+          </button>
         </div>
       </div>
 
@@ -324,8 +359,8 @@ function AiWebAutomationPage() {
           <Sidebar items={MENU_ITEMS} activeKey={activeMenu} onSelect={(key) => { navigate(`/ai-web-automation?menu=${key}`); setSidebarOpen(false) }} />
         </div>
 
-        <main className="flex-1 overflow-y-auto p-4 bg-cream/30">
-          <div className="max-w-[1400px] mx-auto space-y-4">
+        <main className="flex-1 overflow-hidden p-4 bg-cream/30">
+          <div className="mx-auto h-full flex flex-col">
             {/* 流程图 + 引擎选择器按需显示：仅探索/用例/执行 Tab — 合并为单行工具栏，首屏不再被大卡片占用 */}
             {FLOW_TABS.includes(activeMenu) && (
               <div className="flex items-stretch gap-3">
@@ -343,8 +378,10 @@ function AiWebAutomationPage() {
               </div>
             )}
 
-            {/* 内容区 */}
-            {renderContent()}
+            {/* 内容区 - 填充剩余空间 */}
+            <div className="flex-1 min-h-0">
+              {renderContent()}
+            </div>
           </div>
         </main>
       </div>

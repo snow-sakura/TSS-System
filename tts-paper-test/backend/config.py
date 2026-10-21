@@ -15,19 +15,19 @@ class Settings(BaseSettings):
     # 应用
     APP_NAME: str = "TSS AI测试平台"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False  # 默认关闭，生产环境必须通过 .env 显式开启
 
     # 数据库
     DATABASE_URL: str = f"sqlite+aiosqlite:///{BASE_DIR / 'tss_dev.db'}"
 
     # JWT
-    SECRET_KEY: str = "tss-ai-test-platform-secret-key-change-in-production"
+    SECRET_KEY: str = "CHANGE-ME-IN-PRODUCTION"  # 必须通过 .env 覆盖，否则拒绝启动
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    CORS_ORIGINS: list[str] = ["http://localhost:5174", "http://localhost:3001"]
 
     # 日志
     LOG_LEVEL: str = "INFO"
@@ -65,6 +65,12 @@ class Settings(BaseSettings):
 
     # Mock 模式：auto=有Key用真、无Key自动mock | true=强制mock | false=强制真实
     MOCK_MODE: str = "auto"
+
+    # 序列执行调度
+    # MODEL_TIER: auto=按启用Provider/模型名自动判定 | free=强制单任务串行 | paid=强制并行
+    MODEL_TIER: str = "auto"
+    # 付费模型最大并行序列任务数（免费模型固定为 1）
+    MAX_PARALLEL_SEQUENCES: int = 3
 
     # Midscene.js（免费视觉模型待补充；DashScope 付费欠费已移除）
     MIDSCENE_MODEL_NAME: str = ""

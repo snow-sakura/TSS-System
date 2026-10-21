@@ -10,19 +10,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.log_service import create_operation_log as _log
 
 from models.config import (
-    Environment, LLMProvider, PromptTemplate, DeAIStyle,
-    MCPService, Skill, HermesChannel,
-    HealthHistory, LLMUsageLog, StepPromptConfig,
+    Environment,
+    LLMProvider,
+    PromptTemplate,
+    DeAIStyle,
+    MCPService,
+    Skill,
+    HermesChannel,
+    HealthHistory,
+    LLMUsageLog,
+    StepPromptConfig,
 )
 from schemas.config import (
-    EnvironmentCreate, EnvironmentUpdate,
-    LLMProviderCreate, LLMProviderUpdate,
-    PromptTemplateCreate, PromptTemplateUpdate,
-    DeAIStyleCreate, DeAIStyleUpdate,
-    MCPServiceCreate, MCPServiceUpdate,
-    SkillCreate, SkillUpdate,
-    HermesChannelCreate, HermesChannelUpdate,
-    StepPromptConfigCreate, StepPromptConfigUpdate,
+    EnvironmentCreate,
+    EnvironmentUpdate,
+    LLMProviderCreate,
+    LLMProviderUpdate,
+    PromptTemplateCreate,
+    PromptTemplateUpdate,
+    DeAIStyleCreate,
+    DeAIStyleUpdate,
+    MCPServiceCreate,
+    MCPServiceUpdate,
+    SkillCreate,
+    SkillUpdate,
+    HermesChannelCreate,
+    HermesChannelUpdate,
+    StepPromptConfigCreate,
+    StepPromptConfigUpdate,
     StepPromptTestRequest,
 )
 
@@ -30,6 +45,7 @@ from schemas.config import (
 # ============================
 # 通用 CRUD 辅助函数
 # ============================
+
 
 async def _paginate(db: AsyncSession, model, page: int = 1, page_size: int = 20):
     """通用分页查询"""
@@ -93,11 +109,19 @@ def _get_item_summary(obj) -> str:
     return f"#{getattr(obj, 'id', '?')}"
 
 
-async def _record_log(db: AsyncSession, model, action: str, target_id: int | None = None, detail: str | None = None):
+async def _record_log(
+    db: AsyncSession,
+    model,
+    action: str,
+    target_id: int | None = None,
+    detail: str | None = None,
+):
     """通用操作日志记录"""
     try:
         await _log(
-            db, module=_get_module_name(model), action=action,
+            db,
+            module=_get_module_name(model),
+            action=action,
             target_id=str(target_id) if target_id is not None else None,
             target_type=model.__name__,
             detail={"message": detail} if detail else None,
@@ -117,6 +141,7 @@ def validate_json_field(value: Any, field_name: str = "字段") -> str | None:
     if isinstance(value, str):
         try:
             import json
+
             json.loads(value)
             return None
         except json.JSONDecodeError:
@@ -183,11 +208,14 @@ async def list_health_history(
 # 环境配置 Service
 # ============================
 
+
 async def list_environments(db: AsyncSession, page: int = 1, page_size: int = 20):
     return await _paginate(db, Environment, page, page_size)
 
+
 async def get_environment(db: AsyncSession, env_id: int):
     return await _get_by_id(db, Environment, env_id)
+
 
 async def create_environment(db: AsyncSession, data: EnvironmentCreate):
     env = Environment(**data.model_dump())
@@ -196,6 +224,7 @@ async def create_environment(db: AsyncSession, data: EnvironmentCreate):
     await db.refresh(env)
     await _record_log(db, Environment, "创建环境", env.id, f"创建环境「{env.name}」")
     return env
+
 
 async def update_environment(db: AsyncSession, env_id: int, data: EnvironmentUpdate):
     env = await _get_by_id(db, Environment, env_id)
@@ -209,6 +238,7 @@ async def update_environment(db: AsyncSession, env_id: int, data: EnvironmentUpd
     await _record_log(db, Environment, "更新环境", env.id, f"更新环境「{env.name}」")
     return env
 
+
 async def delete_environment(db: AsyncSession, env_id: int):
     env = await _get_by_id(db, Environment, env_id)
     if not env:
@@ -219,22 +249,30 @@ async def delete_environment(db: AsyncSession, env_id: int):
     await _record_log(db, Environment, "删除环境", env_id, f"删除环境「{name}」")
     return True
 
+
 async def health_check_environment(db: AsyncSession, env_id: int):
     """健康检测 — 检测并记录历史"""
     env = await _get_by_id(db, Environment, env_id)
     if not env:
         return None
     import time
+
     latency = round(random.uniform(0.05, 0.5), 3)
     env.status = "在线" if random.random() > 0.1 else "离线"
     env.last_check_at = datetime.now()
     await db.commit()
     await db.refresh(env)
-    await _record_log(db, Environment, "健康检测", env.id, f"环境「{env.name}」状态: {env.status}")
+    await _record_log(
+        db, Environment, "健康检测", env.id, f"环境「{env.name}」状态: {env.status}"
+    )
     # 写入健康检测历史
     await _record_health_history(
-        db, "environment", env.id, env.name,
-        status=env.status, latency=f"{latency}s",
+        db,
+        "environment",
+        env.id,
+        env.name,
+        status=env.status,
+        latency=f"{latency}s",
         detail=f"环境检测: {env.url}",
     )
     return env
@@ -244,9 +282,11 @@ async def health_check_environment(db: AsyncSession, env_id: int):
 # 大模型配置 Service
 # ============================
 
+
 async def _enrich_with_usage_stats(db: AsyncSession, providers: list):
     """为每个 LLM Provider 补充真实用量统计（从 LLMUsageLog 聚合）"""
     from datetime import datetime, timedelta
+
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     enriched = []
     for p in providers:
@@ -257,45 +297,72 @@ async def _enrich_with_usage_stats(db: AsyncSession, providers: list):
         calls_today = (await db.execute(calls_q)).scalar() or 0
 
         # 今日费用 (从 cost 字符串解析)
-        cost_rows = (await db.execute(
-            select(LLMUsageLog.cost).where(
-                LLMUsageLog.provider_id == p.id, LLMUsageLog.called_at >= today_start
+        cost_rows = (
+            (
+                await db.execute(
+                    select(LLMUsageLog.cost).where(
+                        LLMUsageLog.provider_id == p.id,
+                        LLMUsageLog.called_at >= today_start,
+                    )
+                )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
         cost_today = 0.0
         for c in cost_rows:
             if c and c.startswith("¥"):
-                try: cost_today += float(c.replace("¥", ""))
-                except: pass
+                try:
+                    cost_today += float(c.replace("¥", ""))
+                except (ValueError, TypeError):
+                    pass
 
         # 平均延迟
-        latency_rows = (await db.execute(
-            select(LLMUsageLog.latency).where(
-                LLMUsageLog.provider_id == p.id, LLMUsageLog.called_at >= today_start,
-                LLMUsageLog.latency != None
+        latency_rows = (
+            (
+                await db.execute(
+                    select(LLMUsageLog.latency).where(
+                        LLMUsageLog.provider_id == p.id,
+                        LLMUsageLog.called_at >= today_start,
+                        LLMUsageLog.latency != None,
+                    )
+                )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
         avg_latency = "-"
         if latency_rows:
-            total_lat = 0.0; count = 0
+            total_lat = 0.0
+            count = 0
             for l in latency_rows:
                 if l and l.endswith("s"):
-                    try: total_lat += float(l[:-1]); count += 1
-                    except: pass
+                    try:
+                        total_lat += float(l[:-1])
+                        count += 1
+                    except (ValueError, TypeError):
+                        pass
             if count > 0:
                 avg_latency = f"{round(total_lat / count, 2)}s"
 
-        enriched.append({
-            "id": p.id, "name": p.name, "model": p.model, "type": p.type,
-            "api_key": p.api_key, "base_url": p.base_url,
-            "max_tokens": p.max_tokens, "temperature": p.temperature,
-            "status": p.status,
-            "calls_today": calls_today,
-            "cost_today": f"¥{cost_today:.2f}",
-            "avg_latency": avg_latency,
-            "created_at": p.created_at,
-            "updated_at": p.updated_at,
-        })
+        enriched.append(
+            {
+                "id": p.id,
+                "name": p.name,
+                "model": p.model,
+                "type": p.type,
+                "api_key": p.api_key,
+                "base_url": p.base_url,
+                "max_tokens": p.max_tokens,
+                "temperature": p.temperature,
+                "status": p.status,
+                "calls_today": calls_today,
+                "cost_today": f"¥{cost_today:.2f}",
+                "avg_latency": avg_latency,
+                "created_at": p.created_at,
+                "updated_at": p.updated_at,
+            }
+        )
     return enriched
 
 
@@ -304,18 +371,25 @@ async def list_llm_providers(db: AsyncSession, page: int = 1, page_size: int = 2
     items = await _enrich_with_usage_stats(db, result["items"])
     return {**result, "items": items}
 
+
 async def get_llm_provider(db: AsyncSession, provider_id: int):
     return await _get_by_id(db, LLMProvider, provider_id)
+
 
 async def create_llm_provider(db: AsyncSession, data: LLMProviderCreate):
     provider = LLMProvider(**data.model_dump())
     db.add(provider)
     await db.commit()
     await db.refresh(provider)
-    await _record_log(db, LLMProvider, "创建模型", provider.id, f"创建模型「{provider.name}」")
+    await _record_log(
+        db, LLMProvider, "创建模型", provider.id, f"创建模型「{provider.name}」"
+    )
     return provider
 
-async def update_llm_provider(db: AsyncSession, provider_id: int, data: LLMProviderUpdate):
+
+async def update_llm_provider(
+    db: AsyncSession, provider_id: int, data: LLMProviderUpdate
+):
     provider = await _get_by_id(db, LLMProvider, provider_id)
     if not provider:
         return None
@@ -324,8 +398,11 @@ async def update_llm_provider(db: AsyncSession, provider_id: int, data: LLMProvi
         setattr(provider, key, value)
     await db.commit()
     await db.refresh(provider)
-    await _record_log(db, LLMProvider, "更新模型", provider.id, f"更新模型「{provider.name}」")
+    await _record_log(
+        db, LLMProvider, "更新模型", provider.id, f"更新模型「{provider.name}」"
+    )
     return provider
+
 
 async def delete_llm_provider(db: AsyncSession, provider_id: int):
     provider = await _get_by_id(db, LLMProvider, provider_id)
@@ -337,6 +414,7 @@ async def delete_llm_provider(db: AsyncSession, provider_id: int):
     await _record_log(db, LLMProvider, "删除模型", provider_id, f"删除模型「{name}」")
     return True
 
+
 async def toggle_llm_provider(db: AsyncSession, provider_id: int):
     provider = await _get_by_id(db, LLMProvider, provider_id)
     if not provider:
@@ -344,8 +422,15 @@ async def toggle_llm_provider(db: AsyncSession, provider_id: int):
     provider.status = "未启用" if provider.status == "已启用" else "已启用"
     await db.commit()
     await db.refresh(provider)
-    await _record_log(db, LLMProvider, "切换状态", provider.id, f"模型「{provider.name}」状态: {provider.status}")
+    await _record_log(
+        db,
+        LLMProvider,
+        "切换状态",
+        provider.id,
+        f"模型「{provider.name}」状态: {provider.status}",
+    )
     return provider
+
 
 async def test_llm_connection(db: AsyncSession, provider_id: int):
     """连接测试 — 记录调用日志"""
@@ -353,18 +438,24 @@ async def test_llm_connection(db: AsyncSession, provider_id: int):
     if not provider:
         return None
     import random, time
+
     latency = round(random.uniform(0.3, 2.0), 2)
     latency_str = f"{latency}s"
     provider.avg_latency = latency_str
     provider.calls_today = (provider.calls_today or 0) + 1
     # 记录 LLM 调用日志
     import random
+
     tokens = random.randint(200, 3000)
     cost_val = tokens * 0.00003
     try:
         log_entry = LLMUsageLog(
-            provider_id=provider.id, provider_name=provider.name, model=provider.model,
-            latency=latency_str, tokens=tokens, cost=f"¥{cost_val:.2f}",
+            provider_id=provider.id,
+            provider_name=provider.name,
+            model=provider.model,
+            latency=latency_str,
+            tokens=tokens,
+            cost=f"¥{cost_val:.2f}",
             status="成功",
         )
         db.add(log_entry)
@@ -372,7 +463,13 @@ async def test_llm_connection(db: AsyncSession, provider_id: int):
         pass
     await db.commit()
     await db.refresh(provider)
-    await _record_log(db, LLMProvider, "连接测试", provider.id, f"模型「{provider.name}」延迟: {latency_str}")
+    await _record_log(
+        db,
+        LLMProvider,
+        "连接测试",
+        provider.id,
+        f"模型「{provider.name}」延迟: {latency_str}",
+    )
     return {"success": True, "latency": latency_str, "provider": provider}
 
 
@@ -380,19 +477,25 @@ async def test_llm_connection(db: AsyncSession, provider_id: int):
 # 提示词配置 Service
 # ============================
 
+
 async def list_prompts(db: AsyncSession, page: int = 1, page_size: int = 20):
     return await _paginate(db, PromptTemplate, page, page_size)
 
+
 async def get_prompt(db: AsyncSession, prompt_id: int):
     return await _get_by_id(db, PromptTemplate, prompt_id)
+
 
 async def create_prompt(db: AsyncSession, data: PromptTemplateCreate):
     prompt = PromptTemplate(**data.model_dump())
     db.add(prompt)
     await db.commit()
     await db.refresh(prompt)
-    await _record_log(db, PromptTemplate, "创建提示词", prompt.id, f"创建提示词「{prompt.name}」")
+    await _record_log(
+        db, PromptTemplate, "创建提示词", prompt.id, f"创建提示词「{prompt.name}」"
+    )
     return prompt
+
 
 async def update_prompt(db: AsyncSession, prompt_id: int, data: PromptTemplateUpdate):
     prompt = await _get_by_id(db, PromptTemplate, prompt_id)
@@ -403,8 +506,15 @@ async def update_prompt(db: AsyncSession, prompt_id: int, data: PromptTemplateUp
         setattr(prompt, key, value)
     await db.commit()
     await db.refresh(prompt)
-    await _record_log(db, PromptTemplate, "更新提示词", prompt.id, f"更新提示词「{prompt.name}」v{prompt.version}")
+    await _record_log(
+        db,
+        PromptTemplate,
+        "更新提示词",
+        prompt.id,
+        f"更新提示词「{prompt.name}」v{prompt.version}",
+    )
     return prompt
+
 
 async def delete_prompt(db: AsyncSession, prompt_id: int):
     prompt = await _get_by_id(db, PromptTemplate, prompt_id)
@@ -413,8 +523,11 @@ async def delete_prompt(db: AsyncSession, prompt_id: int):
     name = prompt.name
     await db.delete(prompt)
     await db.commit()
-    await _record_log(db, PromptTemplate, "删除提示词", prompt_id, f"删除提示词「{name}」")
+    await _record_log(
+        db, PromptTemplate, "删除提示词", prompt_id, f"删除提示词「{name}」"
+    )
     return True
+
 
 async def publish_prompt(db: AsyncSession, prompt_id: int):
     prompt = await _get_by_id(db, PromptTemplate, prompt_id)
@@ -423,11 +536,15 @@ async def publish_prompt(db: AsyncSession, prompt_id: int):
     prompt.status = "已发布"
     await db.commit()
     await db.refresh(prompt)
-    await _record_log(db, PromptTemplate, "发布提示词", prompt.id, f"发布提示词「{prompt.name}」")
+    await _record_log(
+        db, PromptTemplate, "发布提示词", prompt.id, f"发布提示词「{prompt.name}」"
+    )
     return prompt
 
 
-async def test_prompt(db: AsyncSession, prompt_id: int, variables: dict = None, input_text: str = ""):
+async def test_prompt(
+    db: AsyncSession, prompt_id: int, variables: dict = None, input_text: str = ""
+):
     """提示词模板测试 — 变量插值 + 模拟LLM响应"""
     prompt = await _get_by_id(db, PromptTemplate, prompt_id)
     if not prompt:
@@ -435,7 +552,8 @@ async def test_prompt(db: AsyncSession, prompt_id: int, variables: dict = None, 
     variables = variables or {}
     # 提取模板中的变量
     import re
-    var_names = list(set(re.findall(r'\{\{(\w+)\}\}', prompt.content)))
+
+    var_names = list(set(re.findall(r"\{\{(\w+)\}\}", prompt.content)))
     # 渲染：存在变量则替换，否则保留原样
     rendered = prompt.content
     for v in var_names:
@@ -443,7 +561,13 @@ async def test_prompt(db: AsyncSession, prompt_id: int, variables: dict = None, 
         rendered = rendered.replace(f"{{{{{v}}}}}", val)
     # 模拟LLM响应
     sim_response = f"[模拟LLM响应]\n已收到提示词「{prompt.name}」v{prompt.version}\n\n应用变量: {', '.join(var_names) if var_names else '无'}\n\n渲染长度: {len(rendered)} 字符\n\n{rendered[:200]}{'...' if len(rendered) > 200 else ''}"
-    await _record_log(db, PromptTemplate, "测试提示词", prompt.id, f"测试提示词「{prompt.name}」，变量: {len(var_names)}个")
+    await _record_log(
+        db,
+        PromptTemplate,
+        "测试提示词",
+        prompt.id,
+        f"测试提示词「{prompt.name}」，变量: {len(var_names)}个",
+    )
     return {
         "prompt_id": prompt.id,
         "prompt_name": prompt.name,
@@ -457,11 +581,14 @@ async def test_prompt(db: AsyncSession, prompt_id: int, variables: dict = None, 
 # 去AI味配置 Service
 # ============================
 
+
 async def list_deai_styles(db: AsyncSession, page: int = 1, page_size: int = 20):
     return await _paginate(db, DeAIStyle, page, page_size)
 
+
 async def get_deai_style(db: AsyncSession, style_id: int):
     return await _get_by_id(db, DeAIStyle, style_id)
+
 
 async def create_deai_style(db: AsyncSession, data: DeAIStyleCreate):
     d = data.model_dump()
@@ -472,8 +599,11 @@ async def create_deai_style(db: AsyncSession, data: DeAIStyleCreate):
     db.add(style)
     await db.commit()
     await db.refresh(style)
-    await _record_log(db, DeAIStyle, "创建风格", style.id, f"创建去AI味风格「{style.name}」")
+    await _record_log(
+        db, DeAIStyle, "创建风格", style.id, f"创建去AI味风格「{style.name}」"
+    )
     return style
+
 
 async def update_deai_style(db: AsyncSession, style_id: int, data: DeAIStyleUpdate):
     style = await _get_by_id(db, DeAIStyle, style_id)
@@ -487,8 +617,11 @@ async def update_deai_style(db: AsyncSession, style_id: int, data: DeAIStyleUpda
         setattr(style, key, value)
     await db.commit()
     await db.refresh(style)
-    await _record_log(db, DeAIStyle, "更新风格", style.id, f"更新去AI味风格「{style.name}」")
+    await _record_log(
+        db, DeAIStyle, "更新风格", style.id, f"更新去AI味风格「{style.name}」"
+    )
     return style
+
 
 async def delete_deai_style(db: AsyncSession, style_id: int):
     style = await _get_by_id(db, DeAIStyle, style_id)
@@ -500,6 +633,7 @@ async def delete_deai_style(db: AsyncSession, style_id: int):
     await _record_log(db, DeAIStyle, "删除风格", style_id, f"删除去AI味风格「{name}」")
     return True
 
+
 async def test_deai_style(db: AsyncSession, style_id: int, input_text: str = ""):
     """模拟去AI味效果测试"""
     style = await _get_by_id(db, DeAIStyle, style_id)
@@ -508,7 +642,10 @@ async def test_deai_style(db: AsyncSession, style_id: int, input_text: str = "")
     text = input_text or style.sample_input or "这是一段测试文本。"
     # 模拟优化效果：移除AI常用词汇
     import re
-    optimized = re.sub(r'(值得注意的是|总的来说|首先|其次|综上所述|显而易见|不可否认)', '', text)
+
+    optimized = re.sub(
+        r"(值得注意的是|总的来说|首先|其次|综上所述|显而易见|不可否认)", "", text
+    )
     # 根据规则简单处理
     if style.rules:
         rules = style.rules if isinstance(style.rules, dict) else {}
@@ -518,7 +655,9 @@ async def test_deai_style(db: AsyncSession, style_id: int, input_text: str = "")
                 if isinstance(w, str):
                     optimized = optimized.replace(w, "")
     result = f"[已应用「{style.name}」策略优化]\n\n" + optimized
-    await _record_log(db, DeAIStyle, "测试风格", style.id, f"测试去AI味风格「{style.name}」")
+    await _record_log(
+        db, DeAIStyle, "测试风格", style.id, f"测试去AI味风格「{style.name}」"
+    )
     return {"success": True, "original": text, "optimized": result}
 
 
@@ -526,11 +665,14 @@ async def test_deai_style(db: AsyncSession, style_id: int, input_text: str = "")
 # MCP服务配置 Service
 # ============================
 
+
 async def list_mcp_services(db: AsyncSession, page: int = 1, page_size: int = 20):
     return await _paginate(db, MCPService, page, page_size)
 
+
 async def get_mcp_service(db: AsyncSession, service_id: int):
     return await _get_by_id(db, MCPService, service_id)
+
 
 async def create_mcp_service(db: AsyncSession, data: MCPServiceCreate):
     d = data.model_dump()
@@ -541,8 +683,11 @@ async def create_mcp_service(db: AsyncSession, data: MCPServiceCreate):
     db.add(service)
     await db.commit()
     await db.refresh(service)
-    await _record_log(db, MCPService, "创建服务", service.id, f"创建MCP服务「{service.name}」")
+    await _record_log(
+        db, MCPService, "创建服务", service.id, f"创建MCP服务「{service.name}」"
+    )
     return service
+
 
 async def update_mcp_service(db: AsyncSession, service_id: int, data: MCPServiceUpdate):
     service = await _get_by_id(db, MCPService, service_id)
@@ -556,8 +701,11 @@ async def update_mcp_service(db: AsyncSession, service_id: int, data: MCPService
         setattr(service, key, value)
     await db.commit()
     await db.refresh(service)
-    await _record_log(db, MCPService, "更新服务", service.id, f"更新MCP服务「{service.name}」")
+    await _record_log(
+        db, MCPService, "更新服务", service.id, f"更新MCP服务「{service.name}」"
+    )
     return service
+
 
 async def delete_mcp_service(db: AsyncSession, service_id: int):
     service = await _get_by_id(db, MCPService, service_id)
@@ -569,21 +717,33 @@ async def delete_mcp_service(db: AsyncSession, service_id: int):
     await _record_log(db, MCPService, "删除服务", service_id, f"删除MCP服务「{name}」")
     return True
 
+
 async def test_mcp_connection(db: AsyncSession, service_id: int):
     """MCP连通测试 — 测试并记录历史"""
     service = await _get_by_id(db, MCPService, service_id)
     if not service:
         return None
     import time
+
     latency = round(random.uniform(0.1, 0.8), 3)
     service.status = "在线" if random.random() > 0.15 else "错误"
     service.last_check_at = datetime.now()
     await db.commit()
     await db.refresh(service)
-    await _record_log(db, MCPService, "连通测试", service.id, f"MCP服务「{service.name}」状态: {service.status}")
+    await _record_log(
+        db,
+        MCPService,
+        "连通测试",
+        service.id,
+        f"MCP服务「{service.name}」状态: {service.status}",
+    )
     await _record_health_history(
-        db, "mcp", service.id, service.name,
-        status=service.status, latency=f"{latency}s",
+        db,
+        "mcp",
+        service.id,
+        service.name,
+        status=service.status,
+        latency=f"{latency}s",
         detail=f"MCP连通测试: {service.url}",
     )
     return {"success": service.status == "在线", "service": service}
@@ -596,12 +756,18 @@ async def batch_test_mcp(db: AsyncSession):
     for svc in services:
         try:
             result = await test_mcp_connection(db, svc.id)
-            results.append({
-                "id": svc.id, "name": svc.name,
-                "status": svc.status, "success": result["success"] if result else False,
-            })
+            results.append(
+                {
+                    "id": svc.id,
+                    "name": svc.name,
+                    "status": svc.status,
+                    "success": result["success"] if result else False,
+                }
+            )
         except Exception:
-            results.append({"id": svc.id, "name": svc.name, "status": "错误", "success": False})
+            results.append(
+                {"id": svc.id, "name": svc.name, "status": "错误", "success": False}
+            )
     await db.commit()
     return {
         "total": len(results),
@@ -614,11 +780,14 @@ async def batch_test_mcp(db: AsyncSession):
 # Skills技能配置 Service
 # ============================
 
+
 async def list_skills(db: AsyncSession, page: int = 1, page_size: int = 20):
     return await _paginate(db, Skill, page, page_size)
 
+
 async def get_skill(db: AsyncSession, skill_id: int):
     return await _get_by_id(db, Skill, skill_id)
+
 
 async def create_skill(db: AsyncSession, data: SkillCreate):
     d = data.model_dump()
@@ -631,6 +800,7 @@ async def create_skill(db: AsyncSession, data: SkillCreate):
     await db.refresh(skill)
     await _record_log(db, Skill, "创建技能", skill.id, f"创建技能「{skill.name}」")
     return skill
+
 
 async def update_skill(db: AsyncSession, skill_id: int, data: SkillUpdate):
     skill = await _get_by_id(db, Skill, skill_id)
@@ -647,6 +817,7 @@ async def update_skill(db: AsyncSession, skill_id: int, data: SkillUpdate):
     await _record_log(db, Skill, "更新技能", skill.id, f"更新技能「{skill.name}」")
     return skill
 
+
 async def delete_skill(db: AsyncSession, skill_id: int):
     skill = await _get_by_id(db, Skill, skill_id)
     if not skill:
@@ -657,6 +828,7 @@ async def delete_skill(db: AsyncSession, skill_id: int):
     await _record_log(db, Skill, "删除技能", skill_id, f"删除技能「{name}」")
     return True
 
+
 async def toggle_skill(db: AsyncSession, skill_id: int):
     skill = await _get_by_id(db, Skill, skill_id)
     if not skill:
@@ -664,7 +836,9 @@ async def toggle_skill(db: AsyncSession, skill_id: int):
     skill.status = "未启用" if skill.status == "已启用" else "已启用"
     await db.commit()
     await db.refresh(skill)
-    await _record_log(db, Skill, "切换状态", skill.id, f"技能「{skill.name}」状态: {skill.status}")
+    await _record_log(
+        db, Skill, "切换状态", skill.id, f"技能「{skill.name}」状态: {skill.status}"
+    )
     return skill
 
 
@@ -672,21 +846,29 @@ async def toggle_skill(db: AsyncSession, skill_id: int):
 # Hermes渠道配置 Service
 # ============================
 
+
 async def list_hermes_channels(db: AsyncSession, page: int = 1, page_size: int = 20):
     return await _paginate(db, HermesChannel, page, page_size)
 
+
 async def get_hermes_channel(db: AsyncSession, channel_id: int):
     return await _get_by_id(db, HermesChannel, channel_id)
+
 
 async def create_hermes_channel(db: AsyncSession, data: HermesChannelCreate):
     channel = HermesChannel(**data.model_dump())
     db.add(channel)
     await db.commit()
     await db.refresh(channel)
-    await _record_log(db, HermesChannel, "创建渠道", channel.id, f"创建消息渠道「{channel.name}」")
+    await _record_log(
+        db, HermesChannel, "创建渠道", channel.id, f"创建消息渠道「{channel.name}」"
+    )
     return channel
 
-async def update_hermes_channel(db: AsyncSession, channel_id: int, data: HermesChannelUpdate):
+
+async def update_hermes_channel(
+    db: AsyncSession, channel_id: int, data: HermesChannelUpdate
+):
     channel = await _get_by_id(db, HermesChannel, channel_id)
     if not channel:
         return None
@@ -695,8 +877,11 @@ async def update_hermes_channel(db: AsyncSession, channel_id: int, data: HermesC
         setattr(channel, key, value)
     await db.commit()
     await db.refresh(channel)
-    await _record_log(db, HermesChannel, "更新渠道", channel.id, f"更新消息渠道「{channel.name}」")
+    await _record_log(
+        db, HermesChannel, "更新渠道", channel.id, f"更新消息渠道「{channel.name}」"
+    )
     return channel
+
 
 async def delete_hermes_channel(db: AsyncSession, channel_id: int):
     channel = await _get_by_id(db, HermesChannel, channel_id)
@@ -705,8 +890,11 @@ async def delete_hermes_channel(db: AsyncSession, channel_id: int):
     name = channel.name
     await db.delete(channel)
     await db.commit()
-    await _record_log(db, HermesChannel, "删除渠道", channel_id, f"删除消息渠道「{name}」")
+    await _record_log(
+        db, HermesChannel, "删除渠道", channel_id, f"删除消息渠道「{name}」"
+    )
     return True
+
 
 async def test_hermes_channel(db: AsyncSession, channel_id: int):
     """渠道连通测试 — 测试并记录历史"""
@@ -714,14 +902,25 @@ async def test_hermes_channel(db: AsyncSession, channel_id: int):
     if not channel:
         return None
     import time
+
     latency = round(random.uniform(0.2, 1.0), 3)
     channel.status = "在线" if random.random() > 0.15 else "离线"
     await db.commit()
     await db.refresh(channel)
-    await _record_log(db, HermesChannel, "连通测试", channel.id, f"渠道「{channel.name}」状态: {channel.status}")
+    await _record_log(
+        db,
+        HermesChannel,
+        "连通测试",
+        channel.id,
+        f"渠道「{channel.name}」状态: {channel.status}",
+    )
     await _record_health_history(
-        db, "hermes", channel.id, channel.name,
-        status=channel.status, latency=f"{latency}s",
+        db,
+        "hermes",
+        channel.id,
+        channel.name,
+        status=channel.status,
+        latency=f"{latency}s",
         detail=f"渠道连通测试: {channel.channel_type}",
     )
     return {"success": channel.status == "在线", "channel": channel}
@@ -734,12 +933,18 @@ async def batch_test_hermes(db: AsyncSession):
     for ch in channels:
         try:
             result = await test_hermes_channel(db, ch.id)
-            results.append({
-                "id": ch.id, "name": ch.name,
-                "status": ch.status, "success": result["success"] if result else False,
-            })
+            results.append(
+                {
+                    "id": ch.id,
+                    "name": ch.name,
+                    "status": ch.status,
+                    "success": result["success"] if result else False,
+                }
+            )
         except Exception:
-            results.append({"id": ch.id, "name": ch.name, "status": "离线", "success": False})
+            results.append(
+                {"id": ch.id, "name": ch.name, "status": "离线", "success": False}
+            )
     await db.commit()
     return {
         "total": len(results),
@@ -748,13 +953,16 @@ async def batch_test_hermes(db: AsyncSession):
     }
 
 
-async def execute_skill(db: AsyncSession, skill_id: int, params: dict = None, input_text: str = ""):
+async def execute_skill(
+    db: AsyncSession, skill_id: int, params: dict = None, input_text: str = ""
+):
     """模拟技能执行"""
     skill = await _get_by_id(db, Skill, skill_id)
     if not skill:
         return None
     params = params or {}
     import time, random
+
     start = time.time()
     # 模拟执行延迟
     await db.bind.sync_engine  # no-op to keep async context
@@ -776,7 +984,9 @@ async def execute_skill(db: AsyncSession, skill_id: int, params: dict = None, in
         f"  {input_text or '技能执行完成，未发现问题。'}"
     )
     duration_str = f"{duration}s"
-    await _record_log(db, Skill, "执行技能", skill.id, f"执行技能「{skill.name}」，耗时{duration_str}")
+    await _record_log(
+        db, Skill, "执行技能", skill.id, f"执行技能「{skill.name}」，耗时{duration_str}"
+    )
     return {
         "skill_id": skill.id,
         "skill_name": skill.name,
@@ -791,11 +1001,14 @@ async def execute_skill(db: AsyncSession, skill_id: int, params: dict = None, in
 async def get_llm_usage_stats(db: AsyncSession):
     """获取 LLM 调用统计（基于 LLMUsageLog 聚合）"""
     from datetime import datetime, timedelta
+
     now = datetime.utcnow()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     # 今日总调用
-    today_q = select(func.count(LLMUsageLog.id)).where(LLMUsageLog.called_at >= today_start)
+    today_q = select(func.count(LLMUsageLog.id)).where(
+        LLMUsageLog.called_at >= today_start
+    )
     today_total = (await db.execute(today_q)).scalar() or 0
 
     # 今日成功
@@ -805,39 +1018,63 @@ async def get_llm_usage_stats(db: AsyncSession):
     today_success = (await db.execute(success_q)).scalar() or 0
 
     # 今日总 tokens
-    tokens_q = select(func.coalesce(func.sum(LLMUsageLog.tokens), 0)).where(LLMUsageLog.called_at >= today_start)
+    tokens_q = select(func.coalesce(func.sum(LLMUsageLog.tokens), 0)).where(
+        LLMUsageLog.called_at >= today_start
+    )
     today_tokens = (await db.execute(tokens_q)).scalar() or 0
 
     # 今日总费用 (从 cost 字符串解析)
-    cost_rows = (await db.execute(
-        select(LLMUsageLog.cost).where(LLMUsageLog.called_at >= today_start)
-    )).scalars().all()
+    cost_rows = (
+        (
+            await db.execute(
+                select(LLMUsageLog.cost).where(LLMUsageLog.called_at >= today_start)
+            )
+        )
+        .scalars()
+        .all()
+    )
     today_cost = 0.0
     for c in cost_rows:
         if c and c.startswith("¥"):
-            try: today_cost += float(c.replace("¥", ""))
-            except: pass
+            try:
+                today_cost += float(c.replace("¥", ""))
+            except (ValueError, TypeError):
+                pass
 
     # 平均延迟
-    latency_rows = (await db.execute(
-        select(LLMUsageLog.latency).where(LLMUsageLog.called_at >= today_start, LLMUsageLog.latency != None)
-    )).scalars().all()
+    latency_rows = (
+        (
+            await db.execute(
+                select(LLMUsageLog.latency).where(
+                    LLMUsageLog.called_at >= today_start, LLMUsageLog.latency != None
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
     avg_latency = 0.0
     if latency_rows:
-        total_lat = 0.0; count = 0
+        total_lat = 0.0
+        count = 0
         for l in latency_rows:
             if l and l.endswith("s"):
-                try: total_lat += float(l[:-1]); count += 1
-                except: pass
+                try:
+                    total_lat += float(l[:-1])
+                    count += 1
+                except (ValueError, TypeError):
+                    pass
         avg_latency = round(total_lat / count, 2) if count > 0 else 0.0
 
     # 每个提供者的调用次数
-    per_provider = (await db.execute(
-        select(LLMUsageLog.provider_name, func.count(LLMUsageLog.id).label("cnt"))
-        .where(LLMUsageLog.called_at >= today_start)
-        .group_by(LLMUsageLog.provider_name)
-        .order_by(func.count(LLMUsageLog.id).desc())
-    )).all()
+    per_provider = (
+        await db.execute(
+            select(LLMUsageLog.provider_name, func.count(LLMUsageLog.id).label("cnt"))
+            .where(LLMUsageLog.called_at >= today_start)
+            .group_by(LLMUsageLog.provider_name)
+            .order_by(func.count(LLMUsageLog.id).desc())
+        )
+    ).all()
 
     return {
         "today_calls": today_total,
@@ -849,7 +1086,9 @@ async def get_llm_usage_stats(db: AsyncSession):
     }
 
 
-async def list_llm_usage_logs(db: AsyncSession, provider_id: int = None, page: int = 1, page_size: int = 20):
+async def list_llm_usage_logs(
+    db: AsyncSession, provider_id: int = None, page: int = 1, page_size: int = 20
+):
     """获取 LLM 调用记录"""
     q = select(LLMUsageLog).order_by(LLMUsageLog.called_at.desc())
     if provider_id is not None:
@@ -867,9 +1106,14 @@ async def list_llm_usage_logs(db: AsyncSession, provider_id: int = None, page: i
     return {
         "items": [
             {
-                "id": i.id, "provider_id": i.provider_id, "provider_name": i.provider_name,
-                "model": i.model, "latency": i.latency, "tokens": i.tokens,
-                "cost": i.cost, "status": i.status,
+                "id": i.id,
+                "provider_id": i.provider_id,
+                "provider_name": i.provider_name,
+                "model": i.model,
+                "latency": i.latency,
+                "tokens": i.tokens,
+                "cost": i.cost,
+                "status": i.status,
                 "called_at": i.called_at.isoformat() if i.called_at else None,
             }
             for i in items
@@ -885,33 +1129,59 @@ async def get_system_health_stats(db: AsyncSession):
     """获取各模块健康统计（用于 SystemOverview）"""
     # 环境
     env_total = (await db.execute(select(func.count(Environment.id)))).scalar() or 0
-    env_online = (await db.execute(
-        select(func.count(Environment.id)).where(Environment.status == "在线")
-    )).scalar() or 0
+    env_online = (
+        await db.execute(
+            select(func.count(Environment.id)).where(Environment.status == "在线")
+        )
+    ).scalar() or 0
 
     # MCP
     mcp_total = (await db.execute(select(func.count(MCPService.id)))).scalar() or 0
-    mcp_online = (await db.execute(
-        select(func.count(MCPService.id)).where(MCPService.status == "在线")
-    )).scalar() or 0
+    mcp_online = (
+        await db.execute(
+            select(func.count(MCPService.id)).where(MCPService.status == "在线")
+        )
+    ).scalar() or 0
 
     # Hermes
-    hermes_total = (await db.execute(select(func.count(HermesChannel.id)))).scalar() or 0
-    hermes_online = (await db.execute(
-        select(func.count(HermesChannel.id)).where(HermesChannel.status == "在线")
-    )).scalar() or 0
+    hermes_total = (
+        await db.execute(select(func.count(HermesChannel.id)))
+    ).scalar() or 0
+    hermes_online = (
+        await db.execute(
+            select(func.count(HermesChannel.id)).where(HermesChannel.status == "在线")
+        )
+    ).scalar() or 0
 
     # LLM
     llm_total = (await db.execute(select(func.count(LLMProvider.id)))).scalar() or 0
-    llm_enabled = (await db.execute(
-        select(func.count(LLMProvider.id)).where(LLMProvider.status == "已启用")
-    )).scalar() or 0
+    llm_enabled = (
+        await db.execute(
+            select(func.count(LLMProvider.id)).where(LLMProvider.status == "已启用")
+        )
+    ).scalar() or 0
 
     return {
-        "environments": {"total": env_total, "online": env_online, "offline": env_total - env_online},
-        "mcp_services": {"total": mcp_total, "online": mcp_online, "error": mcp_total - mcp_online},
-        "hermes_channels": {"total": hermes_total, "online": hermes_online, "offline": hermes_total - hermes_online},
-        "llm_providers": {"total": llm_total, "enabled": llm_enabled, "disabled": llm_total - llm_enabled},
+        "environments": {
+            "total": env_total,
+            "online": env_online,
+            "offline": env_total - env_online,
+        },
+        "mcp_services": {
+            "total": mcp_total,
+            "online": mcp_online,
+            "error": mcp_total - mcp_online,
+        },
+        "hermes_channels": {
+            "total": hermes_total,
+            "online": hermes_online,
+            "offline": hermes_total - hermes_online,
+        },
+        "llm_providers": {
+            "total": llm_total,
+            "enabled": llm_enabled,
+            "disabled": llm_total - llm_enabled,
+        },
     }
 
 
@@ -922,11 +1192,24 @@ async def batch_health_check(db: AsyncSession):
     for env in envs:
         try:
             result = await health_check_environment(db, env.id)
-            results.append({"id": env.id, "name": env.name, "status": result["status"] if result else "离线", "success": True})
+            results.append(
+                {
+                    "id": env.id,
+                    "name": env.name,
+                    "status": result["status"] if result else "离线",
+                    "success": True,
+                }
+            )
         except Exception:
-            results.append({"id": env.id, "name": env.name, "status": "离线", "success": False})
+            results.append(
+                {"id": env.id, "name": env.name, "status": "离线", "success": False}
+            )
     await db.commit()
-    return {"total": len(results), "online": sum(1 for r in results if r["status"] == "在线"), "results": results}
+    return {
+        "total": len(results),
+        "online": sum(1 for r in results if r["status"] == "在线"),
+        "results": results,
+    }
 
 
 async def send_hermes_message(db: AsyncSession, channel_id: int, message: str):
@@ -935,10 +1218,17 @@ async def send_hermes_message(db: AsyncSession, channel_id: int, message: str):
     if not channel:
         return None
     import random, time
+
     latency = round(random.uniform(0.1, 1.5), 2)
     message_id = f"msg_{channel.id}_{int(time.time())}"
     success = random.random() > 0.1  # 90% success rate
-    await _record_log(db, HermesChannel, "发送消息", channel.id, f"向「{channel.name}」发送消息, 结果: {'成功' if success else '失败'}")
+    await _record_log(
+        db,
+        HermesChannel,
+        "发送消息",
+        channel.id,
+        f"向「{channel.name}」发送消息, 结果: {'成功' if success else '失败'}",
+    )
     return {
         "channel_id": channel.id,
         "channel_name": channel.name,
@@ -1025,21 +1315,61 @@ DEFAULT_STEP_CONFIGS = [
 - 一致性: X/10
 - 可测试性: X/10""",
         "skills": [
-            {"name": "需求分析", "description": "功能点识别与分析", "content": "使用功能点分析技术识别需求中的核心功能"},
-            {"name": "业务建模", "description": "业务流程建模", "content": "使用UML活动图或流程图建模业务逻辑"},
-            {"name": "风险评估", "description": "需求风险识别", "content": "识别需求中的模糊点、矛盾点和潜在风险"},
+            {
+                "name": "需求分析",
+                "description": "功能点识别与分析",
+                "content": "使用功能点分析技术识别需求中的核心功能",
+            },
+            {
+                "name": "业务建模",
+                "description": "业务流程建模",
+                "content": "使用UML活动图或流程图建模业务逻辑",
+            },
+            {
+                "name": "风险评估",
+                "description": "需求风险识别",
+                "content": "识别需求中的模糊点、矛盾点和潜在风险",
+            },
         ],
         "variables": [
-            {"name": "content", "type": "string", "description": "需求文档内容", "required": True},
-            {"name": "files_list", "type": "string", "description": "上传的文件列表", "required": False},
+            {
+                "name": "content",
+                "type": "string",
+                "description": "需求文档内容",
+                "required": True,
+            },
+            {
+                "name": "files_list",
+                "type": "string",
+                "description": "上传的文件列表",
+                "required": False,
+            },
         ],
         "output_logs_template": [
-            {"content": "### 需求分析专家启动\n\n**角色**: 资深软件测试需求分析专家 (ISTQB认证)\n\n---", "delay_ms": 500},
-            {"content": "**📖 开始分析需求文档**\n\n> 正在读取和理解需求内容...\n\n**输入摘要**:\n- 需求主题: {content_preview}\n- 参考文档: {files_list}\n- 分析模式: 深度分析", "delay_ms": 800},
-            {"content": "**🔍 功能点识别**\n\n通过功能点分析法识别出以下核心功能：\n\n| 编号 | 功能点 | 描述 | 优先级 |\n|------|--------|------|--------|\n| F001 | 用户认证 | 支持多种登录方式 | P0 |\n| F002 | 会话管理 | 登录状态维护 | P1 |\n| F003 | 密码安全 | 加密存储和策略 | P0 |\n\n共识别 **3** 个核心功能点", "delay_ms": 1000},
-            {"content": "**📋 业务规则提取**\n\n从需求中提取的关键业务规则：\n\n1. ✅ 支持账号密码登录\n2. ✅ 支持手机验证码登录\n3. ⚠️ 连续失败3次账户锁定30分钟（需确认阈值）\n4. ✅ 支持「记住密码」功能\n5. ⚠️ 会话超时时间未明确（建议24小时）", "delay_ms": 800},
-            {"content": "**⚠️ 风险与问题**\n\n**高风险**:\n- 🔴 登录失败锁定策略的具体阈值需要确认\n- 🔴 密码复杂度要求未明确\n\n**中风险**:\n- 🟡 验证码有效期未指定\n- 🟡 多设备登录策略不明确\n\n**待确认问题**:\n- [ ] 是否需要支持第三方登录（OAuth）？\n- [ ] 密码找回的验证方式？\n- [ ] 是否支持多因素认证（MFA）？", "delay_ms": 900},
-            {"content": "**✅ 需求分析完成**\n\n📊 **质量评估**:\n- 完整性: 7/10（缺少异常场景描述）\n- 一致性: 8/10（规则基本一致）\n- 可测试性: 6/10（部分需求不够具体）\n\n💡 **建议**: 建议补充异常流程和边界条件的需求描述", "delay_ms": 700},
+            {
+                "content": "### 需求分析专家启动\n\n**角色**: 资深软件测试需求分析专家 (ISTQB认证)\n\n---",
+                "delay_ms": 500,
+            },
+            {
+                "content": "**📖 开始分析需求文档**\n\n> 正在读取和理解需求内容...\n\n**输入摘要**:\n- 需求主题: {content_preview}\n- 参考文档: {files_list}\n- 分析模式: 深度分析",
+                "delay_ms": 800,
+            },
+            {
+                "content": "**🔍 功能点识别**\n\n通过功能点分析法识别出以下核心功能：\n\n| 编号 | 功能点 | 描述 | 优先级 |\n|------|--------|------|--------|\n| F001 | 用户认证 | 支持多种登录方式 | P0 |\n| F002 | 会话管理 | 登录状态维护 | P1 |\n| F003 | 密码安全 | 加密存储和策略 | P0 |\n\n共识别 **3** 个核心功能点",
+                "delay_ms": 1000,
+            },
+            {
+                "content": "**📋 业务规则提取**\n\n从需求中提取的关键业务规则：\n\n1. ✅ 支持账号密码登录\n2. ✅ 支持手机验证码登录\n3. ⚠️ 连续失败3次账户锁定30分钟（需确认阈值）\n4. ✅ 支持「记住密码」功能\n5. ⚠️ 会话超时时间未明确（建议24小时）",
+                "delay_ms": 800,
+            },
+            {
+                "content": "**⚠️ 风险与问题**\n\n**高风险**:\n- 🔴 登录失败锁定策略的具体阈值需要确认\n- 🔴 密码复杂度要求未明确\n\n**中风险**:\n- 🟡 验证码有效期未指定\n- 🟡 多设备登录策略不明确\n\n**待确认问题**:\n- [ ] 是否需要支持第三方登录（OAuth）？\n- [ ] 密码找回的验证方式？\n- [ ] 是否支持多因素认证（MFA）？",
+                "delay_ms": 900,
+            },
+            {
+                "content": "**✅ 需求分析完成**\n\n📊 **质量评估**:\n- 完整性: 7/10（缺少异常场景描述）\n- 一致性: 8/10（规则基本一致）\n- 可测试性: 6/10（部分需求不够具体）\n\n💡 **建议**: 建议补充异常流程和边界条件的需求描述",
+                "delay_ms": 700,
+            },
         ],
     },
     {
@@ -1108,21 +1438,61 @@ DEFAULT_STEP_CONFIGS = [
 | 测试准备 | xxx | xxx | 测试用例 |
 | 第一轮测试 | xxx | xxx | 缺陷列表 |""",
         "skills": [
-            {"name": "测试策略", "description": "测试方法选择", "content": "根据需求特点选择合适的测试方法"},
-            {"name": "风险分析", "description": "测试风险评估", "content": "识别测试过程中的风险并制定应对策略"},
-            {"name": "资源规划", "description": "测试资源分配", "content": "合理分配测试资源和制定测试计划"},
+            {
+                "name": "测试策略",
+                "description": "测试方法选择",
+                "content": "根据需求特点选择合适的测试方法",
+            },
+            {
+                "name": "风险分析",
+                "description": "测试风险评估",
+                "content": "识别测试过程中的风险并制定应对策略",
+            },
+            {
+                "name": "资源规划",
+                "description": "测试资源分配",
+                "content": "合理分配测试资源和制定测试计划",
+            },
         ],
         "variables": [
-            {"name": "content", "type": "string", "description": "需求分析摘要", "required": True},
-            {"name": "files_list", "type": "string", "description": "功能点列表", "required": False},
+            {
+                "name": "content",
+                "type": "string",
+                "description": "需求分析摘要",
+                "required": True,
+            },
+            {
+                "name": "files_list",
+                "type": "string",
+                "description": "功能点列表",
+                "required": False,
+            },
         ],
         "output_logs_template": [
-            {"content": "### 测试方案设计专家启动\n\n**角色**: 资深测试方案设计专家 (ISTQB高级)\n\n---", "delay_ms": 500},
-            {"content": "**📊 分析需求特征**\n\n> 基于需求分析结果选择测试策略...\n\n**需求特征**:\n- 功能数量: 5个核心功能\n- 业务复杂度: 中等\n- 风险等级: 中高\n- 建议方法: 黑盒测试 + 边界值分析", "delay_ms": 700},
-            {"content": "**🎯 测试策略选择**\n\n根据需求特征，推荐以下测试策略：\n\n| 测试类型 | 方法 | 覆盖范围 | 理由 |\n|----------|------|----------|------|\n| 功能测试 | 等价类划分 | 所有功能 | 提高用例效率 |\n| 边界值分析 | 边界条件测试 | 输入验证 | 发现边界缺陷 |\n| 状态转换测试 | 状态机 | 登录流程 | 验证状态管理 |\n| 错误推测 | 经验测试 | 异常场景 | 补充边界覆盖 |", "delay_ms": 900},
-            {"content": "**📋 测试范围界定**\n\n**✅ 测试范围内**:\n- 用户登录功能（正常/异常/边界）\n- 账户锁定机制\n- 会话生命周期管理\n- 密码加密存储\n\n**❌ 测试范围外**:\n- 第三方登录集成\n- 移动端适配\n- 国际化支持", "delay_ms": 700},
-            {"content": "**⏱️ 测试计划**\n\n| 阶段 | 主要任务 | 预估时间 | 交付物 |\n|------|----------|----------|--------|\n| 测试准备 | 用例设计、环境准备 | 2天 | 测试用例集 |\n| 第一轮 | 执行全量功能测试 | 3天 | 缺陷报告 |\n| 第二轮 | 回归测试 | 2天 | 回归报告 |\n| 验收测试 | UAT测试 | 1天 | 验收报告 |\n\n**关键路径**: 用例设计 → 功能测试 → 回归测试", "delay_ms": 800},
-            {"content": "**⚠️ 风险与应对**\n\n| 风险 | 影响 | 概率 | 应对措施 |\n|------|------|------|----------|\n| 需求变更 | 高 | 中 | 建立变更控制流程 |\n| 环境不稳定 | 中 | 低 | 准备备用环境 |\n| 用例覆盖率不足 | 高 | 低 | 定期评审和补充 |\n\n✅ **测试方案设计完成**", "delay_ms": 700},
+            {
+                "content": "### 测试方案设计专家启动\n\n**角色**: 资深测试方案设计专家 (ISTQB高级)\n\n---",
+                "delay_ms": 500,
+            },
+            {
+                "content": "**📊 分析需求特征**\n\n> 基于需求分析结果选择测试策略...\n\n**需求特征**:\n- 功能数量: 5个核心功能\n- 业务复杂度: 中等\n- 风险等级: 中高\n- 建议方法: 黑盒测试 + 边界值分析",
+                "delay_ms": 700,
+            },
+            {
+                "content": "**🎯 测试策略选择**\n\n根据需求特征，推荐以下测试策略：\n\n| 测试类型 | 方法 | 覆盖范围 | 理由 |\n|----------|------|----------|------|\n| 功能测试 | 等价类划分 | 所有功能 | 提高用例效率 |\n| 边界值分析 | 边界条件测试 | 输入验证 | 发现边界缺陷 |\n| 状态转换测试 | 状态机 | 登录流程 | 验证状态管理 |\n| 错误推测 | 经验测试 | 异常场景 | 补充边界覆盖 |",
+                "delay_ms": 900,
+            },
+            {
+                "content": "**📋 测试范围界定**\n\n**✅ 测试范围内**:\n- 用户登录功能（正常/异常/边界）\n- 账户锁定机制\n- 会话生命周期管理\n- 密码加密存储\n\n**❌ 测试范围外**:\n- 第三方登录集成\n- 移动端适配\n- 国际化支持",
+                "delay_ms": 700,
+            },
+            {
+                "content": "**⏱️ 测试计划**\n\n| 阶段 | 主要任务 | 预估时间 | 交付物 |\n|------|----------|----------|--------|\n| 测试准备 | 用例设计、环境准备 | 2天 | 测试用例集 |\n| 第一轮 | 执行全量功能测试 | 3天 | 缺陷报告 |\n| 第二轮 | 回归测试 | 2天 | 回归报告 |\n| 验收测试 | UAT测试 | 1天 | 验收报告 |\n\n**关键路径**: 用例设计 → 功能测试 → 回归测试",
+                "delay_ms": 800,
+            },
+            {
+                "content": "**⚠️ 风险与应对**\n\n| 风险 | 影响 | 概率 | 应对措施 |\n|------|------|------|----------|\n| 需求变更 | 高 | 中 | 建立变更控制流程 |\n| 环境不稳定 | 中 | 低 | 准备备用环境 |\n| 用例覆盖率不足 | 高 | 低 | 定期评审和补充 |\n\n✅ **测试方案设计完成**",
+                "delay_ms": 700,
+            },
         ],
     },
     {
@@ -1182,21 +1552,61 @@ DEFAULT_STEP_CONFIGS = [
 
 **统计**: 共 N 个测试点，P0: N个, P1: N个, P2: N个""",
         "skills": [
-            {"name": "场景分析", "description": "用户场景提取", "content": "基于用户故事和用例场景提取测试点"},
-            {"name": "功能分解", "description": "功能模块拆分", "content": "按功能模块系统化提取测试点"},
-            {"name": "风险评估", "description": "测试点优先级排序", "content": "基于风险等级确定测试点优先级"},
+            {
+                "name": "场景分析",
+                "description": "用户场景提取",
+                "content": "基于用户故事和用例场景提取测试点",
+            },
+            {
+                "name": "功能分解",
+                "description": "功能模块拆分",
+                "content": "按功能模块系统化提取测试点",
+            },
+            {
+                "name": "风险评估",
+                "description": "测试点优先级排序",
+                "content": "基于风险等级确定测试点优先级",
+            },
         ],
         "variables": [
-            {"name": "content", "type": "string", "description": "需求内容", "required": True},
-            {"name": "files_list", "type": "string", "description": "功能点与业务规则", "required": False},
+            {
+                "name": "content",
+                "type": "string",
+                "description": "需求内容",
+                "required": True,
+            },
+            {
+                "name": "files_list",
+                "type": "string",
+                "description": "功能点与业务规则",
+                "required": False,
+            },
         ],
         "output_logs_template": [
-            {"content": "### 测试点分析专家启动\n\n**角色**: 资深测试点分析专家\n\n---", "delay_ms": 500},
-            {"content": "**🎯 功能模块分解**\n\n> 按功能模块组织测试点...\n\n识别的功能模块：\n1. 🔐 用户认证模块\n2. 👤 账户管理模块\n3. 🔄 会话管理模块\n4. 🔒 安全策略模块", "delay_ms": 700},
-            {"content": "**📝 正常场景测试点**\n\n**用户认证模块**:\n- ✅ [P0] 账号密码正确登录\n- ✅ [P0] 手机验证码有效登录\n- ✅ [P1] 记住密码自动登录\n- ✅ [P1] 多设备登录支持\n\n**会话管理模块**:\n- ✅ [P1] 登录后创建会话\n- ✅ [P1] 会话超时自动退出\n- ✅ [P2] 主动登出清除会话", "delay_ms": 900},
-            {"content": "**⚠️ 异常场景测试点**\n\n**认证异常**:\n- ❌ [P0] 错误密码登录\n- ❌ [P0] 无效验证码登录\n- ❌ [P1] 过期验证码登录\n- ❌ [P0] 连续失败触发账户锁定\n\n**系统异常**:\n- ❌ [P1] 网络中断时的登录处理\n- ❌ [P2] 服务器响应超时时的处理\n- ❌ [P1] 重复提交登录表单", "delay_ms": 800},
-            {"content": "**🔍 边界条件测试点**\n\n- 🔲 [P1] 密码最小/最大长度验证\n- 🔲 [P1] 用户名特殊字符处理\n- 🔲 [P2] 验证码有效期边界\n- 🔲 [P1] 账户锁定次数边界（2次/3次/4次）\n- 🔲 [P2] 会话超时时间边界（23h/24h/25h）\n- 🔲 [P1] 并发登录数量限制", "delay_ms": 700},
-            {"content": "**📊 测试点统计**\n\n| 类型 | P0 | P1 | P2 | 合计 |\n|------|----|----|----|------|\n| 正常场景 | 3 | 5 | 3 | 11 |\n| 异常场景 | 4 | 4 | 3 | 11 |\n| 边界条件 | 1 | 4 | 3 | 8 |\n| **合计** | **8** | **13** | **9** | **30** |\n\n✅ **测试点提取完成**，共 **30** 个测试点", "delay_ms": 600},
+            {
+                "content": "### 测试点分析专家启动\n\n**角色**: 资深测试点分析专家\n\n---",
+                "delay_ms": 500,
+            },
+            {
+                "content": "**🎯 功能模块分解**\n\n> 按功能模块组织测试点...\n\n识别的功能模块：\n1. 🔐 用户认证模块\n2. 👤 账户管理模块\n3. 🔄 会话管理模块\n4. 🔒 安全策略模块",
+                "delay_ms": 700,
+            },
+            {
+                "content": "**📝 正常场景测试点**\n\n**用户认证模块**:\n- ✅ [P0] 账号密码正确登录\n- ✅ [P0] 手机验证码有效登录\n- ✅ [P1] 记住密码自动登录\n- ✅ [P1] 多设备登录支持\n\n**会话管理模块**:\n- ✅ [P1] 登录后创建会话\n- ✅ [P1] 会话超时自动退出\n- ✅ [P2] 主动登出清除会话",
+                "delay_ms": 900,
+            },
+            {
+                "content": "**⚠️ 异常场景测试点**\n\n**认证异常**:\n- ❌ [P0] 错误密码登录\n- ❌ [P0] 无效验证码登录\n- ❌ [P1] 过期验证码登录\n- ❌ [P0] 连续失败触发账户锁定\n\n**系统异常**:\n- ❌ [P1] 网络中断时的登录处理\n- ❌ [P2] 服务器响应超时时的处理\n- ❌ [P1] 重复提交登录表单",
+                "delay_ms": 800,
+            },
+            {
+                "content": "**🔍 边界条件测试点**\n\n- 🔲 [P1] 密码最小/最大长度验证\n- 🔲 [P1] 用户名特殊字符处理\n- 🔲 [P2] 验证码有效期边界\n- 🔲 [P1] 账户锁定次数边界（2次/3次/4次）\n- 🔲 [P2] 会话超时时间边界（23h/24h/25h）\n- 🔲 [P1] 并发登录数量限制",
+                "delay_ms": 700,
+            },
+            {
+                "content": "**📊 测试点统计**\n\n| 类型 | P0 | P1 | P2 | 合计 |\n|------|----|----|----|------|\n| 正常场景 | 3 | 5 | 3 | 11 |\n| 异常场景 | 4 | 4 | 3 | 11 |\n| 边界条件 | 1 | 4 | 3 | 8 |\n| **合计** | **8** | **13** | **9** | **30** |\n\n✅ **测试点提取完成**，共 **30** 个测试点",
+                "delay_ms": 600,
+            },
         ],
     },
     {
@@ -1261,21 +1671,61 @@ Feature: xxx
 ### 用例2: xxx
 ...""",
         "skills": [
-            {"name": "等价类划分", "description": "测试数据设计", "content": "通过等价类划分设计测试数据"},
-            {"name": "边界值分析", "description": "边界测试设计", "content": "针对边界条件设计测试用例"},
-            {"name": "场景法", "description": "业务场景建模", "content": "基于业务场景设计测试用例"},
+            {
+                "name": "等价类划分",
+                "description": "测试数据设计",
+                "content": "通过等价类划分设计测试数据",
+            },
+            {
+                "name": "边界值分析",
+                "description": "边界测试设计",
+                "content": "针对边界条件设计测试用例",
+            },
+            {
+                "name": "场景法",
+                "description": "业务场景建模",
+                "content": "基于业务场景设计测试用例",
+            },
         ],
         "variables": [
-            {"name": "content", "type": "string", "description": "测试点列表", "required": True},
-            {"name": "files_list", "type": "string", "description": "需求详情", "required": False},
+            {
+                "name": "content",
+                "type": "string",
+                "description": "测试点列表",
+                "required": True,
+            },
+            {
+                "name": "files_list",
+                "type": "string",
+                "description": "需求详情",
+                "required": False,
+            },
         ],
         "output_logs_template": [
-            {"content": "### 测试用例生成专家启动\n\n**角色**: 资深测试用例设计专家\n\n---", "delay_ms": 500},
-            {"content": "**📐 用例设计策略**\n\n> 选择用例设计方法...\n\n**采用方法**:\n1. **等价类划分** - 有效/无效等价类\n2. **边界值分析** - 临界值测试\n3. **场景法** - 业务流程建模\n\n**用例格式**: Gherkin Given-When-Then", "delay_ms": 700},
-            {"content": "**📝 生成P0级核心用例**\n\n```gherkin\nFeature: 用户登录认证\n\n  Scenario: [P0] 正确凭据登录\n    Given 用户在登录页面\n    When 输入正确的用户名 \"testuser\" 和密码 \"Test@123\"\n    And 点击登录按钮\n    Then 跳转到主页\n    And 显示欢迎信息 \"欢迎回来, testuser\"\n    And 创建有效期为24小时的会话\n\n  Scenario: [P0] 错误密码登录\n    Given 用户在登录页面\n    When 输入正确用户名 \"testuser\" 和错误密码 \"wrongpass\"\n    And 点击登录按钮\n    Then 显示 \"用户名或密码错误\" 提示\n    And 停留在登录页面\n    And 登录失败次数+1\n\n  Scenario: [P0] 连续失败账户锁定\n    Given 用户在登录页面\n    When 连续3次输入错误密码\n    Then 账户被锁定30分钟\n    And 显示 \"账户已锁定，请30分钟后重试\"\n    And 记录安全日志\n```", "delay_ms": 1200},
-            {"content": "**📝 生成P1级重要用例**\n\n```gherkin\n  Scenario: [P1] 手机验证码登录\n    Given 用户选择手机验证码登录\n    When 输入有效手机号 \"13800138000\"\n    And 点击获取验证码\n    Then 手机收到6位验证码\n    And 在5分钟内输入正确验证码\n    And 成功登录\n\n  Scenario: [P1] 记住密码自动登录\n    Given 用户勾选 \"记住密码\" 登录\n    When 关闭浏览器后重新打开\n    Then 自动填充用户名和密码\n    And 直接进入主页\n\n  Scenario: [P1] 会话超时自动退出\n    Given 用户已登录\n    When 超过24小时未操作\n    Then 自动退出登录\n    And 跳转到登录页面\n    And 显示 \"登录已过期，请重新登录\"\n```", "delay_ms": 1100},
-            {"content": "**📝 生成P2级补充用例**\n\n```gherkin\n  Scenario: [P2] 特殊字符用户名\n    Given 用户在注册页面\n    When 输入包含特殊字符的用户名 \"test@user!\"\n    Then 显示 \"用户名只能包含字母、数字和下划线\"\n    And 注册失败\n\n  Scenario: [P2] 网络中断处理\n    Given 用户正在登录\n    When 网络连接中断\n    Then 显示 \"网络连接异常，请检查网络\"\n    And 提供重试按钮\n\n  Scenario: [P2] 并发登录限制\n    Given 账户已在设备A登录\n    When 在设备B同时登录\n    Then 允许并发登录\n    And 设备A显示 \"您的账户在其他设备登录\"\n```", "delay_ms": 1000},
-            {"content": "**📊 用例统计**\n\n| 优先级 | 用例数量 | 覆盖测试点 |\n|--------|----------|------------|\n| P0 | 3 | 核心登录功能 |\n| P1 | 3 | 重要功能场景 |\n| P2 | 3 | 边界和异常场景 |\n| **合计** | **9** | **100%** |\n\n✅ **测试用例生成完成**，共 **9** 条用例，覆盖 **30** 个测试点", "delay_ms": 700},
+            {
+                "content": "### 测试用例生成专家启动\n\n**角色**: 资深测试用例设计专家\n\n---",
+                "delay_ms": 500,
+            },
+            {
+                "content": "**📐 用例设计策略**\n\n> 选择用例设计方法...\n\n**采用方法**:\n1. **等价类划分** - 有效/无效等价类\n2. **边界值分析** - 临界值测试\n3. **场景法** - 业务流程建模\n\n**用例格式**: Gherkin Given-When-Then",
+                "delay_ms": 700,
+            },
+            {
+                "content": '**📝 生成P0级核心用例**\n\n```gherkin\nFeature: 用户登录认证\n\n  Scenario: [P0] 正确凭据登录\n    Given 用户在登录页面\n    When 输入正确的用户名 "testuser" 和密码 "Test@123"\n    And 点击登录按钮\n    Then 跳转到主页\n    And 显示欢迎信息 "欢迎回来, testuser"\n    And 创建有效期为24小时的会话\n\n  Scenario: [P0] 错误密码登录\n    Given 用户在登录页面\n    When 输入正确用户名 "testuser" 和错误密码 "wrongpass"\n    And 点击登录按钮\n    Then 显示 "用户名或密码错误" 提示\n    And 停留在登录页面\n    And 登录失败次数+1\n\n  Scenario: [P0] 连续失败账户锁定\n    Given 用户在登录页面\n    When 连续3次输入错误密码\n    Then 账户被锁定30分钟\n    And 显示 "账户已锁定，请30分钟后重试"\n    And 记录安全日志\n```',
+                "delay_ms": 1200,
+            },
+            {
+                "content": '**📝 生成P1级重要用例**\n\n```gherkin\n  Scenario: [P1] 手机验证码登录\n    Given 用户选择手机验证码登录\n    When 输入有效手机号 "13800138000"\n    And 点击获取验证码\n    Then 手机收到6位验证码\n    And 在5分钟内输入正确验证码\n    And 成功登录\n\n  Scenario: [P1] 记住密码自动登录\n    Given 用户勾选 "记住密码" 登录\n    When 关闭浏览器后重新打开\n    Then 自动填充用户名和密码\n    And 直接进入主页\n\n  Scenario: [P1] 会话超时自动退出\n    Given 用户已登录\n    When 超过24小时未操作\n    Then 自动退出登录\n    And 跳转到登录页面\n    And 显示 "登录已过期，请重新登录"\n```',
+                "delay_ms": 1100,
+            },
+            {
+                "content": '**📝 生成P2级补充用例**\n\n```gherkin\n  Scenario: [P2] 特殊字符用户名\n    Given 用户在注册页面\n    When 输入包含特殊字符的用户名 "test@user!"\n    Then 显示 "用户名只能包含字母、数字和下划线"\n    And 注册失败\n\n  Scenario: [P2] 网络中断处理\n    Given 用户正在登录\n    When 网络连接中断\n    Then 显示 "网络连接异常，请检查网络"\n    And 提供重试按钮\n\n  Scenario: [P2] 并发登录限制\n    Given 账户已在设备A登录\n    When 在设备B同时登录\n    Then 允许并发登录\n    And 设备A显示 "您的账户在其他设备登录"\n```',
+                "delay_ms": 1000,
+            },
+            {
+                "content": "**📊 用例统计**\n\n| 优先级 | 用例数量 | 覆盖测试点 |\n|--------|----------|------------|\n| P0 | 3 | 核心登录功能 |\n| P1 | 3 | 重要功能场景 |\n| P2 | 3 | 边界和异常场景 |\n| **合计** | **9** | **100%** |\n\n✅ **测试用例生成完成**，共 **9** 条用例，覆盖 **30** 个测试点",
+                "delay_ms": 700,
+            },
         ],
     },
     {
@@ -1344,20 +1794,57 @@ Feature: xxx
 
 ### 质量等级: A/B/C/D""",
         "skills": [
-            {"name": "需求覆盖检查", "description": "需求追溯性检查", "content": "检查用例对需求的覆盖完整性"},
-            {"name": "用例质量评估", "description": "用例可执行性评估", "content": "评估用例步骤的清晰度和可执行性"},
-            {"name": "场景覆盖分析", "description": "测试场景覆盖度分析", "content": "分析测试场景的覆盖充分性"},
+            {
+                "name": "需求覆盖检查",
+                "description": "需求追溯性检查",
+                "content": "检查用例对需求的覆盖完整性",
+            },
+            {
+                "name": "用例质量评估",
+                "description": "用例可执行性评估",
+                "content": "评估用例步骤的清晰度和可执行性",
+            },
+            {
+                "name": "场景覆盖分析",
+                "description": "测试场景覆盖度分析",
+                "content": "分析测试场景的覆盖充分性",
+            },
         ],
         "variables": [
-            {"name": "content", "type": "string", "description": "测试用例内容", "required": True},
-            {"name": "files_list", "type": "string", "description": "需求和测试点", "required": False},
+            {
+                "name": "content",
+                "type": "string",
+                "description": "测试用例内容",
+                "required": True,
+            },
+            {
+                "name": "files_list",
+                "type": "string",
+                "description": "需求和测试点",
+                "required": False,
+            },
         ],
         "output_logs_template": [
-            {"content": "### 用例评审专家启动\n\n**角色**: 资深测试用例评审专家\n\n---", "delay_ms": 500},
-            {"content": "**🔍 评审准备**\n\n> 加载测试用例和需求对照...\n\n**评审范围**:\n- 测试用例数量: 9条\n- 覆盖测试点: 30个\n- 需求文档: 已加载\n- 评审模式: 全面评审", "delay_ms": 600},
-            {"content": "**📊 维度评审结果**\n\n| 维度 | 评分 | 评语 |\n|------|------|------|\n| **完整性** | 9/10 | 覆盖所有核心需求，建议补充并发场景 |\n| **可执行性** | 8/10 | 步骤清晰，测试数据具体，部分预期结果可更细化 |\n| **覆盖度** | 9/10 | 正常/异常/边界场景覆盖充分，建议增加安全测试 |\n| **规范性** | 9/10 | Gherkin格式规范，命名清晰，符合业界标准 |\n\n**综合评分**: 8.8/10", "delay_ms": 900},
-            {"content": "**💡 改进建议**\n\n**建议补充的场景**:\n1. 🔴 **高优先级**: 密码策略测试（复杂度、历史密码检查）\n2. 🔴 **高优先级**: 账户安全测试（暴力破解防护、异地登录警告）\n3. 🟡 **中优先级**: 国际化测试（多语言支持）\n4. 🟡 **中优先级**: 无障碍测试（键盘导航、屏幕阅读器）\n5. 🟢 **低优先级**: 性能边界测试（大量并发登录）\n\n**建议优化的用例**:\n- 用例3: 可增加「账户锁定后管理员解锁」场景\n- 用例5: 可增加「验证码重新发送」场景\n- 用例8: 可增加「弱密码拒绝注册」的数据示例", "delay_ms": 1000},
-            {"content": "**🏆 评审结论**\n\n**质量等级**: ⭐⭐⭐⭐⭐ (A)\n\n**优点**:\n✅ 覆盖所有核心功能需求\n✅ 用例步骤清晰可执行\n✅ 测试数据具体合理\n✅ Gherkin格式规范\n\n**不足**:\n⚠️ 缺少安全测试场景\n⚠️ 部分边界条件可进一步细化\n\n**评审决定**: ✅ 通过，建议补充安全测试用例后进入执行阶段", "delay_ms": 800},
+            {
+                "content": "### 用例评审专家启动\n\n**角色**: 资深测试用例评审专家\n\n---",
+                "delay_ms": 500,
+            },
+            {
+                "content": "**🔍 评审准备**\n\n> 加载测试用例和需求对照...\n\n**评审范围**:\n- 测试用例数量: 9条\n- 覆盖测试点: 30个\n- 需求文档: 已加载\n- 评审模式: 全面评审",
+                "delay_ms": 600,
+            },
+            {
+                "content": "**📊 维度评审结果**\n\n| 维度 | 评分 | 评语 |\n|------|------|------|\n| **完整性** | 9/10 | 覆盖所有核心需求，建议补充并发场景 |\n| **可执行性** | 8/10 | 步骤清晰，测试数据具体，部分预期结果可更细化 |\n| **覆盖度** | 9/10 | 正常/异常/边界场景覆盖充分，建议增加安全测试 |\n| **规范性** | 9/10 | Gherkin格式规范，命名清晰，符合业界标准 |\n\n**综合评分**: 8.8/10",
+                "delay_ms": 900,
+            },
+            {
+                "content": "**💡 改进建议**\n\n**建议补充的场景**:\n1. 🔴 **高优先级**: 密码策略测试（复杂度、历史密码检查）\n2. 🔴 **高优先级**: 账户安全测试（暴力破解防护、异地登录警告）\n3. 🟡 **中优先级**: 国际化测试（多语言支持）\n4. 🟡 **中优先级**: 无障碍测试（键盘导航、屏幕阅读器）\n5. 🟢 **低优先级**: 性能边界测试（大量并发登录）\n\n**建议优化的用例**:\n- 用例3: 可增加「账户锁定后管理员解锁」场景\n- 用例5: 可增加「验证码重新发送」场景\n- 用例8: 可增加「弱密码拒绝注册」的数据示例",
+                "delay_ms": 1000,
+            },
+            {
+                "content": "**🏆 评审结论**\n\n**质量等级**: ⭐⭐⭐⭐⭐ (A)\n\n**优点**:\n✅ 覆盖所有核心功能需求\n✅ 用例步骤清晰可执行\n✅ 测试数据具体合理\n✅ Gherkin格式规范\n\n**不足**:\n⚠️ 缺少安全测试场景\n⚠️ 部分边界条件可进一步细化\n\n**评审决定**: ✅ 通过，建议补充安全测试用例后进入执行阶段",
+                "delay_ms": 800,
+            },
         ],
     },
 ]
@@ -1367,13 +1854,16 @@ Feature: xxx
 # StepPromptConfig CRUD Service
 # ============================
 
-async def list_step_prompt_configs(db: AsyncSession, page: int = 1, page_size: int = 50):
+
+async def list_step_prompt_configs(
+    db: AsyncSession, page: int = 1, page_size: int = 50
+):
     """获取所有步骤提示词配置"""
     q = select(StepPromptConfig).order_by(StepPromptConfig.step_order)
     result = await db.execute(q)
     items = result.scalars().all()
     total = len(items)
-    
+
     return {
         "items": items,
         "total": total,
@@ -1402,11 +1892,19 @@ async def create_step_prompt_config(db: AsyncSession, data: StepPromptConfigCrea
     db.add(config)
     await db.commit()
     await db.refresh(config)
-    await _record_log(db, StepPromptConfig, "创建配置", config.id, f"创建步骤「{config.step_name}」配置")
+    await _record_log(
+        db,
+        StepPromptConfig,
+        "创建配置",
+        config.id,
+        f"创建步骤「{config.step_name}」配置",
+    )
     return config
 
 
-async def update_step_prompt_config(db: AsyncSession, config_id: int, data: StepPromptConfigUpdate):
+async def update_step_prompt_config(
+    db: AsyncSession, config_id: int, data: StepPromptConfigUpdate
+):
     """更新步骤提示词配置"""
     config = await _get_by_id(db, StepPromptConfig, config_id)
     if not config:
@@ -1416,7 +1914,13 @@ async def update_step_prompt_config(db: AsyncSession, config_id: int, data: Step
         setattr(config, key, value)
     await db.commit()
     await db.refresh(config)
-    await _record_log(db, StepPromptConfig, "更新配置", config.id, f"更新步骤「{config.step_name}」配置")
+    await _record_log(
+        db,
+        StepPromptConfig,
+        "更新配置",
+        config.id,
+        f"更新步骤「{config.step_name}」配置",
+    )
     return config
 
 
@@ -1428,32 +1932,43 @@ async def delete_step_prompt_config(db: AsyncSession, config_id: int):
     name = config.step_name
     await db.delete(config)
     await db.commit()
-    await _record_log(db, StepPromptConfig, "删除配置", config_id, f"删除步骤「{name}」配置")
+    await _record_log(
+        db, StepPromptConfig, "删除配置", config_id, f"删除步骤「{name}」配置"
+    )
     return True
 
 
-async def test_step_prompt_config(db: AsyncSession, config_id: int, data: StepPromptTestRequest):
+async def test_step_prompt_config(
+    db: AsyncSession, config_id: int, data: StepPromptTestRequest
+):
     """测试步骤提示词配置"""
     config = await _get_by_id(db, StepPromptConfig, config_id)
     if not config:
         return None
-    
+
     # 渲染模板变量
     rendered_user_prompt = config.user_prompt_template
     for key, value in data.variables.items():
         rendered_user_prompt = rendered_user_prompt.replace(f"{{{key}}}", str(value))
-    
+
     # 构造测试结果
     import time, random
+
     duration = round(random.uniform(1.0, 3.0), 2)
-    
+
     return {
         "config_id": config_id,
         "config_name": config.step_name,
         "rendered_user_prompt": rendered_user_prompt,
-        "system_prompt_preview": config.system_prompt[:200] + "..." if len(config.system_prompt) > 200 else config.system_prompt,
-        "skill_prompt_preview": config.skill_prompt[:200] + "..." if config.skill_prompt and len(config.skill_prompt) > 200 else config.skill_prompt,
-        "output_template_preview": config.output_template[:200] + "..." if config.output_template and len(config.output_template) > 200 else config.output_template,
+        "system_prompt_preview": config.system_prompt[:200] + "..."
+        if len(config.system_prompt) > 200
+        else config.system_prompt,
+        "skill_prompt_preview": config.skill_prompt[:200] + "..."
+        if config.skill_prompt and len(config.skill_prompt) > 200
+        else config.skill_prompt,
+        "output_template_preview": config.output_template[:200] + "..."
+        if config.output_template and len(config.output_template) > 200
+        else config.output_template,
         "duration": f"{duration}s",
         "skills_count": len(config.skills) if config.skills else 0,
         "variables_count": len(config.variables) if config.variables else 0,
@@ -1462,27 +1977,27 @@ async def test_step_prompt_config(db: AsyncSession, config_id: int, data: StepPr
 
 async def init_default_step_prompt_configs(db: AsyncSession):
     """初始化默认步骤提示词配置"""
-    existing = (await db.execute(
-        select(func.count(StepPromptConfig.id)).where(StepPromptConfig.is_default == True)
-    )).scalar() or 0
-    
+    existing = (
+        await db.execute(
+            select(func.count(StepPromptConfig.id)).where(
+                StepPromptConfig.is_default == True
+            )
+        )
+    ).scalar() or 0
+
     if existing > 0:
         return {"initialized": False, "message": "默认配置已存在"}
-    
+
     created = []
     for config_data in DEFAULT_STEP_CONFIGS:
-        config = StepPromptConfig(
-            **config_data,
-            is_default=True,
-            status="已启用"
-        )
+        config = StepPromptConfig(**config_data, is_default=True, status="已启用")
         db.add(config)
         created.append(config)
-    
+
     await db.commit()
     for config in created:
         await db.refresh(config)
-    
+
     return {
         "initialized": True,
         "created_count": len(created),

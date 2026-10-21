@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Sparkles, Wand2, X } from "lucide-react"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
-import { lifecycleApi, projectApi } from "@/lib/api"
+import { lifecycleApi } from "@/lib/api"
 import { formatDateTime } from "@/lib/utils"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
 import MarkdownPreview from "@/components/markdown/MarkdownPreview"
+import { useCrudPage } from "@/hooks/useCrudPage"
+import { useProjectOptions } from "@/hooks/useProjectOptions"
 
 interface Requirement {
   id: number
@@ -37,7 +40,6 @@ const statusConfig = {
   archived: { label: "已归档", color: "bg-pass/10 text-pass border border-pass/20" },
 }
 
-/** 来源英文值 → 中文映射 */
 const sourceConfig: Record<string, string> = {
   manual: "手动输入",
   ai_generated: "AI生成",
@@ -78,41 +80,41 @@ const sourceOptions = [
 ]
 
 const columns: CrudColumn[] = [
-  { key: "name", title: "需求名称", width: "min-w-[160px]", align: "center" },
+  { key: "name", title: "需求名称", width: "w-[220px]", align: "left" },
   {
     key: "code",
     title: "需求编号",
-    width: "min-w-[120px]",
+    width: "w-[120px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[110px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
-  { key: "priority", title: "优先级", width: "w-28", align: "center" },
-  { key: "status", title: "状态", width: "w-28", align: "center" },
+  { key: "priority", title: "优先级", width: "w-[90px]", align: "center" },
+  { key: "status", title: "状态", width: "w-[80px]", align: "center" },
   {
     key: "requirement_type",
-    title: "需求类型",
-    width: "min-w-[120px]",
+    title: "类型",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "source",
     title: "来源",
-    width: "min-w-[120px]",
+    width: "w-[90px]",
     align: "center",
     render: (v: string) => {
       if (!v) return <span className="text-muted">—</span>
@@ -123,7 +125,7 @@ const columns: CrudColumn[] = [
   {
     key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[140px]",
     align: "center",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
@@ -133,21 +135,11 @@ const columns: CrudColumn[] = [
 
 export default function RequirementsPage() {
   const toast = useToast()
-  const [data, setData] = useState<Requirement[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [priorityFilter, setPriorityFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [versionFilter, setVersionFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
-
-  const [projects, setProjects] = useState<any[]>([])
-  const [versions, setVersions] = useState<any[]>([])
-  const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
@@ -176,42 +168,42 @@ export default function RequirementsPage() {
     }
   }, [])
 
-  useEffect(() => {
-    projectApi
-      .listProjects()
-      .then((res) => setProjects(res?.data?.items || []))
-      .catch(() => {})
-    projectApi
-      .listVersions()
-      .then((res) => setVersions(res?.data?.items || []))
-      .catch(() => {})
-  }, [])
+  const fetchFn = useCallback(
+    (params: Record<string, any>) => lifecycleApi.listRequirements(params),
+    [],
+  )
 
-  useEffect(() => {
-    if (!editingRequirement?.project_id) {
-      setVersionOptions(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
-    } else {
-      setVersionOptions(
-        versions
-          .filter((v: any) => v.project_id === editingRequirement.project_id)
-          .map((v: any) => ({ label: v.name, value: String(v.id) }))
-      )
-    }
-  }, [versions, editingRequirement])
+  const {
+    data, total, page, setPage, pageSize, setPageSize,
+    loading, searchTerm, setSearchTerm, reload,
+  } = useCrudPage<Requirement>({ fetchFn })
 
-  const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
+  const {
+    projectOptions,
+    getVersionOptionsForProject,
+  } = useProjectOptions()
+
+  const dialogVersionOptions = useMemo(
+    () => getVersionOptionsForProject(editingRequirement?.project_id),
+    [getVersionOptionsForProject, editingRequirement?.project_id],
+  )
+
+  const filterVersionOptions = useMemo(
+    () => getVersionOptionsForProject(projectFilter || undefined),
+    [getVersionOptionsForProject, projectFilter],
+  )
 
   const filters: CrudFilter[] = [
     { key: "search", label: "搜索需求名称...", type: "search" },
     { key: "status", label: "全部状态", type: "select", options: statusOptions },
     { key: "priority", label: "全部优先级", type: "select", options: priorityOptions },
     { key: "project", label: "全部项目", type: "select", options: projectOptions },
-    { key: "version", label: "全部版本", type: "select", options: versionOptions },
+    { key: "version", label: "全部版本", type: "select", options: filterVersionOptions },
   ]
 
   const fields: CrudField[] = [
     { key: "project_id", label: "项目", type: "select", options: projectOptions },
-    { key: "version_id", label: "版本", type: "select", options: versionOptions },
+    { key: "version_id", label: "版本", type: "select", options: dialogVersionOptions },
     { key: "name", label: "需求名称", type: "text", required: true, placeholder: "请输入需求名称" },
     { key: "description", label: "需求描述", type: "textarea", placeholder: "请输入详细的需求描述" },
     { key: "priority", label: "优先级", type: "select", options: priorityOptions, default: "P2" },
@@ -220,53 +212,18 @@ export default function RequirementsPage() {
     { key: "source", label: "来源", type: "select", options: sourceOptions },
   ]
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (statusFilter) params.status = statusFilter
-      if (priorityFilter) params.priority = priorityFilter
-      if (projectFilter) params.project_id = projectFilter
-      if (versionFilter) params.version_id = versionFilter
-      const res = await lifecycleApi.listRequirements(params)
-      const payload = res?.data
-      const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
-      const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
-      setData(list)
-      setTotal(totalCount)
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, statusFilter, priorityFilter, projectFilter, versionFilter])
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
   const handleSearch = useCallback((value: string) => {
     setSearchTerm(value)
     setPage(1)
-  }, [])
+  }, [setSearchTerm, setPage])
 
   const handleFilterChange = useCallback((key: string, value: string) => {
-    if (key === "status") {
-      setStatusFilter(value)
-      setPage(1)
-    } else if (key === "priority") {
-      setPriorityFilter(value)
-      setPage(1)
-    } else if (key === "project") {
-      setProjectFilter(value)
-      setPage(1)
-    } else if (key === "version") {
-      setVersionFilter(value)
-      setPage(1)
-    }
-  }, [])
+    if (key === "status") setStatusFilter(value)
+    else if (key === "priority") setPriorityFilter(value)
+    else if (key === "project") setProjectFilter(value)
+    else if (key === "version") setVersionFilter(value)
+    setPage(1)
+  }, [setPage])
 
   const handleCreate = useCallback(() => {
     setDialogMode("create")
@@ -288,31 +245,44 @@ export default function RequirementsPage() {
 
   const handleDelete = useCallback(
     async (row: Requirement) => {
-      if (!window.confirm(`确定要删除需求「${row.name}」吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "确认删除",
+        message: "确定要删除该需求吗？删除后不可恢复。",
+        itemName: row.name,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.deleteRequirement(row.id)
         toast.success("删除成功")
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload],
   )
 
   const handleBatchDelete = useCallback(
     async (ids: (string | number)[]) => {
-      if (!window.confirm(`确定要删除选中的 ${ids.length} 个需求吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "批量删除",
+        message: `确定要删除选中的 ${ids.length} 个需求吗？删除后不可恢复。`,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.batchDeleteRequirements(ids as number[])
         toast.success("批量删除成功")
         setSelectedIds(new Set())
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "批量删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload],
   )
 
   const handleSubmit = useCallback(
@@ -326,18 +296,16 @@ export default function RequirementsPage() {
           toast.success("需求更新成功")
         }
         setDialogOpen(false)
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "操作失败")
       }
     },
-    [dialogMode, editingRequirement, toast, loadData]
+    [dialogMode, editingRequirement, toast, reload],
   )
 
   const handleViewEdit = useCallback(() => {
-    if (editingRequirement) {
-      setDialogMode("edit")
-    }
+    if (editingRequirement) setDialogMode("edit")
   }, [editingRequirement])
 
   const handleUpload = useCallback(async () => {
@@ -353,13 +321,13 @@ export default function RequirementsPage() {
       toast.success("文档上传成功")
       setShowUploadDialog(false)
       setUploadFile(null)
-      loadData()
+      reload()
     } catch (e: any) {
       toast.error(e?.message || "上传失败")
     } finally {
       setUploading(false)
     }
-  }, [uploadFile, toast, loadData])
+  }, [uploadFile, toast, reload])
 
   const startAiAnalysis = useCallback(
     async (req: Requirement) => {
@@ -377,11 +345,8 @@ export default function RequirementsPage() {
         const eventSource = lifecycleApi.analyzeRequirementSSE(req.id)
         aiEventSourceRef.current = eventSource
 
-        // 活动检测：收到内容时重置超时，避免 LLM 长分析被误杀
         const resetAiTimeout = () => {
-          if (aiTimeoutRef.current) {
-            clearTimeout(aiTimeoutRef.current)
-          }
+          if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current)
           aiTimeoutRef.current = setTimeout(() => {
             if (isAnalyzingRef.current) {
               setIsAnalyzing(false)
@@ -407,7 +372,6 @@ export default function RequirementsPage() {
               setAiOutput((prev) => prev + "\n💡 " + data.content)
               resetAiTimeout()
             } else if (data.type === "chunk") {
-              // 后端流式 chunk：直接追加 AI 内容
               setAiOutput((prev) => prev + data.content)
               resetAiTimeout()
             } else if (data.type === "error") {
@@ -453,7 +417,7 @@ export default function RequirementsPage() {
         setIsAnalyzing(false)
       }
     },
-    [toast]
+    [toast],
   )
 
   const dialogTitle =
@@ -533,11 +497,11 @@ export default function RequirementsPage() {
                   <label className="text-sm font-medium text-ink mb-1.5 block">选择文件</label>
                   <input
                     type="file"
-                    accept=".pdf,.doc,.docx,.txt,.md"
+                    accept=".pdf,.doc,.docx,.txt,.md,.xlsx,.xls,.pptx,.ppt,.csv,.xmind"
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                     className="w-full text-sm text-ink file:mr-3 file:h-10 file:px-4 file:rounded-xl file:border-0 file:bg-amber/10 file:text-amber file:font-medium hover:file:bg-amber/20"
                   />
-                  <p className="text-xs text-muted mt-1">支持 PDF、Word、TXT、Markdown 格式</p>
+                  <p className="text-xs text-muted mt-1">支持 PDF、Word、Excel、PPT、TXT、Markdown、CSV、XMind 格式</p>
                 </div>
               </div>
               <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-border">
@@ -599,13 +563,11 @@ export default function RequirementsPage() {
 
               <div className="bg-cream rounded-xl p-4 max-h-96 overflow-y-auto">
                 {isAnalyzing ? (
-                  /* 流式输出：打字机纯文本，保证实时性 */
                   <pre className="text-sm text-ink-light whitespace-pre-wrap font-mono">
                     {aiOutput || "等待AI输出..."}
                     <span className="animate-pulse">▊</span>
                   </pre>
                 ) : (
-                  /* 分析完成：Markdown 完整解析渲染 */
                   <MarkdownPreview content={aiOutput} emptyText="等待AI输出..." />
                 )}
               </div>

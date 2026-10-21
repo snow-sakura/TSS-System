@@ -1,161 +1,159 @@
-# TSS AI测试平台 - 模块功能完整性分析
+# TSS AI测试平台 — 模块功能完整性分析（现行版）
+
+> 更新日期：2026-08-24　|　基于当前代码库实际状态梳理
 
 ## 总览
 
 | 指标 | 数量 |
 |------|------|
-| 总路由数 | 25 |
-| 前端页面组件 | ~60+ |
-| 后端API端点 | ~100+ |
-| 已连接真实API的页面 | ~22 |
-| 仅有Mock数据的页面 | ~5 |
+| 后端 API 模块 | 19 |
+| 后端 API 端点 | 200+ |
+| 数据模型 | 15 个模块 / ~55 模型 |
+| 测试引擎 | 5 种（注册表驱动） |
+| 前端页面目录 | 18 个 |
+| 前端懒加载路由 | 40+ |
+| 共享组件 | 7 个目录（ui/layout/crud/markdown/ai-assistant/log-panel/shared） |
 
 ---
 
-## 一、完整模块（已对接真实API）
+## 一、核心完整模块（已对接真实 API）
 
-### 1. 认证模块 ✅
+### 1. 测试管理中心（`/test-management/*`）✅
+当前最大的模块，带侧边栏布局，覆盖测试全生命周期：
+- 需求测试：`requirements` / `plans` / `points` / `cases` / `reviews`
+- 用例详情：`cases/:id`（嵌套布局壳内渲染）
+- 执行管理：`executions` / `schedules`
+- 缺陷管理：`defects` / `kanban` / `root-cause` / `trend`
+- 分析报告：`reports` / `ai-report` / `quality`
+- AI 全流程：`pipeline`（页内 3 Tab：流程/生成记录/步骤提示词）/ `records`
+- 组织管理：`ProjectManagement` / `VersionManagement` / `UserManagement` / `RoleManagement` / `StepPromptConfig`
+- 平台对标：`comparison`（CompetitorAnalysisPage）
+
+### 2. 认证模块 ✅
 - LoginPage / RegisterPage
-- API: authApi.login/register/refresh/profile
+- API: `/api/v1/auth`（登录/注册/Token 刷新）
 - 完整度: 100%
 
-### 2. 需求测试全流程 ✅
-- RequirementsList / PlansList / CasesList / ReviewsList
-- AICaseGeneration / AIPipeline / ProcessRecords
-- API: lifecycleApi + configApi 完整CRUD
-- 完整度: 95%（ProcessRecords仅读取，无编辑）
+### 3. 需求测试全流程 ✅
+- RequirementTestingPage / AIPipeline / ProcessRecords
+- API: `/api/v1/test-lifecycle` + `/api/v1/pipeline` + `/api/v1/data` 完整 CRUD
+- 完整度: 95%
 
-### 3. 缺陷管理 ✅
-- DefectList / DefectKanban / RootCauseAnalysis / TrendAnalysis
-- API: lifecycleApi 完整CRUD + AI分析
+### 4. AI Web 自动化（`/ai-web-automation`）✅
+- ProjectList / AiAgentPanel / AiExploration / ObjectRepository / TestCaseManager / EngineSelector
+- API: `/api/v1/web-automation` 完整 CRUD + WebSocket 实时推送
+- 引擎选择：Midscene.js / Playwright MCP / Browser Use / UI-TARS / Mock
 - 完整度: 90%
 
-### 4. 执行管理 ✅
-- ExecutionList / ExecutionDetail / ScheduleConfig
-- API: lifecycleApi 完整CRUD + SSE流
-- 完整度: 85%（ScheduleConfig可能是Mock）
-
-### 5. 分析报告 ✅
-- ReportList / AiReport / QualityOverview / TrendCharts
-- API: lifecycleApi 完整CRUD + AI生成
-- 完整度: 90%
-
-### 6. AI Web自动化 ✅
-- ProjectList / AiExploration / TestCaseManager / ExecutionView
-- API: webApi 完整CRUD + WebSocket
+### 5. AI 用例生成（`/ai-automation`）✅
+- AiAutomationHub / AiTestTypeDetail（按测试类型 5 步流水线）
+- API: `/api/v1/pipeline` / `/api/v1/ai-test-tasks`
 - 完整度: 85%
 
-### 7. 系统管理（7个子模块）✅
-- EnvironmentConfig / LLMConfig / PromptConfig / DeAIConfig
-- MCPConfig / SkillsConfig / OperationLogs
-- API: configApi 完整CRUD + 测试/批量测试
-- 完整度: 90%
+### 6. 知识库（`/knowledge-base`）✅
+- 测试模式库 + Bug 知识库 + RAG 搜索
+- API: `/api/v1/knowledge`（含 AI 语义搜索）
+- 完整度: 85%
 
-### 8. 活动记录 ✅
-- ActivitiesPage
-- API: configApi.listOperationLogs
-- 完整度: 80%（只读，无筛选/导出）
+### 7. 工作流编排（`/workflow-orchestration`）✅
+- WorkflowEditorPage（SVG DAG 画布）
+- API: `/api/v1/workflows`（Workflow/Node/Edge/Execution）
+- 完整度: 85%
 
-### 9. 操作日志 ✅
-- OperationLogs
-- API: configApi.listOperationLogs
+### 8. 数据工厂（`/data-factory`）✅
+- DataFactoryPage
+- API: `/api/v1/data-factory`
 - 完整度: 80%
 
----
-
-## 二、部分完成模块（需要完善）
-
-### 10. 用户管理 ⚠️ 需要完善
-| 子页面 | 状态 | 需要补充 |
-|--------|------|----------|
-| UserList | ✅ 已连接API | 需要CRUD操作（创建/编辑/删除用户） |
-| UserStatus | ❌ Mock | 需要实现在线状态管理API |
-| RolePermission | ❌ Mock | 需要实现角色权限CRUD API |
-| LoginLog | ❌ Mock | 需要实现登录日志API |
-| DeviceMgmt | ❌ Mock | 需要实现设备管理API |
-
-**需要新增的后端API：**
-- POST/PUT/DELETE /api/v1/users/{id}
-- GET /api/v1/users/{id}/status
-- GET /api/v1/users/login-logs
-- GET /api/v1/users/devices
-- CRUD /api/v1/roles
-
-### 11. 测试生命周期 ⚠️ 部分Mock
-| 阶段 | 状态 | 说明 |
-|------|------|------|
-| 1-5 需求分析→用例评审 | ✅ | 重定向到requirement-testing |
-| 6 执行管理 | ⚠️ Mock | 重定向到executions |
-| 7 缺陷管理 | ⚠️ Mock | 重定向到defects |
-| 8 报告生成 | ⚠️ Mock | 重定向到reports |
-
-**需要补充：** 各阶段的汇总视图和阶段间的数据流转
-
-### 12. 系统概览 ⚠️ 部分Mock
-- SystemOverview 已连接API
-- 但统计数据可能不完整
+### 9. 系统管理（`/system-management`）✅
+- 环境 / LLM / 提示词 / 风格 / MCP / Skills / 步骤提示词 / 健康历史
+- API: `/api/v1/config`（60+ 端点）
+- 完整度: 90%
 
 ---
 
-## 三、需要新建/重写的模块（纯Mock或缺失）
+## 二、独立管理与执行模块（已对接真实 API）
 
-### 13. 知识库 ❌ 全部Mock
-| 子页面 | 状态 | 需要实现 |
-|--------|------|----------|
-| TestPatterns | ❌ Mock | 测试模式库CRUD API |
-| BugKnowledge | ❌ Mock | Bug知识库CRUD API |
-| RagSearch | ❌ Mock | RAG搜索API + 向量存储 |
+### 10. 执行管理（`/execution-management`）
+- ExecutionList / ExecutionDetail
+- API: `/api/v1/test-lifecycle` 执行相关 + SSE 流
+- 完整度: 85%
 
-**需要新增的后端API：**
-- CRUD /api/v1/knowledge/test-patterns
-- CRUD /api/v1/knowledge/bug-knowledge
-- POST /api/v1/knowledge/search (RAG搜索)
-- POST /api/v1/knowledge/embed (向量化)
+### 11. 缺陷管理（`/defect-management`）
+- DefectList + 看板 + AI 根因分析 + 趋势图表
+- API: `/api/v1/test-lifecycle` 缺陷相关 + AI 分析
+- 完整度: 90%
 
-### 14. AI自动化页面 ❌ 纯Mock
-- AiAutomationPage 使用 setTimeout 模拟
-- 需要连接到真实的 pipeline API
-- **修复方案：** 直接使用 AIPipeline 组件或连接到 pipeline.start API
+### 12. 分析报告（`/report-management`）
+- ReportList / AI 报告 / 质量概览 / 趋势图表
+- API: `/api/v1/test-lifecycle` 报告相关 + AI 生成
+- 完整度: 90%
 
-### 15. 通用模块页 ❌ Mock
-- ModulePage 使用 hardcoded defaultData
-- DetailPage 使用 mockDetail
-- **修复方案：** 根据模块配置动态加载真实API
+### 13. 用户/角色管理
+- UserManagementPage（`/users`）+ RoleManagement
+- API: `/api/v1/users` + `/api/v1/roles`（CRUD、状态、登录日志、设备）
+- 完整度: 85%
 
 ---
 
-## 四、改进优先级
+## 三、后端专项能力模块（后端 API 已实现，前端部分集成）
 
-### P0 - 必须完善（核心功能缺失）
-1. **知识库模块** - 3个子页面全部Mock，需要完整实现
-2. **用户管理** - CRUD不完整，角色权限是Mock
-3. **AI自动化页面** - 连接到真实API
-
-### P1 - 应该完善（影响用户体验）
-4. **TestLifecyclePage** - 阶段汇总视图
-5. **ModulePage/DetailPage** - 通用页面支持真实数据
-6. **ScheduleConfig** - 调度配置实现
-
-### P2 - 可以优化（锦上添花）
-7. **ActivitiesPage** - 增加筛选/导出功能
-8. **OperationLogs** - 增加高级筛选
-9. **DashboardPage** - 更多统计维度
+| 模块 | API 前缀 | 说明 |
+|------|---------|------|
+| AI 接口自动化 | `/api/v1/api-test` | OpenAPI 驱动接口用例生成与执行 |
+| AI App 自动化 | `/api/v1/app-test` | App 自动化测试 |
+| AI 通用测试任务 | `/api/v1/ai-test-tasks` | 通用 AI 测试任务调度 |
+| 项目管理 | `/api/v1/projects` | 项目与版本管理 |
+| MCP 市场 | `/api/v1/mcp-marketplace` | MCP 服务市场管理与安装 |
+| AI 对话 | `/api/v1/ai` | AI 智能助手对话 |
+| 引擎管理 | `/api/v1/engines` | 引擎列表/切换/健康检查 |
+| 需求数据 | `/api/v1/data` | 需求测试各阶段数据管理 |
 
 ---
 
-## 五、实施计划
+## 四、测试引擎体系
 
-### Phase 1: 知识库模块（P0）
-- 后端: 创建 knowledge API (test_patterns, bug_knowledge, rag_search)
-- 前端: 重写 TestPatterns, BugKnowledge, RagSearch 连接真实API
+| 引擎 | 类型标识 | 状态 |
+|------|---------|------|
+| MockEngine | `mock` | 可用（模拟） |
+| MidsceneEngine | `midscene` | 可用（视觉驱动） |
+| PlaywrightMCPEngine | `playwright_mcp` | 可用（MCP 浏览器自动化） |
+| BrowserUseEngine | `browser_use` | 预留 |
+| UITarsEngine | `ui_tars` | 预留 |
 
-### Phase 2: 用户管理完善（P0）
-- 后端: 扩展 users API (CRUD, roles, login-logs, devices)
-- 前端: 完善 UserList CRUD, 实现 RolePermission, LoginLog, DeviceMgmt
+引擎通过 `EngineRegistry` 注册表统一管理，前端 `EngineSelector` 组件提供切换入口。
 
-### Phase 3: AI自动化连接（P0）
-- 前端: AiAutomationPage 连接到 pipeline.start API
+---
 
-### Phase 4: 通用页面完善（P1）
-- 前端: ModulePage/DetailPage 支持动态API加载
-- 前端: TestLifecyclePage 阶段汇总视图
+## 五、建议完善项（优先级）
+
+### P0 — 核心能力补强
+1. **App / 接口自动化前端集成**：后端 API 已就绪，前端页面目录尚未落地，需要补充对应页面组件与路由
+2. **MCP 市场深度集成**：市场列表已实现，可增强安装/配置流程的前端体验
+
+### P1 — 体验优化
+3. **Dashboard 统计维度**：增加更多质量与效率维度
+4. **活动/操作日志**：增加筛选、导出功能
+
+### P2 — 工程化
+5. 测试覆盖提升：补充引擎与 workflow 的单元测试
+6. 生产环境迁移：SQLite → PostgreSQL 的迁移与 CI/CD 流水线完善
+
+---
+
+## 六、跨模块协作关系
+
+```
+用户认证/授权
+   │
+   ▼
+需求分析(requirement_agent) ──► 测试点 ──► 用例生成(test_generator)
+   │                                       │
+   ▼                                       ▼
+知识库(RAG) ◄── 缺陷沉淀 ◄── 执行(execution_agent) ──► 评审
+                                           │
+                                           ▼
+                                    报告生成(ai_report) ──► 质量概览
+   │
+   └── 工作流编排(workflow_engine) 可编排以上任意节点
+```

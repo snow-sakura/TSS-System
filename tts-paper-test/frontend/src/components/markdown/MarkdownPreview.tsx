@@ -2,6 +2,14 @@
  * 共享 Markdown 内容渲染组件
  * 使用 react-markdown + remark-gfm + remark-breaks 渲染完整 Markdown
  * （表格/代码块/标题/列表/加粗/普通换行等），供所有弹窗预览场景复用。
+ *
+ * 样式由 index.css 中的 .pipeline-markdown 提供，包含：
+ * - 表格（边框、斑马纹、表头背景）
+ * - 代码块（暗色背景、等宽字体）
+ * - 标题（层级、分隔线）
+ * - 列表（有序/无序）
+ * - 引用块（琥珀色边框）
+ * - 加粗/斜体/链接
  */
 import { memo } from "react"
 import ReactMarkdown from "react-markdown"
@@ -35,76 +43,41 @@ function MarkdownPreview({ content, emptyText = "暂无内容", className, maxHe
   }
 
   return (
-    <div className={`preview-content prose prose-sm max-w-none ${className ?? ""}`} style={scrollStyle}>
+    <div className={`pipeline-markdown ${className ?? ""}`} style={scrollStyle}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
         components={{
           table: ({ children }) => (
-            <div className="overflow-x-auto my-4 rounded-xl border border-border shadow-sm">
-              <table className="min-w-full text-sm">{children}</table>
+            <div className="overflow-x-auto my-3">
+              <table>{children}</table>
             </div>
           ),
-          thead: ({ children }) => (
-            <thead className="bg-cream/60">{children}</thead>
-          ),
-          th: ({ children }) => (
-            <th className="px-4 py-2.5 text-left text-xs font-bold text-ink border-b border-border whitespace-nowrap">{children}</th>
-          ),
-          td: ({ children }) => (
-            <td className="px-4 py-2.5 text-ink-light border-b border-border/40">{children}</td>
-          ),
-          h1: ({ children }) => (
-            <h1 className="text-lg font-bold text-ink mt-6 mb-3 pb-2 border-b border-border" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{children}</h1>
-          ),
-          h2: ({ children }) => (
-            <h2 className="text-base font-bold text-ink mt-5 mb-2 pb-1.5 border-b border-border/50" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{children}</h2>
-          ),
-          h3: ({ children }) => (
-            <h3 className="text-sm font-bold text-ink mt-4 mb-2" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{children}</h3>
-          ),
-          h4: ({ children }) => (
-            <h4 className="text-sm font-bold text-ink mt-3 mb-1.5">{children}</h4>
-          ),
-          p: ({ children }) => (
-            <p className="text-sm text-ink-light leading-relaxed mb-3">{children}</p>
-          ),
-          strong: ({ children }) => (
-            <strong className="font-bold text-ink">{children}</strong>
-          ),
-          em: ({ children }) => (
-            <em className="italic text-ink-light">{children}</em>
-          ),
-          ul: ({ children }) => (
-            <ul className="list-disc list-inside space-y-1 mb-3 text-sm text-ink-light">{children}</ul>
-          ),
-          ol: ({ children }) => (
-            <ol className="list-decimal list-inside space-y-1 mb-3 text-sm text-ink-light">{children}</ol>
-          ),
-          li: ({ children }) => (
-            <li className="leading-relaxed">{children}</li>
-          ),
-          code: ({ children, className }) => {
-            const isBlock = className?.includes("language-")
+          thead: ({ children }) => <thead>{children}</thead>,
+          th: ({ children }) => <th>{children}</th>,
+          td: ({ children }) => <td>{children}</td>,
+          h1: ({ children }) => <h1>{children}</h1>,
+          h2: ({ children }) => <h2>{children}</h2>,
+          h3: ({ children }) => <h3>{children}</h3>,
+          h4: ({ children }) => <h4>{children}</h4>,
+          p: ({ children }) => <p>{children}</p>,
+          strong: ({ children }) => <strong>{children}</strong>,
+          em: ({ children }) => <em>{children}</em>,
+          ul: ({ children }) => <ul>{children}</ul>,
+          ol: ({ children }) => <ol>{children}</ol>,
+          li: ({ children }) => <li>{children}</li>,
+          code: ({ children, className: codeClassName }) => {
+            const isBlock = codeClassName?.includes("language-")
             return isBlock ? (
-              <code className="block bg-gray-900 text-gray-100 rounded-xl p-4 text-xs font-mono overflow-x-auto my-3 leading-relaxed">{children}</code>
+              <code className={codeClassName}>{children}</code>
             ) : (
-              <code className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded-md text-xs font-mono">{children}</code>
+              <code>{children}</code>
             )
           },
-          pre: ({ children }) => (
-            <pre className="bg-gray-900 rounded-xl p-4 overflow-x-auto my-3">{children}</pre>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-amber pl-4 py-2 my-3 bg-amber-50/50 rounded-r-xl text-sm text-ink-light italic">{children}</blockquote>
-          ),
-          hr: () => (
-            <hr className="my-4 border-border" />
-          ),
+          pre: ({ children }) => <pre>{children}</pre>,
+          blockquote: ({ children }) => <blockquote>{children}</blockquote>,
+          hr: () => <hr />,
           a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-amber-700 hover:text-amber-hover underline">{children}</a>
-          ),
-          img: ({ src, alt }) => (
-            <img src={src} alt={alt} className="max-w-full rounded-xl my-2 shadow-sm" loading="lazy" />
+            <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
           ),
         }}
       >

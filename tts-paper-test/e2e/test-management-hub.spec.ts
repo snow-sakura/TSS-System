@@ -27,8 +27,8 @@ async function loginViaUI(page: import("@playwright/test").Page) {
 test.beforeEach(async ({ page }) => {
   await loginViaUI(page)
   // 确保已登录成功后导航到 Hub
-  if (!page.url().includes("test-management-hub")) {
-    await page.goto("/test-management-hub")
+  if (!page.url().includes("test-management")) {
+    await page.goto("/test-management")
     await waitStable(page)
   }
 })
@@ -118,7 +118,7 @@ test.describe("需求看板视图", () => {
   })
 
   test("看板显示3列（新建/分析中/已完成）", async ({ page }) => {
-    await page.goto("/test-management-hub/rt-req-list")
+    await page.goto("/test-management/requirements")
     await waitStable(page)
 
     // 应该有三个看板列（检查列标题或分组文本）
@@ -127,7 +127,7 @@ test.describe("需求看板视图", () => {
   })
 
   test("需求卡片可点击查看详情", async ({ page }) => {
-    await page.goto("/test-management-hub/rt-req-list")
+    await page.goto("/test-management/requirements")
     await waitStable(page)
 
     // 等待内容加载完成
@@ -143,7 +143,7 @@ test.describe("需求看板视图", () => {
   })
 
   test("AI分析按钮可见", async ({ page }) => {
-    await page.goto("/test-management-hub/rt-req-list")
+    await page.goto("/test-management/requirements")
     await waitStable(page)
 
     // 页面应包含 AI 相关按钮
@@ -157,13 +157,13 @@ test.describe("需求看板视图", () => {
 // ═══════════════════════════════════════════════════════════
 test.describe("执行仪表盘视图", () => {
   test("导航到执行仪表盘", async ({ page }) => {
-    await page.goto("/test-management-hub/ex-list")
+    await page.goto("/test-management/executions")
     await waitStable(page)
     await expect(page).toHaveURL(/ex-list/)
   })
 
   test("统计卡片已加载", async ({ page }) => {
-    await page.goto("/test-management-hub/ex-list")
+    await page.goto("/test-management/executions")
     await waitStable(page)
 
     // 检查是否有统计卡片或数据
@@ -177,13 +177,13 @@ test.describe("执行仪表盘视图", () => {
 // ═══════════════════════════════════════════════════════════
 test.describe("缺陷列表视图", () => {
   test("导航到缺陷列表", async ({ page }) => {
-    await page.goto("/test-management-hub/df-list")
+    await page.goto("/test-management/defects")
     await waitStable(page)
     await expect(page).toHaveURL(/df-list/)
   })
 
   test("缺陷卡片按严重度着色显示", async ({ page }) => {
-    await page.goto("/test-management-hub/df-list")
+    await page.goto("/test-management/defects")
     await waitStable(page)
 
     // 等待卡片出现（应该有4个缺陷）
@@ -192,7 +192,7 @@ test.describe("缺陷列表视图", () => {
   })
 
   test("缺陷列表条目可交互", async ({ page }) => {
-    await page.goto("/test-management-hub/df-list")
+    await page.goto("/test-management/defects")
     await waitStable(page)
 
     // 尝试点击一个条目
@@ -210,13 +210,13 @@ test.describe("缺陷列表视图", () => {
 // ═══════════════════════════════════════════════════════════
 test.describe("测试方案视图", () => {
   test("导航到测试方案列表", async ({ page }) => {
-    await page.goto("/test-management-hub/rt-plan-list")
+    await page.goto("/test-management/plans")
     await waitStable(page)
     await expect(page).toHaveURL(/rt-plan-list/)
   })
 
   test("方案卡片已加载", async ({ page }) => {
-    await page.goto("/test-management-hub/rt-plan-list")
+    await page.goto("/test-management/plans")
     await waitStable(page)
 
     const bodyText = await page.textContent("body") || ""
@@ -229,13 +229,13 @@ test.describe("测试方案视图", () => {
 // ═══════════════════════════════════════════════════════════
 test.describe("测试用例视图", () => {
   test("导航到测试用例列表", async ({ page }) => {
-    await page.goto("/test-management-hub/rt-case-list")
+    await page.goto("/test-management/cases")
     await waitStable(page)
     await expect(page).toHaveURL(/rt-case-list/)
   })
 
   test("用例按状态分组显示", async ({ page }) => {
-    await page.goto("/test-management-hub/rt-case-list")
+    await page.goto("/test-management/cases")
     await waitStable(page)
 
     const bodyText = await page.textContent("body") || ""
@@ -248,13 +248,13 @@ test.describe("测试用例视图", () => {
 // ═══════════════════════════════════════════════════════════
 test.describe("报告卡片墙视图", () => {
   test("导航到报告列表", async ({ page }) => {
-    await page.goto("/test-management-hub/rp-list")
+    await page.goto("/test-management/reports")
     await waitStable(page)
     await expect(page).toHaveURL(/rp-list/)
   })
 
   test("报告卡片已加载", async ({ page }) => {
-    await page.goto("/test-management-hub/rp-list")
+    await page.goto("/test-management/reports")
     await waitStable(page)
 
     const bodyText = await page.textContent("body") || ""
@@ -267,7 +267,7 @@ test.describe("报告卡片墙视图", () => {
 // ═══════════════════════════════════════════════════════════
 test.describe("NavigateView 跳转", () => {
   test("缺陷看板 → 跳转到 /defects 页面", async ({ page }) => {
-    await page.goto("/test-management-hub/df-kanban")
+    await page.goto("/test-management/kanban")
     await waitStable(page)
 
     // 应该显示跳转提示
@@ -285,7 +285,7 @@ test.describe("NavigateView 跳转", () => {
 test.describe("返回工作台", () => {
   test("从子菜单视图返回概览", async ({ page }) => {
     // 先进入一个子菜单视图
-    await page.goto("/test-management-hub/ex-list")
+    await page.goto("/test-management/executions")
     await waitStable(page)
 
     // 点击返回按钮（各视图返回按钮均带 title="返回工作台总览"）
@@ -293,8 +293,8 @@ test.describe("返回工作台", () => {
     if (await backBtn.isVisible()) {
       await backBtn.click()
       await page.waitForTimeout(500)
-      // 应该回到 /test-management-hub（不带子路径）
-      await expect(page).toHaveURL(/\/test-management-hub$/)
+      // 应该回到 /test-management（不带子路径）
+      await expect(page).toHaveURL(/\/test-management$/)
     }
   })
 })

@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import CrudTable from "@/components/crud/CrudTable"
-import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
+import type { CrudColumn } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
-import type { CrudField } from "@/components/crud/CrudDialog"
+import { useCrudPage } from "@/hooks/useCrudPage"
 import { lifecycleApi, projectApi } from "@/lib/api"
 import { CheckCircle, XCircle, AlertCircle, X, Download } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
@@ -18,22 +18,89 @@ import {
   testTypeConfig,
   caseFields,
 } from "./caseConfig"
+import type { Project, Version } from "@/lib/api-types"
+
+/** 从 catch 块中安全提取错误信息 */
+function getErrorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : "未知错误"
+}
 
 export default function CasesPage() {
   const toast = useToast()
   const navigate = useNavigate()
-  const [data, setData] = useState<TestCase[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
+
+  // --- Reference data ---
+  const [projects, setProjects] = useState<Project[]>([])
+  const [versions, setVersions] = useState<Version[]>([])
+  useEffect(() => {
+    projectApi.listProjects().then((r) => setProjects(r?.data?.items || [])).catch(() => {})
+    projectApi.listVersions().then((r) => setVersions(r?.data?.items || [])).catch(() => {})
+  }, [])
+
+  // --- Filter state ---
   const [statusFilter, setStatusFilter] = useState("")
   const [priorityFilter, setPriorityFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [versionFilter, setVersionFilter] = useState("")
   const [tagFilter, setTagFilter] = useState("")
+
+  const extraFilters = useMemo(() => ({
+    status: statusFilter || undefined,
+    priority: priorityFilter || undefined,
+    project_id: projectFilter || undefined,
+    version_id: versionFilter || undefined,
+    tag: tagFilter || undefined,
+  }), [statusFilter, priorityFilter, projectFilter, versionFilter, tagFilter])
+
+  // --- Core list via useCrudPage ---
+  const {
+    data, total, page, setPage, pageSize, setPageSize,
+    loading, searchTerm, setSearchTerm, reload,
+  } = useCrudPage<TestCase>({
+    fetchFn: useCallback(
+      (params: Record<string, unknown>) => lifecycleApi.listTestCases(params),
+      [],
+    ),
+    extraFilters,
+  })
+
+  // --- Derived options ---
+  const projectOptions = useMemo(
+    () => projects.map((p: Project) => ({ label: p.name, value: String(p.id) })),
+    [projects],
+  )
+  const versionOptions = useMemo(() => {
+    const filtered = projectFilter
+      ? versions.filter((v: Version) => String(v.project_id) === projectFilter)
+      : versions
+    return filtered.map((v: Version) => ({ label: v.name, value: String(v.id) }))
+  }, [versions, projectFilter])
+
+  const tagOptions = useMemo(() => {
+    const tags = new Set<string>()
+    data.forEach((row: TestCase) => {
+      if (Array.isArray(row.tags)) row.tags.forEach((t: string) => t && tags.add(t))
+    })
+    return Array.from(tags).map((t) => ({ label: t, value: t }))
+  }, [data])
+
+  // --- Filter change handler ---
+  const handleFilterChange = useCallback((key: string, value: string) => {
+    if (key === "status") setStatusFilter(value)
+    else if (key === "priority") setPriorityFilter(value)
+    else if (key === "project") { setProjectFilter(value); setVersionFilter("") }
+    else if (key === "version") setVersionFilter(value)
+    else if (key === "tag") setTagFilter(value)
+    setPage(1)
+  }, [setPage])
+
+  // --- Selection & dialog state ---
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
+  const [editingCase, setEditingCase] = useState<TestCase | null>(null)
+
+  // --- Review dialog state ---
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [reviewingCase, setReviewingCase] = useState<TestCase | null>(null)
   const [reviewAction, setReviewAction] = useState<"approved" | "rejected" | "needs_modification">("approved")
@@ -42,327 +109,112 @@ export default function CasesPage() {
   const [batchReviewAction, setBatchReviewAction] = useState<"approved" | "rejected">("approved")
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
 
-  const [projects, setProjects] = useState<any[]>([])
-  const [versions, setVersions] = useState<any[]>([])
-  const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
-
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
-  const [editingCase, setEditingCase] = useState<TestCase | null>(null)
-
-  useEffect(() => {
-    projectApi
-      .listProjects()
-      .then((res) => setProjects(res?.data?.items || []))
-      .catch(() => {})
-    projectApi
-      .listVersions()
-      .then((res) => setVersions(res?.data?.items || []))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (!editingCase?.project_id) {
-      setVersionOptions(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
-    } else {
-      setVersionOptions(
-        versions
-          .filter((v: any) => v.project_id === editingCase.project_id)
-          .map((v: any) => ({ label: v.name, value: String(v.id) }))
-      )
-    }
-  }, [versions, editingCase])
-
-  const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
-
-  const columns: CrudColumn[] = [
-    { key: "name", title: "用例标题", width: "min-w-[160px]", align: "center" },
-    {
-      key: "module",
-      title: "所属模块",
-      width: "min-w-[110px]",
-      align: "center",
-      render: (v: string) => v || <span className="text-muted">—</span>,
-    },
-    {
-      key: "project_name",
-      title: "项目",
-      width: "min-w-[110px]",
-      align: "center",
-      render: (v: string) => v || <span className="text-muted">—</span>,
-    },
-    {
-      key: "version_name",
-      title: "版本",
-      width: "min-w-[110px]",
-      align: "center",
-      render: (v: string) => v || <span className="text-muted">—</span>,
-    },
-    {
-      key: "priority",
-      title: "优先级",
-      width: "w-28",
-      align: "center",
-      render: (v: string) => {
-        const config = priorityConfig[v as keyof typeof priorityConfig]
-        return config ? (
-          <span className={`text-sm ${config.color}`}>{config.label}</span>
-        ) : (
-          <span className="text-sm text-muted">{v || "—"}</span>
-        )
-      },
-    },
-    {
-      key: "test_type",
-      title: "用例类型",
-      width: "min-w-[100px]",
-      align: "center",
-      render: (v: string) => {
-        if (!v) return <span className="text-muted">—</span>
-        // 英文值映射为中文
-        const label = testTypeConfig[v]
-        if (label) return <span className="text-sm text-ink">{label}</span>
-        // 已是中文则直接显示，否则显示"—"
-        const isChinese = /[\u4e00-\u9fa5]/.test(v)
-        return <span className="text-sm text-ink">{isChinese ? v : "—"}</span>
-      },
-    },
-    {
-      key: "tags",
-      title: "标签",
-      width: "min-w-[120px]",
-      align: "center",
-      render: (v: string[] | null | undefined) => {
-        if (!Array.isArray(v) || v.length === 0) {
-          return <span className="text-muted">—</span>
-        }
-        return (
-          <div className="flex flex-wrap items-center justify-center gap-1">
-            {v.map((t, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber/10 text-amber border border-amber/20"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        )
-      },
-    },
-    {
-      key: "status",
-      title: "评审状态",
-      width: "w-36",
-      align: "center",
-      render: (v: string, row: TestCase) => {
-        const config = statusConfig[v as keyof typeof statusConfig] || statusConfig.draft
-        const isPending = v === "draft" || !v
-        return (
-          <div className="flex items-center justify-center gap-1.5">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-              {config.label}
-            </span>
-            {isPending && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setReviewingCase(row)
-                  setReviewAction("approved")
-                  setReviewComment("")
-                  setReviewDialogOpen(true)
-                }}
-                className="text-xs text-amber hover:text-amber/80 underline transition-colors"
-              >
-                评审
-              </button>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      key: "created_at",
-    title: "创建时间",
-    width: "min-w-[160px]",
-    align: "center",
-    render: (v: string) => (
-      <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
-    ),
-    },
-  ]
-
-  // 从当前数据收集全部标签，作为筛选选项
-  const tagOptions = useMemo(() => {
-    const tags = new Set<string>()
-    data.forEach((row: any) => {
-      if (Array.isArray(row.tags)) row.tags.forEach((t: string) => t && tags.add(t))
-    })
-    return Array.from(tags).map((t) => ({ label: t, value: t }))
-  }, [data])
-
-  const filters: CrudFilter[] = [
-    { key: "search", label: "搜索用例标题...", type: "search" },
-    { key: "status", label: "全部状态", type: "select", options: statusOptions },
-    { key: "priority", label: "全部优先级", type: "select", options: priorityOptions },
-    { key: "project", label: "全部项目", type: "select", options: projectOptions },
-    { key: "version", label: "全部版本", type: "select", options: versionOptions },
-    { key: "tag", label: "全部标签", type: "select", options: tagOptions },
-  ]
-
-  // 基于共享 caseFields 构造表单字段，动态补充项目/版本选项
-  // （字段 key 与后端 schema 对齐，preconditions 为后端字段名）
-  const fields: CrudField[] = caseFields.map((f) => {
-    if (f.key === "project_id") return { ...f, options: projectOptions }
-    if (f.key === "version_id") return { ...f, options: versionOptions }
-    return f
-  })
-
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (statusFilter) params.status = statusFilter
-      if (priorityFilter) params.priority = priorityFilter
-      if (projectFilter) params.project_id = projectFilter
-      if (versionFilter) params.version_id = versionFilter
-      if (tagFilter) params.tag = tagFilter
-      const res = await lifecycleApi.listTestCases(params)
-      const payload = res?.data
-      const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
-      const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
-      setData(list)
-      setTotal(totalCount)
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, statusFilter, priorityFilter, projectFilter, versionFilter, tagFilter])
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value)
-    setPage(1)
-  }, [])
-
-  const handleFilterChange = useCallback((key: string, value: string) => {
-    if (key === "status") {
-      setStatusFilter(value)
-      setPage(1)
-    } else if (key === "priority") {
-      setPriorityFilter(value)
-      setPage(1)
-    } else if (key === "project") {
-      setProjectFilter(value)
-      setPage(1)
-      setVersionFilter("")
-    } else if (key === "version") {
-      setVersionFilter(value)
-      setPage(1)
-    } else if (key === "tag") {
-      setTagFilter(value)
-      setPage(1)
-    }
-  }, [])
-
+  // --- CRUD handlers ---
   const handleCreate = useCallback(() => {
-    setDialogMode("create")
-    setEditingCase(null)
-    setDialogOpen(true)
+    setDialogMode("create"); setEditingCase(null); setDialogOpen(true)
   }, [])
 
   const handleEdit = useCallback((row: TestCase) => {
-    setDialogMode("edit")
-    setEditingCase(row)
-    setDialogOpen(true)
+    setDialogMode("edit"); setEditingCase(row); setDialogOpen(true)
   }, [])
 
-  const handleView = useCallback(
-    (row: TestCase) => {
-      // 独立详情页：左侧导航 + 面包屑 + 工具栏 + 内容区
-      navigate(`/test-management/cases/${row.id}`)
-    },
-    [navigate]
-  )
+  const handleView = useCallback((row: TestCase) => {
+    navigate(`/test-management/cases/${row.id}`)
+  }, [navigate])
 
-  const handleDelete = useCallback(
-    async (row: TestCase) => {
-      const confirmed = await useConfirmStore.getState().confirm({
-        title: "确认删除",
-        message: "确定要删除该测试用例吗？删除后不可恢复。",
-        itemName: row.name,
-        confirmText: "删除",
-        danger: true,
-      })
-      if (!confirmed) return
-      try {
-        await lifecycleApi.deleteTestCase(row.id)
-        toast.success("删除成功")
-        loadData()
-      } catch (e: any) {
-        toast.error(e?.message || "删除失败")
+  const handleDelete = useCallback(async (row: TestCase) => {
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "确认删除",
+      message: "确定要删除该测试用例吗？删除后不可恢复。",
+      itemName: row.name,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
+    try {
+      await lifecycleApi.deleteTestCase(row.id)
+      toast.success("删除成功")
+      reload()
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || "删除失败")
+    }
+  }, [toast, reload])
+
+  const handleBatchDelete = useCallback(async (ids: (string | number)[]) => {
+    const confirmed = await useConfirmStore.getState().confirm({
+      title: "批量删除",
+      message: `确定要删除选中的 ${ids.length} 个测试用例吗？删除后不可恢复。`,
+      confirmText: "删除",
+      danger: true,
+    })
+    if (!confirmed) return
+    try {
+      await lifecycleApi.batchDeleteTestCases(ids as number[])
+      toast.success("批量删除成功")
+      setSelectedIds(new Set())
+      reload()
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || "批量删除失败")
+    }
+  }, [toast, reload])
+
+  const handleSubmit = useCallback(async (formData: Record<string, unknown>) => {
+    try {
+      if (dialogMode === "create") {
+        await lifecycleApi.createTestCase(formData)
+        toast.success("用例创建成功")
+      } else if (dialogMode === "edit" && editingCase) {
+        await lifecycleApi.updateTestCase(editingCase.id, formData)
+        toast.success("用例更新成功")
       }
-    },
-    [toast, loadData]
-  )
+      setDialogOpen(false)
+      reload()
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || "操作失败")
+    }
+  }, [dialogMode, editingCase, toast, reload])
 
-  const handleBatchDelete = useCallback(
-    async (ids: (string | number)[]) => {
-      const confirmed = await useConfirmStore.getState().confirm({
-        title: "批量删除",
-        message: `确定要删除选中的 ${ids.length} 个测试用例吗？删除后不可恢复。`,
-        confirmText: "删除",
-        danger: true,
-      })
-      if (!confirmed) return
-      try {
-        await lifecycleApi.batchDeleteTestCases(ids as number[])
-        toast.success("批量删除成功")
-        setSelectedIds(new Set())
-        loadData()
-      } catch (e: any) {
-        toast.error(e?.message || "批量删除失败")
-      }
-    },
-    [toast, loadData]
-  )
+  const handleViewEdit = useCallback(() => {
+    if (editingCase) setDialogMode("edit")
+  }, [editingCase])
 
-  /** 单条评审提交 */
+  // --- Review handlers ---
   const handleReviewSubmit = useCallback(async () => {
     if (!reviewingCase) return
     setReviewSubmitting(true)
     try {
-      await lifecycleApi.reviewTestCase(reviewingCase.id, { action: reviewAction, review_comment: reviewComment })
-      const actionLabels: Record<string, string> = { approved: "通过", rejected: "驳回", needs_modification: "需修改" }
-      toast.success(`用例「${reviewingCase.name}」评审完成：${actionLabels[reviewAction]}`)
+      await lifecycleApi.reviewTestCase(reviewingCase.id, {
+        action: reviewAction,
+        review_comment: reviewComment,
+      })
+      const labels: Record<string, string> = {
+        approved: "通过", rejected: "驳回", needs_modification: "需修改",
+      }
+      toast.success(`用例「${reviewingCase.name}」评审完成：${labels[reviewAction]}`)
       setReviewDialogOpen(false)
       setReviewComment("")
       setReviewingCase(null)
-      loadData()
-    } catch (e: any) {
-      toast.error(e?.message || "评审失败")
+      reload()
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || "评审失败")
     } finally {
       setReviewSubmitting(false)
     }
-  }, [reviewingCase, reviewAction, reviewComment, toast, loadData])
+  }, [reviewingCase, reviewAction, reviewComment, toast, reload])
 
-  /** 批量评审提交 */
   const handleBatchReviewSubmit = useCallback(async () => {
     const ids = Array.from(selectedIds)
-    if (ids.length === 0) return
+    if (!ids.length) return
     setReviewSubmitting(true)
     try {
       let successCount = 0
       let failCount = 0
       for (const id of ids) {
         try {
-          await lifecycleApi.reviewTestCase(Number(id), { action: batchReviewAction, review_comment: "" })
+          await lifecycleApi.reviewTestCase(Number(id), {
+            action: batchReviewAction,
+            review_comment: "",
+          })
           successCount++
         } catch {
           failCount++
@@ -375,45 +227,20 @@ export default function CasesPage() {
       }
       setBatchReviewOpen(false)
       setSelectedIds(new Set())
-      loadData()
-    } catch (e: any) {
-      toast.error(e?.message || "批量评审失败")
+      reload()
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || "批量评审失败")
     } finally {
       setReviewSubmitting(false)
     }
-  }, [selectedIds, batchReviewAction, toast, loadData])
+  }, [selectedIds, batchReviewAction, toast, reload])
 
-  const handleSubmit = useCallback(
-    async (formData: Record<string, any>) => {
-      try {
-        if (dialogMode === "create") {
-          await lifecycleApi.createTestCase(formData)
-          toast.success("用例创建成功")
-        } else if (dialogMode === "edit" && editingCase) {
-          await lifecycleApi.updateTestCase(editingCase.id, formData)
-          toast.success("用例更新成功")
-        }
-        setDialogOpen(false)
-        loadData()
-      } catch (e: any) {
-        toast.error(e?.message || "操作失败")
-      }
-    },
-    [dialogMode, editingCase, toast, loadData]
-  )
-
-  const handleViewEdit = useCallback(() => {
-    if (editingCase) {
-      setDialogMode("edit")
-    }
-  }, [editingCase])
-
-  /** 导出当前筛选条件下的全部用例为 CSV（PingCode 对齐：用例导出） */
+  // --- Export ---
   const [exporting, setExporting] = useState(false)
   const handleExport = useCallback(async () => {
     setExporting(true)
     try {
-      const params: Record<string, any> = { page: 1, page_size: 10000 }
+      const params: Record<string, unknown> = { page: 1, page_size: 10000 }
       if (searchTerm) params.search = searchTerm
       if (statusFilter) params.status = statusFilter
       if (priorityFilter) params.priority = priorityFilter
@@ -423,27 +250,25 @@ export default function CasesPage() {
       const res = await lifecycleApi.listTestCases(params)
       const list = Array.isArray(res?.data?.items)
         ? res.data.items
-        : Array.isArray(res?.data)
-          ? res.data
-          : []
-      // 生成 CSV（含 BOM 保证 Excel 中文正常）
-      const header = ["ID", "用例标题", "所属模块", "项目", "版本", "优先级", "用例类型", "标签", "状态", "前置条件", "测试步骤", "预期结果", "创建时间"]
-      const rows = list.map((c: any) => [
-        c.id ?? "",
-        c.name ?? "",
-        c.module ?? "",
-        c.project_name ?? "",
-        c.version_name ?? "",
-        c.priority ?? "",
-        c.test_type ?? "",
+        : Array.isArray(res?.data) ? res.data : []
+      const header = [
+        "ID", "用例标题", "所属模块", "项目", "版本", "优先级",
+        "用例类型", "标签", "状态", "前置条件", "测试步骤", "预期结果", "创建时间",
+      ]
+      const rows = list.map((c: TestCase) => [
+        c.id ?? "", c.name ?? "", c.module ?? "", c.project_name ?? "",
+        c.version_name ?? "", c.priority ?? "", c.test_type ?? "",
         Array.isArray(c.tags) ? c.tags.join("|") : "",
         c.status ?? "",
         (c.preconditions || "").replace(/[\r\n]+/g, " "),
-        (Array.isArray(c.steps) ? c.steps.map((s: any) => (typeof s === "string" ? s : JSON.stringify(s))).join(" | ") : c.steps || "").replace(/[\r\n]+/g, " "),
+        (Array.isArray(c.steps)
+          ? c.steps.map((s: string) => (typeof s === "string" ? s : JSON.stringify(s))).join(" | ")
+          : c.steps || ""
+        ).replace(/[\r\n]+/g, " "),
         (c.expected_result || "").replace(/[\r\n]+/g, " "),
         c.created_at ?? "",
       ])
-      const escape = (v: any) => {
+      const escape = (v: unknown) => {
         const s = String(v ?? "")
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
       }
@@ -465,8 +290,115 @@ export default function CasesPage() {
     }
   }, [searchTerm, statusFilter, priorityFilter, projectFilter, versionFilter, tagFilter, toast])
 
+  // --- Table columns ---
+  const columns: CrudColumn[] = [
+    { key: "name", title: "用例标题", width: "w-[220px]", align: "left" },
+    {
+      key: "module", title: "模块", width: "w-[100px]", align: "center",
+      render: (v: string) => v || <span className="text-muted">—</span>,
+    },
+    {
+      key: "project_name", title: "项目", width: "w-[100px]", align: "center",
+      render: (v: string) => v || <span className="text-muted">—</span>,
+    },
+    {
+      key: "version_name", title: "版本", width: "w-[110px]", align: "center",
+      render: (v: string) => v || <span className="text-muted">—</span>,
+    },
+    {
+      key: "priority", title: "优先级", width: "w-[90px]", align: "center",
+      render: (v: string) => {
+        const cfg = priorityConfig[v as keyof typeof priorityConfig]
+        return cfg
+          ? <span className={`text-sm ${cfg.color}`}>{cfg.label}</span>
+          : <span className="text-sm text-muted">{v || "—"}</span>
+      },
+    },
+    {
+      key: "test_type", title: "类型", width: "w-[90px]", align: "center",
+      render: (v: string) => {
+        if (!v) return <span className="text-muted">—</span>
+        const label = testTypeConfig[v]
+        if (label) return <span className="text-sm text-ink">{label}</span>
+        const isChinese = /[\u4e00-\u9fa5]/.test(v)
+        return <span className="text-sm text-ink">{isChinese ? v : "—"}</span>
+      },
+    },
+    {
+      key: "tags", title: "标签", width: "w-[130px]", align: "center",
+      render: (v: string[] | null | undefined) => {
+        if (!Array.isArray(v) || v.length === 0) return <span className="text-muted">—</span>
+        return (
+          <div className="flex items-center justify-center gap-1">
+            {v.slice(0, 2).map((t, i) => (
+              <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-amber/10 text-amber border border-amber/20">
+                {t}
+              </span>
+            ))}
+            {v.length > 2 && <span className="text-xs text-muted">+{v.length - 2}</span>}
+          </div>
+        )
+      },
+    },
+    {
+      key: "status", title: "评审状态", width: "w-[160px]", align: "center",
+      render: (v: string, row: TestCase) => {
+        const config = statusConfig[v as keyof typeof statusConfig] || statusConfig.draft
+        const isPending = v === "draft" || !v
+        return (
+          <div className="flex items-center justify-center gap-1">
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${config.color}`}>
+              {config.label}
+            </span>
+            {isPending && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setReviewingCase(row)
+                  setReviewAction("approved")
+                  setReviewComment("")
+                  setReviewDialogOpen(true)
+                }}
+                className="text-xs text-amber hover:text-amber/80 underline transition-colors"
+              >
+                评审
+              </button>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      key: "created_at", title: "创建时间", width: "w-[140px]", align: "center",
+      render: (v: string) => (
+        <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
+      ),
+    },
+  ]
+
+  // --- Table filters ---
+  const filters = useMemo(() => [
+    { key: "search", label: "搜索用例标题...", type: "search" as const },
+    { key: "status", label: "全部状态", type: "select" as const, options: statusOptions },
+    { key: "priority", label: "全部优先级", type: "select" as const, options: priorityOptions },
+    { key: "project", label: "全部项目", type: "select" as const, options: projectOptions },
+    { key: "version", label: "全部版本", type: "select" as const, options: versionOptions },
+    { key: "tag", label: "全部标签", type: "select" as const, options: tagOptions },
+  ], [projectOptions, versionOptions, tagOptions])
+
+  // --- Form fields (dynamic options) ---
+  const fields = useMemo(() =>
+    caseFields.map((f) => {
+      if (f.key === "project_id") return { ...f, options: projectOptions }
+      if (f.key === "version_id") return { ...f, options: versionOptions }
+      return f
+    }),
+    [projectOptions, versionOptions],
+  )
+
   const dialogTitle =
-    dialogMode === "create" ? "新建测试用例" : dialogMode === "edit" ? "编辑测试用例" : "测试用例详情"
+    dialogMode === "create" ? "新建测试用例"
+      : dialogMode === "edit" ? "编辑测试用例" : "测试用例详情"
 
   return (
     <div>
@@ -483,7 +415,7 @@ export default function CasesPage() {
         selectedIds={selectedIds}
         statusConfig={statusConfig}
         priorityConfig={priorityConfig}
-        onSearch={handleSearch}
+        onSearch={setSearchTerm}
         onFilterChange={handleFilterChange}
         onPageChange={setPage}
         onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}
@@ -497,21 +429,19 @@ export default function CasesPage() {
         emptyText="暂无测试用例数据"
         toolbarExtra={
           <>
-            {selectedIds.size > 0 && (
-              <button
-                onClick={() => setBatchReviewOpen(true)}
-                className="h-9 px-4 rounded-xl bg-amber text-white text-sm font-medium shadow-sm hover:bg-amber/90 transition-all flex items-center gap-2"
-              >
-                <CheckCircle className="w-4 h-4" />
-                批量评审 ({selectedIds.size})
-              </button>
-            )}
+            <button
+              onClick={() => setBatchReviewOpen(true)}
+              className="h-8 px-3.5 rounded-xl bg-amber text-white text-sm font-medium shadow-sm hover:bg-amber/90 transition-all flex items-center gap-1.5"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              批量评审 {selectedIds.size > 0 && `(${selectedIds.size})`}
+            </button>
             <button
               onClick={handleExport}
               disabled={exporting}
-              className="h-9 px-4 rounded-xl border border-border text-sm text-ink-light hover:bg-cream disabled:opacity-50 transition-colors flex items-center gap-2"
+              className="h-8 px-3.5 rounded-xl border border-border text-sm text-ink-light hover:bg-cream disabled:opacity-50 transition-colors flex items-center gap-1.5"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5" />
               {exporting ? "导出中..." : "导出CSV"}
             </button>
           </>
@@ -530,7 +460,7 @@ export default function CasesPage() {
         onViewEdit={handleViewEdit}
       />
 
-      {/* 单条评审弹窗 */}
+      {/* Single review dialog */}
       {reviewDialogOpen && reviewingCase && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setReviewDialogOpen(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
@@ -542,32 +472,29 @@ export default function CasesPage() {
             </div>
             <div className="mb-4 p-3 bg-cream/50 rounded-lg border border-border">
               <p className="text-sm font-medium text-ink truncate">{reviewingCase.name}</p>
-              <p className="text-xs text-muted mt-1">优先级：{reviewingCase.priority} | 类型：{reviewingCase.test_type || "未指定"}</p>
+              <p className="text-xs text-muted mt-1">
+                优先级：{reviewingCase.priority} | 类型：{reviewingCase.test_type || "未指定"}
+              </p>
             </div>
             <div className="mb-4">
               <label className="text-sm font-medium text-ink mb-2 block">评审操作</label>
               <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setReviewAction("approved")}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${reviewAction === "approved" ? "border-pass bg-pass/5 text-pass" : "border-border text-muted hover:border-pass/40"}`}
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  <span className="text-xs font-medium">通过</span>
-                </button>
-                <button
-                  onClick={() => setReviewAction("rejected")}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${reviewAction === "rejected" ? "border-fail bg-fail/5 text-fail" : "border-border text-muted hover:border-fail/40"}`}
-                >
-                  <XCircle className="w-5 h-5" />
-                  <span className="text-xs font-medium">驳回</span>
-                </button>
-                <button
-                  onClick={() => setReviewAction("needs_modification")}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${reviewAction === "needs_modification" ? "border-amber bg-amber/5 text-amber" : "border-border text-muted hover:border-amber/40"}`}
-                >
-                  <AlertCircle className="w-5 h-5" />
-                  <span className="text-xs font-medium">需修改</span>
-                </button>
+                {([
+                  ["approved", "通过", CheckCircle, "border-pass bg-pass/5 text-pass hover:border-pass/40"],
+                  ["rejected", "驳回", XCircle, "border-fail bg-fail/5 text-fail hover:border-fail/40"],
+                  ["needs_modification", "需修改", AlertCircle, "border-amber bg-amber/5 text-amber hover:border-amber/40"],
+                ] as const).map(([action, label, Icon, cls]) => (
+                  <button
+                    key={action}
+                    onClick={() => setReviewAction(action)}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                      reviewAction === action ? cls : "border-border text-muted"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs font-medium">{label}</span>
+                  </button>
+                ))}
               </div>
             </div>
             <div className="mb-4">
@@ -599,7 +526,7 @@ export default function CasesPage() {
         </div>
       )}
 
-      {/* 批量评审弹窗 */}
+      {/* Batch review dialog */}
       {batchReviewOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setBatchReviewOpen(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
@@ -618,14 +545,20 @@ export default function CasesPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setBatchReviewAction("approved")}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${batchReviewAction === "approved" ? "border-pass bg-pass/5 text-pass" : "border-border text-muted hover:border-pass/40"}`}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                    batchReviewAction === "approved"
+                      ? "border-pass bg-pass/5 text-pass" : "border-border text-muted hover:border-pass/40"
+                  }`}
                 >
                   <CheckCircle className="w-5 h-5" />
                   <span className="text-sm font-medium">全部通过</span>
                 </button>
                 <button
                   onClick={() => setBatchReviewAction("rejected")}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${batchReviewAction === "rejected" ? "border-fail bg-fail/5 text-fail" : "border-border text-muted hover:border-fail/40"}`}
+                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                    batchReviewAction === "rejected"
+                      ? "border-fail bg-fail/5 text-fail" : "border-border text-muted hover:border-fail/40"
+                  }`}
                 >
                   <XCircle className="w-5 h-5" />
                   <span className="text-sm font-medium">全部驳回</span>

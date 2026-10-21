@@ -1,6 +1,7 @@
 """
 CRUD API — 需求/方案/用例/评审 数据管理 + 文档上传解析 + 用例确认 + 用例导出
 """
+
 import csv
 import io
 import json
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/v1/data", tags=["需求测试数据管理"])
 
 
 # ====== 通用请求/响应模型 ======
+
 
 class PaginatedResponse(BaseModel):
     items: list[dict[str, Any]]
@@ -53,6 +55,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 # ====== 用例确认（待确认→已确认） ======
 
+
 class ConfirmCasesRequest(BaseModel):
     case_ids: list[str] = Field(..., min_length=1, description="要确认的用例ID列表")
     confirmed_by: str = Field("manual", description="确认方式: manual / ai")
@@ -66,13 +69,16 @@ async def confirm_cases(body: ConfirmCasesRequest):
     for cid in body.case_ids:
         item = store.get(cid)
         if item and item.get("case_status") == "pending":
-            updated = store.update(cid, {
-                "case_status": "confirmed",
-                "case_status_label": "已确认",
-                "status": "completed",
-                "confirmed_by": body.confirmed_by,
-                "confirmed_at": __import__("datetime").datetime.now().isoformat(),
-            })
+            updated = store.update(
+                cid,
+                {
+                    "case_status": "confirmed",
+                    "case_status_label": "已确认",
+                    "status": "completed",
+                    "confirmed_by": body.confirmed_by,
+                    "confirmed_at": __import__("datetime").datetime.now().isoformat(),
+                },
+            )
             if updated:
                 confirmed.append(updated)
     return {
@@ -95,10 +101,13 @@ async def list_pending_cases(pipeline_id: Optional[str] = None):
 
 # ====== 用例导出 ======
 
+
 @router.get("/cases/export", summary="导出用例（支持多种格式）")
 async def export_cases(
     format: str = Query("md", description="导出格式: md / xlsx / csv / txt / xmind"),
-    ids: Optional[str] = Query(None, description="指定用例ID（逗号分隔），不指定则导出全部"),
+    ids: Optional[str] = Query(
+        None, description="指定用例ID（逗号分隔），不指定则导出全部"
+    ),
 ):
     """导出用例为多种格式"""
     store = get_store("cases")
@@ -129,7 +138,9 @@ async def export_cases(
     elif fmt == "xmind":
         return await _export_xmind(all_items)
     else:
-        raise HTTPException(400, f"不支持的导出格式: {fmt}，支持: md / xlsx / csv / txt / xmind")
+        raise HTTPException(
+            400, f"不支持的导出格式: {fmt}，支持: md / xlsx / csv / txt / xmind"
+        )
 
 
 def _export_md(items: list[dict]) -> PlainTextResponse:
@@ -148,25 +159,31 @@ def _export_md(items: list[dict]) -> PlainTextResponse:
             lines.append(f"{content}\n")
         lines.append("---\n")
     text = "\n".join(lines)
-    return PlainTextResponse(text, media_type="text/markdown; charset=utf-8",
-                             headers={"Content-Disposition": "attachment; filename=test-cases-export.md"})
+    return PlainTextResponse(
+        text,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=test-cases-export.md"},
+    )
 
 
 def _export_csv(items: list[dict]) -> StreamingResponse:
-    """导出为 CSV"""
+    """导出为 CSV（带 BOM，确保中文在 Excel 中正确显示）"""
     output = io.StringIO()
+    output.write("\ufeff")  # UTF-8 BOM
     writer = csv.writer(output)
     writer.writerow(["序号", "标题", "来源", "状态", "内容摘要", "创建时间"])
     for i, item in enumerate(items, 1):
         content = item.get("content", "")
-        writer.writerow([
-            i,
-            item.get("title", "未命名"),
-            item.get("source", "manual"),
-            item.get("case_status_label") or item.get("status", ""),
-            content[:200] + "..." if len(content) > 200 else content,
-            item.get("created_at", ""),
-        ])
+        writer.writerow(
+            [
+                i,
+                item.get("title", "未命名"),
+                item.get("source", "manual"),
+                item.get("case_status_label") or item.get("status", ""),
+                content[:200] + "..." if len(content) > 200 else content,
+                item.get("created_at", ""),
+            ]
+        )
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
@@ -188,12 +205,16 @@ def _export_txt(items: list[dict]) -> PlainTextResponse:
         if content:
             # 只保留纯文本，去掉markdown标记
             import re
-            plain = re.sub(r'[#*`\[\]]', '', content)
+
+            plain = re.sub(r"[#*`\[\]]", "", content)
             lines.append(f"    内容: {plain[:300]}")
         lines.append("")
     text = "\n".join(lines)
-    return PlainTextResponse(text, media_type="text/plain; charset=utf-8",
-                             headers={"Content-Disposition": "attachment; filename=test-cases-export.txt"})
+    return PlainTextResponse(
+        text,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=test-cases-export.txt"},
+    )
 
 
 async def _export_xlsx(items: list[dict]) -> StreamingResponse:
@@ -211,7 +232,9 @@ async def _export_xlsx(items: list[dict]) -> StreamingResponse:
     # 表头
     headers = ["序号", "标题", "来源", "状态", "内容", "创建时间"]
     header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="F59E0B", end_color="F59E0B", fill_type="solid")
+    header_fill = PatternFill(
+        start_color="F59E0B", end_color="F59E0B", fill_type="solid"
+    )
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
         cell.font = header_font
@@ -223,7 +246,11 @@ async def _export_xlsx(items: list[dict]) -> StreamingResponse:
         ws.cell(row=i, column=1, value=i - 1)
         ws.cell(row=i, column=2, value=item.get("title", "未命名"))
         ws.cell(row=i, column=3, value=item.get("source", "manual"))
-        ws.cell(row=i, column=4, value=item.get("case_status_label") or item.get("status", ""))
+        ws.cell(
+            row=i,
+            column=4,
+            value=item.get("case_status_label") or item.get("status", ""),
+        )
         ws.cell(row=i, column=5, value=item.get("content", "")[:500])
         ws.cell(row=i, column=6, value=item.get("created_at", ""))
 
@@ -254,7 +281,9 @@ async def _export_xmind(items: list[dict]) -> PlainTextResponse:
         title = item.get("title", "未命名")
         output.write(f"## {i}. {title}\n")
         output.write(f"- 来源: {item.get('source', 'manual')}\n")
-        output.write(f"- 状态: {item.get('case_status_label') or item.get('status', '')}\n")
+        output.write(
+            f"- 状态: {item.get('case_status_label') or item.get('status', '')}\n"
+        )
         output.write(f"- 创建时间: {item.get('created_at', '')}\n\n")
     output.seek(0)
     return PlainTextResponse(
@@ -272,16 +301,20 @@ async def _export_xmind(items: list[dict]) -> PlainTextResponse:
 # DB模型映射（用于读操作，逐步替代JSON）
 DB_MODEL_MAP = {}
 
+
 # 延迟导入以避免循环依赖
 def _get_db_model(collection: str):
     if not DB_MODEL_MAP:
         from models.test_lifecycle import Requirement, TestPlan, TestCase, Review
-        DB_MODEL_MAP.update({
-            "requirements": Requirement,
-            "plans": TestPlan,
-            "cases": TestCase,
-            "reviews": Review,
-        })
+
+        DB_MODEL_MAP.update(
+            {
+                "requirements": Requirement,
+                "plans": TestPlan,
+                "cases": TestCase,
+                "reviews": Review,
+            }
+        )
     return DB_MODEL_MAP.get(collection)
 
 
@@ -300,7 +333,9 @@ def _entity_router(collection: str, tag: str):
         sort_order: str = Query("desc", regex="^(asc|desc)$"),
         source: Optional[str] = Query(None, description="来源: manual / ai"),
         status: Optional[str] = Query(None, description="状态"),
-        case_status: Optional[str] = Query(None, description="用例状态: pending / confirmed"),
+        case_status: Optional[str] = Query(
+            None, description="用例状态: pending / confirmed"
+        ),
     ) -> PaginatedResponse:
         filters = {}
         if source:
@@ -310,9 +345,12 @@ def _entity_router(collection: str, tag: str):
         if case_status:
             filters["case_status"] = case_status
         return store.list(
-            page=page, page_size=page_size,
-            search=search, sort_by=sort_by,
-            sort_order=sort_order, filters=filters,
+            page=page,
+            page_size=page_size,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            filters=filters,
         )
 
     @router.get(f"/{collection}/{{item_id}}", summary=f"获取{tag}详情")
@@ -324,17 +362,21 @@ def _entity_router(collection: str, tag: str):
 
     @router.post(f"/{collection}", summary=f"创建{tag}")
     def create_item(body: CreateRequest):
-        return store.create({
-            "title": body.title,
-            "content": body.content,
-            "source": body.source,
-            "status": body.status,
-            **body.extra,
-        })
+        return store.create(
+            {
+                "title": body.title,
+                "content": body.content,
+                "source": body.source,
+                "status": body.status,
+                **body.extra,
+            }
+        )
 
     @router.put(f"/{collection}/{{item_id}}", summary=f"更新{tag}")
     def update_item(item_id: str, body: UpdateRequest):
-        data = {k: v for k, v in body.model_dump(exclude_none=True).items() if v is not None}
+        data = {
+            k: v for k, v in body.model_dump(exclude_none=True).items() if v is not None
+        }
         updated = store.update(item_id, data)
         if not updated:
             raise HTTPException(404, f"{tag}不存在")
@@ -365,6 +407,7 @@ _entity_router("reviews", "评审")
 # 前端已切换到 /api/v1/test-lifecycle/pipeline-records 端点。
 # 保留仅用于向后兼容旧 JSON 数据。
 
+
 @router.get("/pipeline-records", summary="查询流程记录列表")
 def list_pipeline_records(
     page: int = Query(1, ge=1),
@@ -373,14 +416,22 @@ def list_pipeline_records(
 ):
     store = get_store("pipeline_records")
     # 列表不返回 stage_results（太大）
-    result = store.list(page=page, page_size=page_size, search=search, sort_by="created_at", sort_order="desc")
+    result = store.list(
+        page=page,
+        page_size=page_size,
+        search=search,
+        sort_by="created_at",
+        sort_order="desc",
+    )
     for item in result["items"]:
         item.pop("stage_results", None)
         item.pop("requirement_content", None)
     return result
 
 
-@router.get("/pipeline-records/{record_id}", summary="获取流程记录详情（含所有阶段内容）")
+@router.get(
+    "/pipeline-records/{record_id}", summary="获取流程记录详情（含所有阶段内容）"
+)
 def get_pipeline_record(record_id: str):
     store = get_store("pipeline_records")
     item = store.get(record_id)

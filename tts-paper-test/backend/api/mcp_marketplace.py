@@ -18,6 +18,8 @@ from database import get_db
 from models.config import MCPService
 from schemas.common import ResponseModel
 from services.config_service import create_mcp_service
+from api.deps import get_current_user_dep
+from models.user import User
 
 router = APIRouter(prefix="/api/v1/mcp-marketplace", tags=["MCP市场"])
 
@@ -283,6 +285,7 @@ async def get_marketplace_service(service_id: str) -> dict:
 async def install_mcp_service(
     req: InstallMCPRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user_dep),
 ):
     """从市场安装 MCP 服务（创建到本地 MCP 服务列表）"""
     # 查找市场模板

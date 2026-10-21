@@ -323,6 +323,12 @@ class PipelineRecord(Base, TimestampMixin):
     total_duration: Mapped[float] = mapped_column(Float, nullable=True)
     stage_count: Mapped[int] = mapped_column(Integer, default=0)
     stage_results: Mapped[dict] = mapped_column(JSON, nullable=True)  # 各阶段执行结果
+    sequence_group_id: Mapped[int] = mapped_column(
+        Integer, nullable=True, index=True, comment="归属序列调度组ID"
+    )
+    sequence_lane: Mapped[int] = mapped_column(
+        Integer, nullable=True, comment="并行通道号（串行模式恒为1）"
+    )
     project_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("projects.id"), nullable=True, index=True
     )

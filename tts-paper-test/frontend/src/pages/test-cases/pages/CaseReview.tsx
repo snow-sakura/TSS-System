@@ -85,17 +85,17 @@ export default function CaseReview() {
       {/* 评审列表 */}
       <div className="flex-1 bg-white rounded-2xl border border-border shadow-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead>
               <tr className="bg-cream/50 border-b border-border">
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">ID</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">评审标题</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">类型</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">状态</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">评审人</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">评分</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">创建时间</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-ink">操作</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-10">ID</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[220px]">评审标题</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">类型</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[80px]">状态</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[90px]">评审人</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[70px]">评分</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[110px]">创建时间</th>
+                <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[110px]">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -106,28 +106,28 @@ export default function CaseReview() {
                 </td></tr>
               ) : filtered.map((r, idx) => (
                 <tr key={r.id} className={`border-b border-border/50 last:border-b-0 ${idx % 2 === 1 ? "bg-cream/20" : ""} hover:bg-cream/40`}>
-                  <td className="px-4 py-3 text-center text-muted">{r.id}</td>
-                  <td className="px-4 py-3 text-center font-medium text-ink">{r.title}</td>
-                  <td className="px-4 py-3 text-center text-xs text-muted">{r.type}</td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
+                  <td className="px-3 py-2.5 text-center text-muted">{r.id}</td>
+                  <td className="px-3 py-2.5 font-medium text-ink truncate">{r.title}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{r.type}</td>
+                  <td className="px-3 py-2.5 text-center">
+                    <div className="flex items-center justify-center gap-1 min-w-0">
                       {statusIcon(r.status)}
-                      <span className={`text-xs font-medium ${r.status === "已通过" ? "text-pass" : r.status === "已驳回" ? "text-fail" : "text-amber"}`}>{r.status}</span>
+                      <span className={`text-xs font-medium whitespace-nowrap ${r.status === "已通过" ? "text-pass" : r.status === "已驳回" ? "text-fail" : "text-amber"}`}>{r.status}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center text-xs text-muted">{r.reviewer}</td>
-                  <td className="px-4 py-3 text-center text-xs text-muted">{r.score || "-"}</td>
-                  <td className="px-4 py-3 text-center text-xs text-muted">{r.createdAt}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2.5 text-center text-xs text-muted truncate">{r.reviewer}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{r.score || "-"}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-muted">{r.createdAt}</td>
+                  <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-1">
                       {r.status === "待审批" && (
                         <>
-                          <button onClick={() => handleApprove(r.id)} className="p-1.5 rounded-lg hover:bg-pass/10 text-ink-light hover:text-pass" title="通过"><CheckCircle className="w-4 h-4" /></button>
-                          <button onClick={() => handleReject(r.id)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail" title="驳回"><XCircle className="w-4 h-4" /></button>
+                          <button onClick={() => handleApprove(r.id)} className="p-1.5 rounded-lg hover:bg-pass/10 text-muted hover:text-pass" title="通过"><CheckCircle className="w-4 h-4" /></button>
+                          <button onClick={() => handleReject(r.id)} className="p-1.5 rounded-lg hover:bg-fail/10 text-muted hover:text-fail" title="驳回"><XCircle className="w-4 h-4" /></button>
                         </>
                       )}
-                      <button onClick={() => setPreviewReview(r)} className="p-1.5 rounded-lg hover:bg-info/10 text-ink-light hover:text-info"><Eye className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteTarget(r)} className="p-1.5 rounded-lg hover:bg-fail/10 text-ink-light hover:text-fail"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => setPreviewReview(r)} className="p-1.5 rounded-lg hover:bg-info/10 text-muted hover:text-info"><Eye className="w-4 h-4" /></button>
+                      <button onClick={() => setDeleteTarget(r)} className="p-1.5 rounded-lg hover:bg-fail/10 text-muted hover:text-fail"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>

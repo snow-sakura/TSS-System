@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
@@ -6,6 +6,8 @@ import type { CrudField } from "@/components/crud/CrudDialog"
 import { lifecycleApi, projectApi } from "@/lib/api"
 import { formatDateTime } from "@/lib/utils"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
+import { useCrudPage } from "@/hooks/useCrudPage"
 
 interface Review {
   id: number
@@ -75,14 +77,14 @@ const columns: CrudColumn[] = [
   {
     key: "title",
     title: "评审标题",
-    width: "min-w-[160px]",
-    align: "center",
+    width: "w-[220px]",
+    align: "left",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "target_type",
     title: "关联对象",
-    width: "min-w-[110px]",
+    width: "w-[110px]",
     align: "center",
     render: (v: string, row: Review) => {
       const label = targetTypeOptions.find((o) => o.value === v)?.label || v
@@ -95,49 +97,48 @@ const columns: CrudColumn[] = [
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[110px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "reviewer",
     title: "评审人",
-    width: "min-w-[100px]",
+    width: "w-[90px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
-  { key: "status", title: "状态", width: "w-28", align: "center" },
+  { key: "status", title: "状态", width: "w-[80px]", align: "center" },
   {
     key: "review_type",
     title: "评审类型",
-    width: "w-28",
+    width: "w-[90px]",
     align: "center",
     render: (v: string) => {
       if (!v) return <span className="text-muted">—</span>
       const cfg = reviewTypeConfig[v]
       if (cfg) {
         return (
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${cfg.color}`}>
             {cfg.label}
           </span>
         )
       }
-      // 已是中文则直接显示，否则显示"—"
       const isChinese = /[\u4e00-\u9fa5]/.test(v)
       return <span className="text-sm text-ink">{isChinese ? v : "—"}</span>
     },
   },
   {
     key: "checklist",
-    title: "清单进度",
-    width: "w-28",
+    title: "清单",
+    width: "w-[100px]",
     align: "center",
     render: (v: any) => {
       const items: { passed: boolean | null }[] = Array.isArray(v) ? v : []
@@ -147,11 +148,11 @@ const columns: CrudColumn[] = [
       const allPassed = passed === items.length
       const color = allPassed ? "text-pass" : done === 0 ? "text-muted" : "text-amber"
       return (
-        <div className="flex flex-col items-center gap-1">
-          <span className={`text-sm font-medium ${color}`}>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className={`text-xs font-medium ${color}`}>
             {passed}/{items.length}
           </span>
-          <div className="w-16 h-1.5 rounded-full bg-cream border border-border overflow-hidden">
+          <div className="w-12 h-1 rounded-full bg-cream border border-border overflow-hidden">
             <div
               className={`h-full rounded-full ${allPassed ? "bg-pass" : done === 0 ? "bg-border" : "bg-amber"}`}
               style={{ width: `${items.length ? Math.round((done / items.length) * 100) : 0}%` }}
@@ -164,7 +165,7 @@ const columns: CrudColumn[] = [
   {
     key: "created_at",
     title: "创建时间",
-    width: "min-w-[160px]",
+    width: "w-[140px]",
     align: "center",
     render: (v: string) => (
       <span className="text-sm text-ink font-mono">{formatDateTime(v)}</span>
@@ -174,24 +175,13 @@ const columns: CrudColumn[] = [
 
 export default function ReviewsPage() {
   const toast = useToast()
-  const [data, setData] = useState<Review[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
+
+  // --- 下拉选项 ---
+  const [projects, setProjects] = useState<any[]>([])
+  const [versions, setVersions] = useState<any[]>([])
   const [statusFilter, setStatusFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [versionFilter, setVersionFilter] = useState("")
-  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
-
-  const [projects, setProjects] = useState<any[]>([])
-  const [versions, setVersions] = useState<any[]>([])
-  const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
-
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
-  const [editingReview, setEditingReview] = useState<Review | null>(null)
 
   useEffect(() => {
     projectApi
@@ -204,20 +194,51 @@ export default function ReviewsPage() {
       .catch(() => {})
   }, [])
 
+  const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
+
+  const versionOptions = useMemo(() => {
+    return versions.map((v: any) => ({ label: v.name, value: String(v.id) }))
+  }, [versions])
+
+  const extraFilters = useMemo<Record<string, string | number | undefined>>(
+    () => ({
+      status: statusFilter || undefined,
+      project_id: projectFilter || undefined,
+      version_id: versionFilter || undefined,
+    }),
+    [statusFilter, projectFilter, versionFilter],
+  )
+
+  // --- 列表 Hook ---
+  const {
+    data, total, page, setPage, pageSize, setPageSize,
+    loading, searchTerm, setSearchTerm, reload,
+  } = useCrudPage<Review>({
+    fetchFn: (params) => lifecycleApi.listReviews(params),
+    extraFilters,
+  })
+
+  // --- 对话框 ---
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
+  const [editingReview, setEditingReview] = useState<Review | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
+
+  const [versionOptionsForDialog, setVersionOptionsForDialog] = useState<{ label: string; value: string }[]>([])
+
   useEffect(() => {
     if (!editingReview?.project_id) {
-      setVersionOptions(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
+      setVersionOptionsForDialog(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
     } else {
-      setVersionOptions(
+      setVersionOptionsForDialog(
         versions
           .filter((v: any) => v.project_id === editingReview.project_id)
-          .map((v: any) => ({ label: v.name, value: String(v.id) }))
+          .map((v: any) => ({ label: v.name, value: String(v.id) })),
       )
     }
   }, [versions, editingReview])
 
-  const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
-
+  // --- 筛选栏 ---
   const filters: CrudFilter[] = [
     { key: "search", label: "搜索评审标题...", type: "search" },
     { key: "status", label: "全部状态", type: "select", options: statusOptions },
@@ -227,7 +248,7 @@ export default function ReviewsPage() {
 
   const fields: CrudField[] = [
     { key: "project_id", label: "项目", type: "select", options: projectOptions },
-    { key: "version_id", label: "版本", type: "select", options: versionOptions },
+    { key: "version_id", label: "版本", type: "select", options: versionOptionsForDialog },
     { key: "title", label: "评审标题", type: "text", required: true, placeholder: "请输入评审标题" },
     {
       key: "target_type",
@@ -262,50 +283,17 @@ export default function ReviewsPage() {
     },
   ]
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (statusFilter) params.status = statusFilter
-      if (projectFilter) params.project_id = projectFilter
-      if (versionFilter) params.version_id = versionFilter
-      const res = await lifecycleApi.listReviews(params)
-      const payload = res?.data
-      const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
-      const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
-      setData(list)
-      setTotal(totalCount)
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, statusFilter, projectFilter, versionFilter])
+  // --- 筛选变更 ---
+  const handleFilterChange = useCallback(
+    (key: string, value: string) => {
+      if (key === "status") setStatusFilter(value)
+      else if (key === "project") setProjectFilter(value)
+      else if (key === "version") setVersionFilter(value)
+    },
+    [],
+  )
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value)
-    setPage(1)
-  }, [])
-
-  const handleFilterChange = useCallback((key: string, value: string) => {
-    if (key === "status") {
-      setStatusFilter(value)
-      setPage(1)
-    } else if (key === "project") {
-      setProjectFilter(value)
-      setPage(1)
-    } else if (key === "version") {
-      setVersionFilter(value)
-      setPage(1)
-    }
-  }, [])
-
+  // --- CRUD 回调 ---
   const handleCreate = useCallback(() => {
     setDialogMode("create")
     setEditingReview(null)
@@ -326,31 +314,44 @@ export default function ReviewsPage() {
 
   const handleDelete = useCallback(
     async (row: Review) => {
-      if (!window.confirm(`确定要删除评审「${row.title}」吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "确认删除",
+        message: "确定要删除该评审吗？删除后不可恢复。",
+        itemName: row.title,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.deleteReview(row.id)
         toast.success("删除成功")
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload],
   )
 
   const handleBatchDelete = useCallback(
     async (ids: (string | number)[]) => {
-      if (!window.confirm(`确定要删除选中的 ${ids.length} 条评审记录吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "批量删除",
+        message: `确定要删除选中的 ${ids.length} 条评审记录吗？删除后不可恢复。`,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.batchDeleteReviews(ids as number[])
         toast.success("批量删除成功")
         setSelectedIds(new Set())
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "批量删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload],
   )
 
   const handleSubmit = useCallback(
@@ -364,18 +365,16 @@ export default function ReviewsPage() {
           toast.success("评审更新成功")
         }
         setDialogOpen(false)
-        loadData()
+        reload()
       } catch (e: any) {
         toast.error(e?.message || "操作失败")
       }
     },
-    [dialogMode, editingReview, toast, loadData]
+    [dialogMode, editingReview, toast, reload],
   )
 
   const handleViewEdit = useCallback(() => {
-    if (editingReview) {
-      setDialogMode("edit")
-    }
+    if (editingReview) setDialogMode("edit")
   }, [editingReview])
 
   const dialogTitle =
@@ -395,7 +394,7 @@ export default function ReviewsPage() {
         loading={loading}
         selectedIds={selectedIds}
         statusConfig={statusConfig}
-        onSearch={handleSearch}
+        onSearch={setSearchTerm}
         onFilterChange={handleFilterChange}
         onPageChange={setPage}
         onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}

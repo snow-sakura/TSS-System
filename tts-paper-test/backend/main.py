@@ -21,6 +21,7 @@ from api.web_automation import router as web_router
 from api.api_test import router as api_test_router
 from api.test_lifecycle import router as test_lifecycle_router
 from api.pipeline import router as pipeline_router
+from api.sequence import router as sequence_router
 from api.requirement_data import router as requirement_data_router
 from api.config import router as config_router
 from api.knowledge import router as knowledge_router
@@ -41,6 +42,13 @@ logger.info(f"  {settings.APP_NAME} v{settings.APP_VERSION}")
 logger.info(f"  Log level: {'DEBUG' if settings.DEBUG else 'INFO'}")
 logger.info(f"  Model: {settings.DEFAULT_LLM_MODEL}")
 logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+# ⚠️ 安全检查：启动时验证关键配置
+if settings.SECRET_KEY == "CHANGE-ME-IN-PRODUCTION":
+    logger.warning("⚠️  SECRET_KEY 使用默认值，请在 .env 中设置自定义密钥！")
+    logger.warning(
+        '   生成命令: python -c "import secrets; print(secrets.token_hex(32))"'
+    )
 
 
 @asynccontextmanager
@@ -85,6 +93,12 @@ async def _patch_legacy_columns():
         ("web_ui_elements", "backup_locators", "JSON"),
         ("web_ui_elements", "wait_timeout", "INTEGER"),
         ("web_ui_elements", "force_action", "BOOLEAN"),
+        # SPEC-001 序列调度：模型档位与并行能力
+        ("llm_providers", "tier", "VARCHAR(20) DEFAULT 'free'"),
+        ("llm_providers", "max_concurrency", "INTEGER DEFAULT 1"),
+        # SPEC-001 序列调度：Pipeline 记录归组
+        ("pipeline_records", "sequence_group_id", "INTEGER"),
+        ("pipeline_records", "sequence_lane", "INTEGER"),
     ]
     async with AsyncSessionLocal() as db:
         for table, column, col_type in patches:
@@ -1088,6 +1102,7 @@ app.include_router(web_router, prefix="/api/v1")
 app.include_router(api_test_router, prefix="/api/v1")
 app.include_router(test_lifecycle_router, prefix="/api/v1")
 app.include_router(pipeline_router)
+app.include_router(sequence_router)
 app.include_router(requirement_data_router)
 app.include_router(config_router)
 app.include_router(knowledge_router)

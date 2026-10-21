@@ -2,11 +2,13 @@
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from engines import EngineRegistry, get_engine
 from services.execution_engine import set_default_engine, get_default_engine
+from api.deps import get_current_user_dep
+from models.user import User
 
 router = APIRouter(prefix="/api/v1/engines", tags=["引擎管理"])
 
@@ -30,7 +32,7 @@ class SwitchEngineRequest(BaseModel):
 
 
 @router.get("", summary="列出所有可用引擎")
-async def list_engines() -> list[EngineInfo]:
+async def list_engines(user: User = Depends(get_current_user_dep)) -> list[EngineInfo]:
     """列出所有已注册引擎及其健康状态（并行检查，单引擎超时隔离）"""
     engine_types = EngineRegistry.list_types()
     default_engine = get_default_engine()
@@ -61,7 +63,9 @@ async def list_engines() -> list[EngineInfo]:
 
 
 @router.post("/switch", summary="切换默认引擎")
-async def switch_engine(req: SwitchEngineRequest) -> dict:
+async def switch_engine(
+    req: SwitchEngineRequest, user: User = Depends(get_current_user_dep)
+) -> dict:
     """切换当前默认引擎"""
     available_types = EngineRegistry.list_types()
     if req.engine_type not in available_types:
@@ -79,7 +83,7 @@ async def switch_engine(req: SwitchEngineRequest) -> dict:
 
 
 @router.get("/current", summary="获取当前引擎")
-async def current_engine() -> dict:
+async def current_engine(user: User = Depends(get_current_user_dep)) -> dict:
     """获取当前默认引擎信息"""
     engine_type = get_default_engine()
     try:
@@ -96,7 +100,9 @@ async def current_engine() -> dict:
 
 
 @router.post("/{engine_type}/health", summary="引擎健康检查")
-async def engine_health(engine_type: str) -> dict:
+async def engine_health(
+    engine_type: str, user: User = Depends(get_current_user_dep)
+) -> dict:
     """对指定引擎执行健康检查"""
     available_types = EngineRegistry.list_types()
     if engine_type not in available_types:

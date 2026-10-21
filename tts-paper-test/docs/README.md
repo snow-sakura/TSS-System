@@ -20,6 +20,15 @@
 | [PRD-v1.md](./prd/PRD-v1.md) | 产品需求文档（原版） |
 | [功能点清单-v1.md](./prd/功能点清单-v1.md) | 68项功能点清单（原版） |
 
+### 规格与操作手册（v3 新增）
+| 文件 | 说明 |
+|------|------|
+| [SPEC-001 需求规格](./specs/SPEC-001-序列调度与结果可靠性/requirements-spec.md) | 序列调度与结果可靠性 — 用户故事/验收标准 |
+| [SPEC-001 技术设计](./specs/SPEC-001-序列调度与结果可靠性/technical-design.md) | 架构/数据模型/调度算法/SSE 协议 |
+| [SPEC-001 实施计划](./specs/SPEC-001-序列调度与结果可靠性/implementation-plan.md) | 任务拆解与进度 |
+| [OPERATION_MANUAL.md](./OPERATION_MANUAL.md) | **操作手册** — 含截图的完整使用指南与 FAQ |
+| [screenshots/](./screenshots/) | 功能验证截图（登录/序列调度/全流程/记录） |
+
 ### 前端设计
 | 文件 | 说明 |
 |------|------|

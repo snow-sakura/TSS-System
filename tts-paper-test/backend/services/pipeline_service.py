@@ -32,8 +32,30 @@ from models.test_lifecycle import (
 logger = get_logger("pipeline_service")
 
 MAX_RETRIES = 3
-RETRY_DELAY = 1.0
+RETRY_DELAY = 5.0
 API_TIMEOUT = 120
+# 阶段输出低于该字符数视为"空/残缺结果"（免费模型限流截断的典型特征）
+MIN_STAGE_OUTPUT_CHARS = 80
+
+# 上游瞬时故障特征（免费网关常见）：命中则重试而非直接失败
+TRANSIENT_ERROR_HINTS = (
+    "unavailable",
+    "server_error",
+    "overloaded",
+    "temporar",
+    "bad gateway",
+    "service unavailable",
+    "too many requests",
+)
+
+
+class EmptyOutputError(RuntimeError):
+    """模型返回空或异常残缺的输出"""
+
+
+class ModelUnavailableError(RuntimeError):
+    """模型/服务不可用（key 过期、上游宕机等），启动前探活使用"""
+
 
 # 5个阶段的定义
 STAGES = [
@@ -550,7 +572,7 @@ class PipelineService:
         temperature: float = 0.7,
         max_tokens: int = 8192,
     ) -> AsyncGenerator:
-        """带重试的LLM调用"""
+        """带重试的LLM调用（含免费网关瞬时故障识别）"""
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
@@ -565,7 +587,7 @@ class PipelineService:
                 return stream
             except RateLimitError as e:
                 last_error = e
-                wait_time = RETRY_DELAY * (2**attempt)
+                wait_time = RETRY_DELAY * (2**attempt) * 2  # 限流退避加倍：10s/20s/40s
                 logger.warning(
                     f"速率限制，等待 {wait_time}s 后重试 (attempt {attempt + 1}/{MAX_RETRIES})"
                 )
@@ -577,15 +599,50 @@ class PipelineService:
                     await asyncio.sleep(RETRY_DELAY)
             except APIError as e:
                 last_error = e
-                if e.status_code and e.status_code >= 500:
+                msg = (str(e) or "").lower()
+                transient = any(h in msg for h in TRANSIENT_ERROR_HINTS)
+                retryable = transient or (
+                    e.status_code is not None and e.status_code >= 500
+                )
+                if retryable:
+                    wait_time = RETRY_DELAY * (attempt + 1)
                     logger.warning(
-                        f"API服务错误，重试 (attempt {attempt + 1}/{MAX_RETRIES})"
+                        f"API瞬时故障({getattr(e, 'status_code', '?')})，{wait_time}s 后重试 "
+                        f"(attempt {attempt + 1}/{MAX_RETRIES}): {str(e)[:150]}"
                     )
                     if attempt < MAX_RETRIES - 1:
-                        await asyncio.sleep(RETRY_DELAY * (attempt + 1))
+                        await asyncio.sleep(wait_time)
                 else:
                     raise
-        raise last_error
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("模型调用失败：重试循环异常退出")
+
+    async def check_model_available(self) -> dict:
+        """启动前探活：轻量非流式调用判断模型可用性。
+
+        返回 {available, reason}；不抛异常。
+        """
+        try:
+            client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+            await client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": "ping"}],
+                max_tokens=4,
+                timeout=30,
+            )
+            return {"available": True, "reason": None}
+        except Exception as e:
+            msg = str(e)
+            lowered = msg.lower()
+            if "expired" in lowered or "authentication" in lowered or "401" in lowered:
+                reason = "API Key 已过期或无效，请在「系统管理 → 模型配置」中更新密钥"
+            elif any(h in lowered for h in TRANSIENT_ERROR_HINTS):
+                reason = "模型服务暂时不可用（上游故障或限流），请稍后重试或切换模型"
+            else:
+                reason = msg[:200]
+            logger.error(f"❌ [探活] 模型 {self.model} 不可用: {msg[:200]}")
+            return {"available": False, "reason": reason}
 
     async def run_pipeline(
         self,
@@ -596,6 +653,9 @@ class PipelineService:
         resume_from: Optional[str] = None,
         record_id: Optional[int] = None,
         db: Optional[AsyncSession] = None,
+        sequence_group_id: Optional[int] = None,
+        sequence_lane: Optional[int] = None,
+        on_record_created=None,
     ) -> AsyncGenerator[str, None]:
         """
         执行全流程，SSE事件流：
@@ -604,6 +664,12 @@ class PipelineService:
           pipeline_complete
 
         所有阶段输出和SSE事件均实时打印到IDE终端。
+
+        可靠性保证（SPEC-001）：
+          - 启动即创建 PipelineRecord(running)，每阶段完成增量 checkpoint
+          - 阶段输出 < MIN_STAGE_OUTPUT_CHARS 判定失败（不再静默假成功）
+          - sequence_group_id / sequence_lane 用于序列调度组归组追溯
+          - on_record_created(record_id) 回调供 API 层注册运行状态
         """
         pipeline_id = str(uuid.uuid4())[:8]
         total_start = time.time()
@@ -655,7 +721,10 @@ class PipelineService:
                         {
                             "key": prev["key"],
                             "content": prev.get("content", ""),
-                            "duration": prev.get("duration", 0),
+                            "duration": prev.get(
+                                "duration_ms", prev.get("duration", 0)
+                            ),
+                            "status": prev.get("status", "completed"),
                         }
                     )
                     if prev.get("content"):
@@ -666,7 +735,9 @@ class PipelineService:
                         {
                             "stage": prev["key"],
                             "status": "completed",
-                            "duration": prev.get("duration", 0),
+                            "duration": prev.get(
+                                "duration_ms", prev.get("duration", 0)
+                            ),
                             "skipped": True,
                         },
                     )
@@ -694,6 +765,39 @@ class PipelineService:
             except Exception as e:
                 logger.error(f"❌ [DB→requirements] 保存失败: {e}")
                 await session.rollback()
+
+        # ── 启动即建记录（running 态）：任何中断都不丢进度（SPEC-001 FR-3.1） ──
+        record_obj = existing_record
+        if session is not None and record_obj is None:
+            try:
+                record_obj = PipelineRecord(
+                    name=f"Pipeline - {requirement_name or '未命名需求'}",
+                    status="running",
+                    pipeline_id=pipeline_id,
+                    requirement_content=requirement_content,
+                    requirement_name=requirement_name or "未命名需求",
+                    stage_count=len(STAGES),
+                    stage_results=[],
+                    project_id=project_id,
+                    version_id=version_id,
+                    sequence_group_id=sequence_group_id,
+                    sequence_lane=sequence_lane or (1 if sequence_group_id else None),
+                )
+                session.add(record_obj)
+                await session.commit()
+                await session.refresh(record_obj)
+                logger.info(
+                    f"💾 [DB→pipeline_records] 启动记录已创建 ID={record_obj.id} (running)"
+                )
+                if on_record_created is not None:
+                    try:
+                        on_record_created(record_obj.id)
+                    except Exception as cb_err:
+                        logger.error(f"❌ on_record_created 回调异常: {cb_err}")
+            except Exception as e:
+                logger.error(f"❌ [DB→pipeline_records] 启动记录创建失败: {e}")
+                await session.rollback()
+                record_obj = None
 
         for stage_info in STAGES[resume_index:]:
             stage_key = stage_info["key"]
@@ -788,9 +892,13 @@ class PipelineService:
                 )
 
                 chunk_count = 0
+                truncated = False
                 async for chunk in stream:
                     if chunk.choices and len(chunk.choices) > 0:
-                        delta = chunk.choices[0].delta
+                        choice = chunk.choices[0]
+                        if choice.finish_reason == "length":
+                            truncated = True
+                        delta = choice.delta
                         if delta and delta.content:
                             full_content += delta.content
                             chunk_count += 1
@@ -808,6 +916,25 @@ class PipelineService:
                                     f"📡 [SSE→{stage_key}] 内容片段: ...{recent}..."
                                 )
 
+                if truncated:
+                    logger.warning(
+                        f"⚠️ [截断] {stage_label} 输出达到 max_tokens 上限被截断"
+                    )
+                    yield self._event(
+                        "stage_log",
+                        {
+                            "stage": stage_key,
+                            "level": "WARN",
+                            "message": f"⚠️ {stage_label} 输出达到长度上限被截断，内容可能不完整",
+                        },
+                    )
+
+                # 空/残缺输出判定（SPEC-001 FR-3.3）：不再静默"假成功"
+                if len(full_content.strip()) < MIN_STAGE_OUTPUT_CHARS:
+                    raise EmptyOutputError(
+                        f"模型输出为空或过短({len(full_content)}字符)，疑似服务商限流截断，请重试或改用付费模型"
+                    )
+
                 logger.info(
                     f"📥 [API←] {stage_label} 完成: 共 {len(full_content)} 字符"
                 )
@@ -823,6 +950,7 @@ class PipelineService:
                         "key": stage_key,
                         "content": full_content,
                         "duration_ms": duration_ms,
+                        "status": "completed",
                     }
                 )
 
@@ -866,6 +994,9 @@ class PipelineService:
                         logger.error(f"❌ [DB→{stage_key}] 持久化到业务模块失败: {e}")
                         await session.rollback()
 
+                # 阶段增量 checkpoint：中断也不丢已完成阶段（FR-3.1）
+                await self._checkpoint(session, record_obj, stage_results, "running")
+
                 # 将本阶段输出作为下一阶段的输入上下文
                 previous_output = full_content
 
@@ -905,9 +1036,18 @@ class PipelineService:
 
                 # 即使失败也继续下一个阶段（用空上下文）
                 stage_results.append(
-                    {"key": stage_key, "content": "", "duration": duration_ms}
+                    {
+                        "key": stage_key,
+                        "content": "",
+                        "duration": duration_ms,
+                        "status": "failed",
+                        "error": error_msg[:500],
+                    }
                 )
                 previous_output = f"【{stage_label}执行失败】{error_msg}"
+
+                # 失败也 checkpoint，保证断连后可从失败阶段继续执行
+                await self._checkpoint(session, record_obj, stage_results, "running")
 
         # pipeline_complete
         total_duration = round(time.time() - total_start, 1)
@@ -931,53 +1071,22 @@ class PipelineService:
             f"📡 [SSE→pipeline_complete] {final_status}, total_duration={total_duration}s"
         )
 
-        # ── 保存流程记录到 DB（继续执行模式更新原记录，否则新建） ──
-        if session is not None:
+        # ── 最终落库：更新启动时创建的 running 记录（继续执行模式沿用原记录） ──
+        if session is not None and record_obj is not None:
             try:
-                stage_results_for_db = [
-                    {
-                        "key": r["key"],
-                        "label": next(
-                            (s["label"] for s in STAGES if s["key"] == r["key"]),
-                            r["key"],
-                        ),
-                        "content": r["content"],
-                        "duration": r.get("duration_ms", r.get("duration", 0)),
-                    }
-                    for r in stage_results
-                ]
-                if existing_record:
-                    # 继续执行模式：更新原记录（追加新完成的阶段，不新建）
-                    existing_record.stage_results = stage_results_for_db
-                    existing_record.status = final_status
-                    # 累加总耗时（原记录耗时 + 本次续跑耗时）
-                    existing_record.total_duration = (
-                        existing_record.total_duration or 0
+                record_obj.stage_results = self._build_db_stage_results(stage_results)
+                record_obj.status = final_status
+                if existing_record is not None:
+                    # 继续执行模式：累加历史耗时
+                    record_obj.total_duration = (
+                        record_obj.total_duration or 0
                     ) + total_duration
-                    await session.commit()
-                    logger.info(
-                        f"💾 [DB→pipeline_records] 原记录已更新 ID={existing_record.id} (status={final_status})"
-                    )
                 else:
-                    # 新建模式：创建新记录
-                    record = PipelineRecord(
-                        name=f"Pipeline - {requirement_name or '未命名需求'}",
-                        status=final_status,
-                        pipeline_id=pipeline_id,
-                        requirement_content=requirement_content,
-                        requirement_name=requirement_name or "未命名需求",
-                        total_duration=total_duration,
-                        stage_count=len(STAGES),
-                        project_id=project_id,
-                        version_id=version_id,
-                        stage_results=stage_results_for_db,
-                    )
-                    session.add(record)
-                    await session.commit()
-                    await session.refresh(record)
-                    logger.info(
-                        f"💾 [DB→pipeline_records] 流程记录已保存 ID={record.id}"
-                    )
+                    record_obj.total_duration = total_duration
+                await session.commit()
+                logger.info(
+                    f"💾 [DB→pipeline_records] 记录已收尾 ID={record_obj.id} (status={final_status})"
+                )
             except Exception as e:
                 logger.error(f"❌ [DB→pipeline_records] 保存失败: {e}")
                 await session.rollback()
@@ -987,12 +1096,59 @@ class PipelineService:
         logger.info(f"  ✅ Pipeline [{pipeline_id}] 全流程完成!")
         logger.info(f"  ⏱  总耗时: {total_duration}s")
         stage_summary = " → ".join(
-            [f"{r['key']}({r['duration']}s)" for r in stage_results]
+            [
+                f"{r['key']}({r.get('duration_ms', r.get('duration', 0))}ms)"
+                for r in stage_results
+            ]
         )
         logger.info(f"  📊 各阶段: {stage_summary}")
         logger.info(f"  📝 结果已保存到 DB")
         logger.info(f"{'=' * 60}")
         logger.info(f"")
+
+    @staticmethod
+    def _build_db_stage_results(stage_results: list) -> list:
+        """将内存态 stage_results 归一化为 DB 存储结构（统一 duration/status 字段）"""
+        return [
+            {
+                "key": r["key"],
+                "label": next(
+                    (s["label"] for s in STAGES if s["key"] == r["key"]),
+                    r["key"],
+                ),
+                "content": r.get("content", ""),
+                "duration": r.get("duration_ms", r.get("duration", 0)),
+                "status": r.get(
+                    "status", "completed" if r.get("content") else "failed"
+                ),
+                **({"error": r["error"]} if r.get("error") else {}),
+            }
+            for r in stage_results
+        ]
+
+    async def _checkpoint(
+        self,
+        session: Optional[AsyncSession],
+        record_obj,
+        stage_results: list,
+        status: str = "running",
+    ) -> None:
+        """阶段增量 checkpoint：随时保留已完成内容（SPEC-001 FR-3.1）"""
+        if session is None or record_obj is None:
+            return
+        try:
+            record_obj.stage_results = self._build_db_stage_results(stage_results)
+            record_obj.status = status
+            await session.commit()
+            logger.info(
+                f"💾 [checkpoint] 记录 ID={record_obj.id} 已保存 {len(stage_results)} 个阶段 (status={status})"
+            )
+        except Exception as e:
+            logger.error(f"❌ [checkpoint] 保存失败: {e}")
+            try:
+                await session.rollback()
+            except Exception:
+                pass
 
     def _parse_cases_from_markdown(self, content: str) -> list:
         """从 markdown 解析多条测试用例（完整字段解析）
@@ -1209,14 +1365,27 @@ class PipelineService:
 
         # 策略2：表格行 | TP-001 | 测试点 | ... |
         if not matches:
+            # 匹配整行：从行首到行尾（包括所有列）
             table_pattern = re.compile(
-                r"^\|\s*(TP[-_]?\d+)\s*\|\s*([^\|]+)\s*\|", re.MULTILINE
+                r"^\|\s*(TP[-_]?\d+)\s*\|\s*([^\|]+)\s*\|.*$", re.MULTILINE
             )
             matches = list(table_pattern.finditer(content))
 
         if not matches:
             logger.info(f"  📝 [parse_points] 未匹配到 TP-xxx 模式，fallback 单条")
             return [{"title": "AI生成-测试点", "description": content[:5000]}]
+
+        # 提取表格表头（用于将表格行转换为可读格式）
+        headers = []
+        header_match = re.search(
+            r"^\|(.+)\|\s*\n\|[-\s|]+\|\s*\n", content, re.MULTILINE
+        )
+        if header_match:
+            headers = [
+                h.strip() for h in header_match.group(0).split("|")[1:-1] if h.strip()
+            ]
+            # 过滤掉分隔行中的 "---"
+            headers = [h for h in headers if not re.match(r"^[-\s]+$", h)]
 
         points = []
         seen_ids = set()
@@ -1226,22 +1395,73 @@ class PipelineService:
                 continue
             seen_ids.add(point_id)
             point_title = m.group(2).strip() if m.lastindex >= 2 else ""
-            # 截取该测试点段落
+            # 提取整行内容作为 description
+            full_line = m.group(0).strip()
+            # 截取该测试点段落（从下一行开始到下一个测试点）
             start = m.end()
             end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
             section = content[start:end].strip()
-            if len(section) > 3000:
-                section = section[:3000] + "\n...（内容过长已截断）"
+
+            # 将表格行转换为可读的 Markdown 列表格式
+            description = self._table_row_to_readable(full_line, headers)
+            if section:
+                description = f"{description}\n\n{section}"
+            if len(description) > 3000:
+                description = description[:3000] + "\n...（内容过长已截断）"
             points.append(
                 {
                     "title": f"{point_id}: {point_title}"
                     if point_title
                     else f"测试点 {point_id}",
-                    "description": section,
+                    "description": description,
                 }
             )
         logger.info(f"  📝 [parse_points] 解析出 {len(points)} 条测试点")
         return points
+
+    @staticmethod
+    def _table_row_to_readable(row: str, headers: list[str] = None) -> str:
+        """将 Markdown 表格行转换为可读的列表格式
+
+        输入: | TP-001 | 未支付订单超时取消 | 订单超时 | P0 | 功能 | 边界值分析 | 半自动 |
+        输出:
+            **测试点**: 未支付订单超时取消
+            - **对应功能**: 订单超时
+            - **优先级**: P0
+            - **测试类型**: 功能
+            - **设计技术**: 边界值分析
+            - **AI增强**: 半自动
+        """
+        import re
+
+        # 解析表格行的各列
+        cells = [c.strip() for c in row.split("|")[1:-1]]
+
+        # 如果没有表头信息，尝试使用默认表头
+        if not headers or len(headers) < len(cells):
+            headers = [
+                "编号",
+                "测试点",
+                "对应功能",
+                "优先级",
+                "测试类型",
+                "设计技术",
+                "AI增强",
+            ]
+
+        # 跳过第一列（编号/TP-xxx）
+        if len(cells) > 1:
+            test_point_name = cells[1] if len(cells) > 1 else ""
+            result_parts = [f"**测试点**: {test_point_name}"]
+
+            for j in range(2, min(len(cells), len(headers))):
+                value = cells[j].strip()
+                if value and value != "—":
+                    result_parts.append(f"- **{headers[j]}**: {value}")
+
+            return "\n".join(result_parts)
+
+        return row
 
     async def _persist_stage_to_module(
         self,

@@ -3,15 +3,16 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 import { 
   Play, Sparkles, Clock, FileText, ClipboardList, Target, FlaskConical, 
-  CheckCircle, Loader2, ChevronDown, ChevronUp, Upload, X, FileIcon,
-  AlertCircle, RotateCcw, ArrowRight, CheckSquare, Code, Eye, Square,
-  FolderKanban, Plus, History, Zap
+  CheckCircle, Loader2, ChevronDown, ChevronUp, ChevronLeft, Upload, X, FileIcon,
+  AlertCircle, RotateCcw, CheckSquare, Code, Eye, Square,
+  FolderKanban, Plus, History, Zap, PanelRightOpen, PanelRightClose
 } from "lucide-react"
 import { usePipelineStore } from "@/stores/pipelineStore"
 import type { UploadedFile, PipelineLog, PipelineRecord } from "@/stores/pipelineStore"
 import { useToast } from "@/hooks/useToast"
 import { useSSEStream } from "@/hooks/useSSEStream"
 import { lifecycleApi, projectApi } from "@/lib/api"
+import type { PipelineRecord as ApiPipelineRecord, StageResult } from "@/lib/api-types"
 import { 
   createUploadedFile, isSupportedFile, formatFileSize, 
   mockAiProcessContent 
@@ -81,6 +82,46 @@ export default function PipelinePage() {
   const [isDragging, setIsDragging] = useState(false)
   const [isContinuing, setIsContinuing] = useState(false)
 
+  // 结果弹窗状态 — 使用 ref 避免 SSE 闭包导致状态被覆盖
+  const showResultPopupRef = useRef(false)
+  const [showResultPopup, setShowResultPopup] = useState(false)
+  const resultPopupStepRef = useRef<string | null>(null)
+  const [resultPopupStep, setResultPopupStep] = useState<string | null>(null)
+  const resultPopupContentRef = useRef<string | null>(null)
+  const [resultPopupContent, setResultPopupContent] = useState<string | null>(null)
+  const resultPopupTypeRef = useRef<"result" | "review">("result")
+  const [resultPopupType, setResultPopupType] = useState<"result" | "review">("result")
+
+  const openResultPopup = useCallback((step: string, content: string, type: "result" | "review") => {
+    resultPopupStepRef.current = step
+    resultPopupContentRef.current = content
+    resultPopupTypeRef.current = type
+    // 需要先关闭再打开（处理同一事件触发两次场景）
+    setShowResultPopup(false)
+    setResultPopupStep(step)
+    setResultPopupContent(content)
+    setResultPopupType(type)
+    // 用微任务确保 setState 顺序正确
+    queueMicrotask(() => {
+      showResultPopupRef.current = true
+      setShowResultPopup(true)
+    })
+  }, [])
+
+  const closeResultPopup = useCallback(() => {
+    showResultPopupRef.current = false
+    resultPopupStepRef.current = null
+    resultPopupContentRef.current = null
+    setShowResultPopup(false)
+    setResultPopupStep(null)
+  }, [])
+
+  // 右侧 SSE 日志抽屉状态
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerExpandedSteps, setDrawerExpandedSteps] = useState<Set<string>>(new Set())
+  const drawerScrollRef = useRef<HTMLDivElement>(null)
+  const drawerAccordionRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
   // 页内 Tab：AI全流程 / 生成记录 / 步骤提示词（兼容 URL ?tab= 参数）
   const [activeTab, setActiveTab] = useState<"flow" | "records" | "config">("flow")
 
@@ -114,6 +155,8 @@ export default function PipelinePage() {
   const [sseResponse, setSseResponse] = useState<Response | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const stageContentRef = useRef<Map<string, string>>(new Map())
+  const currentRecordRef = useRef(currentRecord)
+  currentRecordRef.current = currentRecord
 
   // 动态加载步骤提示词配置（优先后端 API，失败使用内置丰富模板）
   const [stepConfigs, setStepConfigs] = useState<StepPromptConfig[]>([])
@@ -153,11 +196,11 @@ export default function PipelinePage() {
       const loadRecord = async () => {
         try {
           const res = await lifecycleApi.getPipelineRecord(Number(recordId))
-          const record: any = res?.data || res
+          const record: ApiPipelineRecord = (res as unknown as { data?: ApiPipelineRecord }).data || (res as unknown as ApiPipelineRecord)
           if (record) {
             // 转换后端数据为前端格式
             // 兼容后端数据格式：使用 key 字段
-            const steps = (record.stage_results || []).map((stage: any) => {
+            const steps = (record.stage_results || []).map((stage: StageResult) => {
               const backendKey = stage.stage || stage.key
               const frontKey = STEP_KEY_MAP[backendKey] || backendKey
               // 从 content 推断状态
@@ -182,7 +225,7 @@ export default function PipelinePage() {
             // 填充默认步骤（如果 stage_results 不完整）
             const defaultSteps = ["analyze", "plan", "point", "case", "review"]
             const completeSteps = defaultSteps.map(key => {
-              const existing = steps.find((s: any) => s.key === key)
+              const existing = steps.find((s) => s.key === key)
               if (existing) return existing
               const config = getDefaultConfig(key as StepKey)
               return {
@@ -203,16 +246,16 @@ export default function PipelinePage() {
               uploadedFiles: [],
               // 状态规范化：将 completed 映射为 success
               status: ((record.status === "success" || record.status === "completed") ? "success" : "failed") as PipelineRecord["status"],
-              currentStepIndex: completeSteps.findIndex((s: any) => s.status !== "completed"),
+              currentStepIndex: completeSteps.findIndex((s) => s.status !== "completed"),
               startedAt: record.created_at || new Date().toISOString(),
               completedAt: record.updated_at,
               steps: completeSteps,
               results: {
-                requirements: completeSteps.find((s: any) => s.key === "analyze")?.result,
-                plans: completeSteps.find((s: any) => s.key === "plan")?.result,
-                points: completeSteps.find((s: any) => s.key === "point")?.result,
-                cases: completeSteps.find((s: any) => s.key === "case")?.result,
-                reviews: completeSteps.find((s: any) => s.key === "review")?.result
+                requirements: completeSteps.find((s) => s.key === "analyze")?.result,
+                plans: completeSteps.find((s) => s.key === "plan")?.result,
+                points: completeSteps.find((s) => s.key === "point")?.result,
+                cases: completeSteps.find((s) => s.key === "case")?.result,
+                reviews: completeSteps.find((s) => s.key === "review")?.result
               }
             }
             
@@ -224,7 +267,7 @@ export default function PipelinePage() {
             
             // 设置继续执行模式
             if (mode === "continue" || record.status === "failed") {
-              const firstPending = completeSteps.find((s: any) => s.status !== "completed")
+              const firstPending = completeSteps.find((s) => s.status !== "completed")
               setIsContinuing(true)
               if (firstPending) {
                 setExpandedStep(firstPending.key)
@@ -232,8 +275,7 @@ export default function PipelinePage() {
               toast?.info?.("已加载历史数据，点击「继续执行」可从失败处恢复")
             }
           }
-        } catch (e) {
-          console.error("加载历史记录失败:", e)
+        } catch {
           toast?.error?.("加载历史记录失败")
         }
       }
@@ -545,38 +587,9 @@ export default function PipelinePage() {
     return baseResults[stepKey]?.() || { status: "completed" }
   }
 
-  // SSE 事件处理：所有后端日志实时推送到页面和浏览器 Console
-  const handleSSEEvent = useCallback((eventType: string, data: any) => {
-    // 🔴 实时输出到浏览器 Console（IDE 可见）
-    const logPrefix = `%c[SSE→${eventType}]`
-    const logStyle = "color:#D4A574;font-weight:bold"
-    switch (eventType) {
-      case "stage_output":
-        console.log(logPrefix, logStyle, `阶段:${data.stage} 内容长度:${data.content?.length || 0}`, data.content?.slice(0, 100))
-        break
-      case "stage_log":
-        console.log(logPrefix, logStyle, `[${data.level || "LOG"}] ${data.message || ""}`)
-        break
-      case "stage_start":
-        console.log(logPrefix, logStyle, `▶ 阶段开始: ${data.label} (${data.stage})`)
-        break
-      case "stage_complete":
-        console.log(logPrefix, logStyle, `✔ 阶段完成: ${data.stage} 耗时:${data.duration}s`)
-        break
-      case "stage_error":
-        console.error(logPrefix, logStyle, `✘ 阶段失败: ${data.stage}`, data.error)
-        break
-      case "pipeline_start":
-        console.log(logPrefix, logStyle, `🚀 Pipeline 启动: ${data.requirement_name}`)
-        break
-      case "pipeline_complete":
-        console.log(logPrefix, logStyle, `🎉 Pipeline 完成: ${data.status} 总耗时:${data.total_duration}s`)
-        break
-      default:
-        console.log(logPrefix, logStyle, data)
-    }
-
-    const frontStepKey = data.stage ? STEP_KEY_MAP[data.stage] : null
+  // SSE 事件处理：所有后端日志实时推送到页面
+  const handleSSEEvent = useCallback((eventType: string, data: Record<string, unknown>) => {
+    const frontStepKey = data.stage ? STEP_KEY_MAP[data.stage as string] : null
 
     switch (eventType) {
       case "pipeline_start":
@@ -585,10 +598,17 @@ export default function PipelinePage() {
         if (frontStepKey) {
           updateStep(frontStepKey, { status: "running", progress: 0 })
           setExpandedStep(frontStepKey)
+          // 自动打开抽屉并展开当前步骤
+          setDrawerOpen(true)
+          setDrawerExpandedSteps(prev => {
+            const next = new Set(prev)
+            next.add(frontStepKey)
+            return next
+          })
           stageContentRef.current.set(frontStepKey, "")
           const startLog: PipelineLog = {
             timestamp: new Date().toTimeString().split(" ")[0],
-            content: `🚀 启动 ${data.label} ...`,
+            content: `🚀 启动 ${data.label as string} ...`,
             type: "info",
           }
           appendStepLog(frontStepKey, startLog)
@@ -597,13 +617,14 @@ export default function PipelinePage() {
       case "stage_output":
         if (frontStepKey && data.content) {
           const current = stageContentRef.current.get(frontStepKey) || ""
-          const updated = current + data.content
+          const contentStr = data.content as string
+          const updated = current + contentStr
           stageContentRef.current.set(frontStepKey, updated)
           
           // 追加新的日志条目，使用节流机制减少频繁更新
           const outputLog: PipelineLog = {
             timestamp: new Date().toTimeString().split(" ")[0],
-            content: data.content,
+            content: contentStr,
             type: "info",
           }
           appendStepLog(frontStepKey, outputLog)
@@ -615,14 +636,14 @@ export default function PipelinePage() {
         break
       case "stage_log":
         if (frontStepKey) {
-          const level = data.level || "INFO"
-          const logType = level === "ERROR" ? "error" : level === "AGENT" ? "info" : "info"
-          const logMsg = data.message || `${data.stage} 日志`
-          const stageLabel = currentRecord?.steps.find(s => s.key === frontStepKey)?.label || frontStepKey
+          const level = (data.level as string) || "INFO"
+          const logType: PipelineLog["type"] = level === "ERROR" ? "error" : "info"
+          const logMsg = (data.message as string) || `${data.stage} 日志`
+          const stageLabel = currentRecordRef.current?.steps.find(s => s.key === frontStepKey)?.label || frontStepKey
           const log: PipelineLog = {
             timestamp: new Date().toTimeString().split(" ")[0],
             content: logMsg.includes(stageLabel) ? logMsg : `[${level}] ${logMsg}`,
-            type: logType as any,
+            type: logType,
           }
           appendStepLog(frontStepKey, log)
         }
@@ -632,20 +653,35 @@ export default function PipelinePage() {
           const content = stageContentRef.current.get(frontStepKey) || ""
           const result = {
             status: "completed",
-            duration: data.duration,
+            duration: data.duration as number,
             content: content,
           }
           completeStep(frontStepKey, result)
+          // 弹出结果弹窗
+          const popupType = frontStepKey === "review" ? "review" : "result"
+          const popupContent = content
+          // 使用 openResultPopup 打开弹窗
+          resultPopupStepRef.current = frontStepKey
+          resultPopupContentRef.current = popupContent
+          resultPopupTypeRef.current = popupType
+          setShowResultPopup(false)
+          setResultPopupStep(frontStepKey)
+          setResultPopupContent(popupContent)
+          setResultPopupType(popupType)
+          queueMicrotask(() => {
+            showResultPopupRef.current = true
+            setShowResultPopup(true)
+          })
         }
         break
       case "stage_error":
         if (frontStepKey) {
-          failStep(frontStepKey, data.error || "未知错误")
+          failStep(frontStepKey, (data.error as string) || "未知错误")
         }
         break
       case "pipeline_complete":
         const success = data.status === "completed"
-        finishPipeline(success)
+        finishPipeline(success as boolean)
         if (success) {
           toast?.success?.(`🎉 AI全流程执行完成！总耗时 ${data.total_duration}s`)
         } else {
@@ -654,14 +690,13 @@ export default function PipelinePage() {
         setSseResponse(null)
         break
     }
-  }, [updateStep, appendStepLog, updateStepLog, completeStep, failStep, finishPipeline, setExpandedStep, toast, currentRecord])
+  }, [updateStep, appendStepLog, updateStepLog, completeStep, failStep, finishPipeline, setExpandedStep, toast])
 
   // 连接 SSE 流
   useSSEStream({
     response: sseResponse,
     onEvent: handleSSEEvent,
     onComplete: useCallback(() => {
-      console.log("%c[SSE] 流连接关闭", "color:#888")
       setSseResponse(null)
       // 安全网：如果流已结束但状态仍为 running，说明 pipeline_complete 事件可能丢失
       // 此时根据步骤状态判断最终结果
@@ -679,7 +714,6 @@ export default function PipelinePage() {
       }
     }, [currentRecord, isRunning, finishPipeline]),
     onError: useCallback((err: Error) => {
-      console.error("%c[SSE] 流错误", "color:#f55", err)
       toast?.error?.(`SSE 流错误: ${err.message}`)
       setSseResponse(null)
       if (currentRecord) {
@@ -721,9 +755,8 @@ export default function PipelinePage() {
         version_id: versionId || undefined,
       }, controller.signal)
       setSseResponse(response)
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
-        console.error("启动 Pipeline 失败:", err)
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== "AbortError") {
         toast?.error?.(`启动失败: ${err.message}`)
         finishPipeline(false)
       }
@@ -741,8 +774,17 @@ export default function PipelinePage() {
   const handleContinue = async () => {
     if (!currentRecord) return
     
+    // 找到第一个未完成的步骤作为 resume_from 起点
+    const firstPendingStep = currentRecord.steps.find(s => s.status !== "completed")
+    const resumeFrom = firstPendingStep ? FRONTEND_TO_BACKEND[firstPendingStep.key] || firstPendingStep.key : undefined
+    
     setIsContinuing(true)
     stageContentRef.current.clear()
+
+    // 重置失败步骤的状态为 pending
+    if (firstPendingStep) {
+      updateStep(firstPendingStep.key, { status: "pending", progress: 0, logs: [] })
+    }
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -753,10 +795,12 @@ export default function PipelinePage() {
         requirement_name: pipelineName || "未命名需求",
         project_id: projectId || undefined,
         version_id: versionId || undefined,
+        resume_from: resumeFrom,
+        record_id: Number(currentRecord.id) || undefined,
       }, controller.signal)
       setSseResponse(response)
-    } catch (err: any) {
-      if (err.name !== "AbortError") {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== "AbortError") {
         toast?.error?.(`继续执行失败: ${err.message}`)
         finishPipeline(false)
       }
@@ -796,6 +840,16 @@ export default function PipelinePage() {
     }
   }
 
+  /** 滚动 drawer 到指定步骤的 accordion */
+  const scrollToAccordion = useCallback((stepKey: string) => {
+    requestAnimationFrame(() => {
+      const el = drawerAccordionRefs.current.get(stepKey)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    })
+  }, [])
+
   const totalProgress = currentRecord 
     ? currentRecord.steps.reduce((sum, s) => sum + s.progress, 0) / currentRecord.steps.length
     : 0
@@ -810,9 +864,9 @@ export default function PipelinePage() {
   const isFailedRecord = currentRecord?.status === "failed"
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* 页内 Tab 导航：AI全流程 / 生成记录 / 步骤提示词 */}
-      <div className="flex items-center gap-1 mb-4 border-b border-border">
+      <div className="flex items-center gap-1 border-b border-border flex-shrink-0">
         {([
           { key: "flow" as const, label: "AI全流程", icon: Sparkles },
           { key: "records" as const, label: "生成记录", icon: History },
@@ -838,594 +892,539 @@ export default function PipelinePage() {
       </div>
 
       {/* AI全流程主体（保持挂载，Tab 切换不丢执行状态） */}
-      <div className={activeTab === "flow" ? "" : "hidden"}>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-bold text-ink">AI全流程</h2>
-          <span className="text-xs text-muted bg-cream px-2 py-1 rounded-md">
-            {hasFailedStep ? "继续执行" : "一键执行完整测试流水线"}
-          </span>
+      <div className={`flex-1 min-h-0 p-4 md:p-6 flex flex-col overflow-hidden ${activeTab === "flow" ? "" : "hidden"}`}>
+        {/* 顶部标题行 */}
+        <div className="flex items-center justify-between flex-shrink-0 mb-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-ink">AI全流程</h2>
+            <span className="text-[10px] text-muted bg-cream px-2 py-0.5 rounded-md">
+              {hasFailedStep ? "继续执行" : "一键执行完整测试流水线"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {(projectId || versionId || pipelineName) && (
+              <div className="hidden lg:flex items-center gap-3 text-[11px] bg-cream/60 rounded-lg border border-border px-3 py-1.5">
+                {pipelineName && (
+                  <span className="flex items-center gap-1"><FileText className="w-3 h-3 text-amber" /><span className="text-muted">需求：</span><span className="text-ink font-medium">{pipelineName}</span></span>
+                )}
+                {projectId && (
+                  <span className="flex items-center gap-1"><FolderKanban className="w-3 h-3 text-amber" /><span className="text-muted">项目：</span><span className="text-ink font-medium">{projects.find(p => p.id === projectId)?.name || "—"}</span></span>
+                )}
+                {versionId && (
+                  <span className="flex items-center gap-1"><FolderKanban className="w-3 h-3 text-amber" /><span className="text-muted">版本：</span><span className="text-ink font-medium">{versions.find(v => v.id === versionId)?.name || "—"}</span></span>
+                )}
+                {currentRecord?.status && (
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium ${
+                    currentRecord.status === "success" ? "bg-pass/10 text-pass" :
+                    currentRecord.status === "failed" ? "bg-fail/10 text-fail" :
+                    currentRecord.status === "running" ? "bg-info/10 text-info" : "bg-cream text-muted"
+                  }`}>
+                    {currentRecord.status === "success" ? "成功" : currentRecord.status === "failed" ? "失败" : currentRecord.status === "running" ? "执行中" : "待执行"}
+                  </span>
+                )}
+              </div>
+            )}
+            {currentRecord && (
+              <button onClick={() => switchTab("records")} className="text-[11px] text-ink-light hover:text-ink px-2.5 py-1 rounded-lg border border-border hover:border-amber/40 transition-colors">
+                查看记录
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {currentRecord && (
-            <button
-              onClick={() => switchTab("records")}
-              className="text-xs text-ink-light hover:text-ink px-3 py-1.5 rounded-lg border border-border hover:border-amber/40 transition-colors"
-            >
-              查看生成记录
-            </button>
-          )}
-        </div>
-      </div>
 
-      {/* 执行流程上方：项目/版本信息回显 */}
-      {(projectId || versionId || pipelineName) && (
-        <div className="bg-cream/60 rounded-xl border border-border px-4 py-2.5 mb-3 flex items-center gap-4 flex-wrap text-xs">
-          {pipelineName && (
-            <div className="flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-amber" />
-              <span className="text-muted">需求名称：</span>
-              <span className="text-ink font-medium">{pipelineName}</span>
-            </div>
-          )}
-          {projectId && (
-            <div className="flex items-center gap-1.5">
-              <FolderKanban className="w-3.5 h-3.5 text-amber" />
-              <span className="text-muted">所属项目：</span>
-              <span className="text-ink font-medium">
-                {projects.find(p => p.id === projectId)?.name || "—"}
-              </span>
-            </div>
-          )}
-          {versionId && (
-            <div className="flex items-center gap-1.5">
-              <FolderKanban className="w-3.5 h-3.5 text-amber" />
-              <span className="text-muted">所属版本：</span>
-              <span className="text-ink font-medium">
-                {versions.find(v => v.id === versionId)?.name || "—"}
-              </span>
-            </div>
-          )}
-          {currentRecord?.status && (
-            <div className="flex items-center gap-1.5 ml-auto">
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+        {/* 移动端信息条 */}
+        {(projectId || versionId || pipelineName) && (
+          <div className="lg:hidden bg-cream/60 rounded-lg border border-border px-3 py-1.5 mb-2 flex items-center gap-3 flex-wrap text-[11px] flex-shrink-0">
+            {pipelineName && <span className="flex items-center gap-1"><FileText className="w-3 h-3 text-amber" />{pipelineName}</span>}
+            {projectId && <span className="flex items-center gap-1"><FolderKanban className="w-3 h-3 text-amber" />{projects.find(p => p.id === projectId)?.name || "—"}</span>}
+            {versionId && <span className="flex items-center gap-1"><FolderKanban className="w-3 h-3 text-amber" />{versions.find(v => v.id === versionId)?.name || "—"}</span>}
+            {currentRecord?.status && (
+              <span className={`ml-auto inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-medium ${
                 currentRecord.status === "success" ? "bg-pass/10 text-pass" :
                 currentRecord.status === "failed" ? "bg-fail/10 text-fail" :
-                currentRecord.status === "running" ? "bg-info/10 text-info" :
-                "bg-cream text-muted"
+                currentRecord.status === "running" ? "bg-info/10 text-info" : "bg-cream text-muted"
               }`}>
-                {currentRecord.status === "success" ? "成功" :
-                 currentRecord.status === "failed" ? "失败" :
-                 currentRecord.status === "running" ? "执行中" : "待执行"}
+                {currentRecord.status === "success" ? "成功" : currentRecord.status === "failed" ? "失败" : currentRecord.status === "running" ? "执行中" : "待执行"}
               </span>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
-      {/* 配置区 */}
-      <div className="bg-white rounded-2xl border border-border shadow-card p-4 mb-4">
-        <h3 className="text-sm font-semibold text-ink mb-4">流水线配置</h3>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-          {/* 左侧：输入区 */}
-          <div className="flex flex-col space-y-4 h-full">
-            <div>
-              <label className="text-xs font-medium text-muted mb-2 block">需求名称</label>
+        {/* 主体左右双栏布局：左侧=配置+执行按钮，右侧=流水线步骤+抽屉 */}
+        <div className="flex-1 min-h-0 flex flex-row gap-3 overflow-hidden">
+          {/* 左栏：配置表单 */}
+          <div className="bg-white rounded-2xl border border-border shadow-card p-3 flex-shrink-0 lg:w-[320px] flex flex-col">
+            <h3 className="text-[11px] font-semibold text-ink mb-2">流水线配置</h3>
+
+            {/* 需求名称 */}
+            <div className="mb-2">
+              <label className="text-[10px] font-medium text-muted mb-0.5 block">需求名称</label>
               <input
                 value={pipelineName}
                 onChange={e => setPipelineName(e.target.value)}
                 placeholder="例如：用户登录模块测试"
                 disabled={isRunning}
-                className="w-full h-10 px-3 text-sm bg-cream border border-border rounded-xl input-focus disabled:opacity-50"
+                className="w-full h-7 px-2.5 text-[11px] bg-cream border border-border rounded-lg input-focus disabled:opacity-50"
               />
             </div>
 
-            {/* 关联项目 */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* 项目 + 版本 */}
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
-                <label className="text-sm font-medium text-ink mb-1.5 block">所属项目</label>
+                <label className="text-[10px] font-medium text-muted mb-0.5 block">项目</label>
                 <select
                   value={projectId || ''}
                   onChange={(e) => { setProjectId(e.target.value ? Number(e.target.value) : null); setVersionId(null) }}
-                  className="w-full h-10 px-3 pr-8 text-sm bg-cream border border-border rounded-xl input-focus appearance-none cursor-pointer"
+                  className="w-full h-7 px-2 pr-6 text-[11px] bg-cream border border-border rounded-lg input-focus appearance-none cursor-pointer"
                 >
-                  <option value="">请选择项目</option>
+                  <option value="">请选择</option>
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-ink mb-1.5 block">所属版本</label>
+                <label className="text-[10px] font-medium text-muted mb-0.5 block">版本</label>
                 <select
                   value={versionId || ''}
                   onChange={(e) => setVersionId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full h-10 px-3 pr-8 text-sm bg-cream border border-border rounded-xl input-focus appearance-none cursor-pointer"
+                  className="w-full h-7 px-2 pr-6 text-[11px] bg-cream border border-border rounded-lg input-focus appearance-none cursor-pointer"
                 >
-                  <option value="">请选择版本</option>
+                  <option value="">请选择</option>
                   {versions.filter(v => !projectId || v.project_id === projectId).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col">
-              <label className="text-xs font-medium text-muted mb-2 block">需求描述</label>
+            {/* 需求描述 */}
+            <div className="mb-2">
+              <label className="text-[10px] font-medium text-muted mb-0.5 block">需求描述</label>
               <textarea
                 value={requirementInput}
                 onChange={e => setRequirementInput(e.target.value)}
-                placeholder="请描述要测试的需求，例如：
-用户登录功能，支持账号密码、手机验证码两种方式登录。
-需要支持记住密码、忘记密码功能。
-登录失败3次后锁定账户30分钟。"
-                rows={8}
+                placeholder="请描述要测试的需求..."
+                rows={3}
                 disabled={isRunning}
-                className="w-full flex-1 px-3 py-2 text-sm bg-cream border border-border rounded-xl input-focus resize-none disabled:opacity-50 min-h-[180px]"
-              />
-            </div>
-          </div>
-
-          {/* 右侧：上传区 */}
-          <div className="flex flex-col h-full">
-            <label className="text-xs font-medium text-muted mb-2 block">上传文档（可选）</label>
-            <div
-              onClick={handleUploadClick}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-              className={`flex-1 border-2 border-dashed rounded-xl p-4 text-center transition-all flex flex-col items-center justify-center min-h-[260px] cursor-pointer ${
-                isDragging 
-                  ? "border-amber bg-amber/5" 
-                  : "border-border hover:border-amber/40 hover:bg-cream/50"
-              } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <Upload className="w-8 h-8 mx-auto text-muted mb-2" />
-              <p className="text-xs text-muted mb-1">拖拽文件到此处或</p>
-              <span className="text-xs text-amber font-medium">
-                点击选择文件
-              </span>
-              <p className="text-[10px] text-muted mt-2">
-                支持 PDF、Word、Excel、PPT、Markdown、图片等格式
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.txt,.csv,.md,.xls,.xlsx,.ppt,.pptx,.doc,.docx,.xmind,.png,.jpeg,.jpg,.gif,.json,.xml,.yaml"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) {
-                    handleFileUpload(e.target.files)
-                    e.target.value = ""
-                  }
-                }}
+                className="w-full px-2.5 py-1.5 text-[11px] bg-cream border border-border rounded-lg input-focus resize-none disabled:opacity-50"
               />
             </div>
 
+            {/* 上传文档 */}
+            <div className="mb-2">
+              <label className="text-[10px] font-medium text-muted mb-0.5 block">文档（可选）</label>
+              <div
+                onClick={handleUploadClick}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-lg p-2 text-center transition-all flex flex-col items-center justify-center h-14 cursor-pointer ${
+                  isDragging ? "border-amber bg-amber/5" : "border-border hover:border-amber/40 hover:bg-cream/50"
+                } ${isRunning ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <Upload className="w-5 h-5 mx-auto text-muted" />
+                <p className="text-[10px] text-muted mt-0.5">拖拽或点击选择</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.txt,.csv,.md,.xls,.xlsx,.ppt,.pptx,.doc,.docx,.xmind,.png,.jpeg,.jpg,.gif,.json,.xml,.yaml"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      handleFileUpload(e.target.files)
+                      e.target.value = ""
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* 已上传文件列表 */}
             {uploadedFiles.length > 0 && (
-              <div className="mt-3 space-y-2 max-h-32 overflow-y-auto">
+              <div className="space-y-0.5 mb-2">
                 {uploadedFiles.map(file => (
-                  <div
-                    key={file.id}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cream border border-border text-xs"
-                  >
-                    <FileIcon className="w-4 h-4 text-amber flex-shrink-0" />
+                  <div key={file.id} className="flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-cream border border-border text-[10px]">
+                    <FileIcon className="w-2.5 h-2.5 text-amber flex-shrink-0" />
                     <span className="flex-1 truncate text-ink">{file.name}</span>
-                    <span className="text-muted">{formatFileSize(file.size)}</span>
-                    <button
-                      onClick={() => handleFileRemove(file.id)}
-                      className="text-muted hover:text-fail transition-colors"
-                      disabled={isRunning}
-                    >
-                      <X className="w-3.5 h-3.5" />
+                    <button onClick={() => handleFileRemove(file.id)} className="text-muted hover:text-fail transition-colors" disabled={isRunning}>
+                      <X className="w-2.5 h-2.5" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* 执行按钮组：紧跟「上传文档」区域后面 */}
-            <div className="mt-3 flex items-center gap-2 flex-wrap">
+            {/* 执行按钮 */}
+            <div className="mt-auto flex items-center gap-1.5 pt-2 border-t border-border">
               {!isRunning && !isFailedRecord && (
-                <button
-                  onClick={handleStart}
-                  disabled={!canStart}
-                  className="h-10 px-5 rounded-xl bg-gradient-to-r from-amber to-orange-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Play className="w-4 h-4" />
-                  开始执行
+                <button onClick={handleStart} disabled={!canStart} className="flex-1 h-7 px-2 rounded-lg bg-amber text-white text-[11px] font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-1">
+                  <Play className="w-3 h-3" /> 开始执行
                 </button>
               )}
-
               {isRunning && (
-                <button
-                  onClick={handleStop}
-                  className="h-10 px-5 rounded-xl bg-gradient-to-r from-fail to-red-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
-                >
-                  <Square className="w-4 h-4" />
-                  停止
+                <button onClick={handleStop} className="flex-1 h-7 px-2 rounded-lg bg-fail text-white text-[11px] font-medium shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1">
+                  <Square className="w-3 h-3" /> 停止
                 </button>
               )}
-
               {isFailedRecord && !isRunning && (
-                <button
-                  onClick={handleContinue}
-                  className="h-10 px-5 rounded-xl bg-gradient-to-r from-info to-blue-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  继续执行
+                <button onClick={handleContinue} className="flex-1 h-7 px-2 rounded-lg bg-info text-white text-[11px] font-medium shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-1">
+                  <RotateCcw className="w-3 h-3" /> 继续
                 </button>
               )}
-
-              <button
-                onClick={handleReset}
-                disabled={isRunning}
-                className="h-10 px-3 rounded-xl border border-border text-sm text-ink-light hover:bg-cream transition-colors disabled:opacity-50"
-              >
+              <button onClick={handleReset} disabled={isRunning} className="h-7 px-2 rounded-lg border border-border text-[10px] text-ink-light hover:bg-cream transition-colors disabled:opacity-50">
                 重置
               </button>
             </div>
-          </div>
-        </div>
 
-        {/* 状态信息行 */}
-        {currentRecord?.startedAt && (
-          <div className="flex items-center gap-2 mt-3 text-xs text-muted">
-            <Clock className="w-3.5 h-3.5" />
-            <span>开始时间: {new Date(currentRecord.startedAt).toLocaleString()}</span>
-          </div>
-        )}
-      </div>
-
-      {/* 横向流水线 */}
-      <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-ink">AI 测试流水线</h3>
-            <div className="flex items-center gap-4 text-xs">
-              <span className="text-muted">总进度</span>
-              <div className="w-32 h-2 bg-cream rounded-full overflow-hidden">
-                <div
-                  className="h-full gradient-amber transition-all duration-500"
-                  style={{ width: `${totalProgress}%` }}
-                />
+            {/* 状态信息 */}
+            {currentRecord?.startedAt && (
+              <div className="flex items-center gap-1 text-[10px] text-muted mt-1.5">
+                <Clock className="w-2.5 h-2.5" />
+                <span>开始: {new Date(currentRecord.startedAt).toLocaleTimeString()}</span>
               </div>
-              <span className="font-medium text-ink">{totalProgress.toFixed(0)}%</span>
-              <span className="text-muted">已完成 {completedCount}/{steps.length}</span>
-            </div>
+            )}
           </div>
-        </div>
 
-        {/* 横向步骤条 */}
-        <div className="p-4 overflow-x-auto">
-          <div className="flex items-start gap-0 min-w-max pb-2">
-            {steps.map((step, index) => {
-              const Icon = ICON_MAP[step.icon] || FileText
-              const isCurrent = step.status === "running"
-              const isDone = step.status === "completed"
-              const isFailed = step.status === "failed"
-              const isPending = step.status === "pending"
-              const isExpanded = expandedStep === step.key
-              
-              // 计算产出数量
-              const resultCount = step.result ? (Array.isArray(step.result) ? step.result.length : 0) : 0
-
-              return (
-                <div key={step.key} className="flex items-start">
-                  {/* 步骤节点 */}
-                  <div className="flex flex-col items-center w-48 flex-shrink-0">
+          {/* 右栏：流水线步骤 + 产出统计 */}
+          <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
+              {/* 步骤网格 */}
+              <div className="bg-white rounded-2xl border border-border shadow-card flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div className="p-2.5 border-b border-border flex items-center justify-between flex-shrink-0">
+                  <h3 className="text-[11px] font-semibold text-ink">AI 测试流水线</h3>
+                  <div className="flex items-center gap-2 text-[10px]">
+                    <span className="text-muted">总进度</span>
+                    <div className="w-20 h-1.5 bg-cream rounded-full overflow-hidden">
+                      <div className="h-full bg-amber transition-all duration-500 rounded-full" style={{ width: `${totalProgress}%` }} />
+                    </div>
+                    <span className="font-medium text-ink">{totalProgress.toFixed(0)}%</span>
+                    <span className="text-muted">{completedCount}/{steps.length}</span>
+                    {/* 抽屉切换按钮 */}
                     <button
-                      onClick={() => toggleStep(step.key)}
-                      className={`w-full p-3.5 rounded-xl border-[3px] transition-all text-left ${
-                        isExpanded 
-                          ? "border-amber-600 bg-amber-50 shadow-lg ring-4 ring-amber-200/60" 
-                          : isDone
-                            ? "border-emerald-600 bg-emerald-50/80 hover:bg-emerald-50 hover:border-emerald-700 shadow-sm"
-                            : isFailed
-                              ? "border-red-600 bg-red-50/80 hover:bg-red-50 hover:border-red-700 shadow-sm"
-                              : isCurrent
-                                ? "border-blue-600 bg-blue-50/80 hover:bg-blue-50 hover:border-blue-700 animate-pulse shadow-md"
-                                : "border-gray-400 hover:border-gray-500 bg-white hover:shadow-sm"
+                      onClick={() => setDrawerOpen(!drawerOpen)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-lg border transition-all ml-2 ${
+                        drawerOpen 
+                          ? "bg-amber text-white border-amber" 
+                          : "bg-cream text-ink-light border-border hover:border-amber/40"
                       }`}
                     >
-                      {/* 步骤头部：图标 + 标题 */}
-                      <div className="flex items-center gap-2.5 mb-2.5">
-                        <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all flex-shrink-0 shadow-md ${
-                            isDone
-                              ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white"
-                              : isCurrent
-                                ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white"
-                                : isFailed
-                                  ? "bg-gradient-to-br from-red-500 to-red-600 text-white"
-                                  : isPending
-                                    ? "bg-gradient-to-br from-gray-300 to-gray-400 text-white"
-                                    : "bg-gradient-to-br from-amber-400 to-amber-500 text-white"
-                          }`}
-                        >
-                          {isDone ? (
-                            <CheckCircle className="w-5 h-5" />
-                          ) : isCurrent ? (
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                          ) : isFailed ? (
-                            <AlertCircle className="w-5 h-5" />
-                          ) : (
-                            <Icon className="w-5 h-5" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-ink truncate leading-tight">
-                            {step.label}
-                          </div>
-                          <div className="text-[10px] text-muted mt-0.5">步骤 {index + 1}/5</div>
-                        </div>
-                      </div>
-                      
-                      {/* 状态和数量行 */}
-                      <div className="flex items-center justify-between mb-2 gap-1.5">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          isDone ? "bg-emerald-200/80 text-emerald-800" :
-                          isCurrent ? "bg-blue-200/80 text-blue-800" :
-                          isFailed ? "bg-red-200/80 text-red-800" :
-                          "bg-gray-200 text-gray-700"
-                        }`}>
-                          {isPending ? "待执行" : isCurrent ? "执行中" : isDone ? "已完成" : "失败"}
-                        </span>
-                        {(isCurrent || isDone) && (
-                          <span className="text-[10px] text-ink-light font-semibold">{step.progress}%</span>
-                        )}
-                        {resultCount > 0 && (
-                          <span className="text-[10px] text-amber-700 font-bold flex items-center gap-0.5 bg-amber-100/60 px-1.5 py-0.5 rounded">
-                            <FileText className="w-3 h-3" />
-                            {resultCount}条
-                          </span>
-                        )}
-                      </div>
-
-                      {/* 进度条 */}
-                      {(isCurrent || isDone) && (
-                        <div className="h-2 bg-cream rounded-full overflow-hidden mb-2.5 shadow-inner">
-                          <div
-                            className={`h-full transition-all duration-300 rounded-full ${isDone ? "bg-gradient-to-r from-emerald-400 to-emerald-500" : "bg-gradient-to-r from-blue-400 to-blue-500"}`}
-                            style={{ width: `${step.progress}%` }}
-                          />
-                        </div>
+                      {drawerOpen ? (
+                        <PanelRightClose className="w-3 h-3" />
+                      ) : (
+                        <PanelRightOpen className="w-3 h-3" />
                       )}
-
-                      {/* 描述和展开箭头 */}
-                      <div className="flex items-center justify-between text-[10px] gap-1">
-                        <span className="text-muted truncate flex-1 leading-relaxed">{step.description}</span>
-                        <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition-colors ${isExpanded ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-500"}`}>
-                          {isExpanded ? (
-                            <ChevronUp className="w-3 h-3" />
-                          ) : (
-                            <ChevronDown className="w-3 h-3" />
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 展示当前步骤所使用的 Skills 技能 */}
-                      {(() => {
-                        const cfg = getStepConfig(step.key)
-                        const skills = cfg?.skills ?? []
-                        if (skills.length === 0) return null
-                        return (
-                          <div className="mt-2.5 flex flex-wrap gap-1">
-                            {skills.slice(0, 2).map((s, i) => (
-                              <span
-                                key={i}
-                                className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 truncate max-w-full font-medium"
-                                title={s.description}
-                              >
-                                {s.name}
-                              </span>
-                            ))}
-                            {skills.length > 2 && (
-                              <span className="text-[9px] text-muted font-medium">+{skills.length - 2}</span>
-                            )}
-                          </div>
-                        )
-                      })()}
+                      <span className="text-[10px] font-medium">日志</span>
                     </button>
+                  </div>
+                </div>
 
-                    {/* 展开的日志区域 */}
-                    {isExpanded && (
-                      <div className="w-full mt-2">
-                        <StepLogs step={step} />
+                <div className="p-3 flex-1 min-h-0 overflow-y-auto">
+                  <div className="grid grid-cols-3 gap-3">
+                    {steps.map((step, index) => {
+                      const Icon = ICON_MAP[step.icon] || FileText
+                      const isCurrent = step.status === "running"
+                      const isDone = step.status === "completed"
+                      const isFailed = step.status === "failed"
+                      const isPending = step.status === "pending"
+                      const resultCount = step.result ? (Array.isArray(step.result) ? step.result.length : 0) : 0
+                      const cfg = getStepConfig(step.key)
+                      const skills = cfg?.skills ?? []
+
+                      return (
+                        <div key={step.key} className="flex flex-col">
+                          <button
+                            onClick={() => {
+                              toggleStep(step.key)
+                              setDrawerExpandedSteps(prev => {
+                                const next = new Set(prev)
+                                if (next.has(step.key)) next.delete(step.key)
+                                else next.add(step.key)
+                                return next
+                              })
+                              if (!drawerOpen) setDrawerOpen(true)
+                              scrollToAccordion(step.key)
+                            }}
+                            className={`w-full p-3 rounded-xl border-2 transition-all text-left ${
+                              expandedStep === step.key ? "border-amber bg-amber-light shadow-lg ring-2 ring-amber/20"
+                              : isDone ? "border-pass/40 bg-pass-light/50 hover:bg-pass-light hover:border-pass/60 shadow-sm"
+                              : isFailed ? "border-fail/40 bg-fail-light/50 hover:bg-fail-light hover:border-fail/60 shadow-sm"
+                              : "border-border hover:border-muted bg-white hover:shadow-sm"
+                            }`}
+                          >
+                            {/* 头部：图标 + 标题 + 步骤号 */}
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all flex-shrink-0 shadow-sm ${
+                                isDone ? "bg-pass text-white" : isCurrent ? "bg-info text-white" : isFailed ? "bg-fail text-white" : isPending ? "bg-cream-dark text-muted-light" : "bg-amber text-white"
+                              }`}>
+                                {isDone ? <CheckCircle className="w-4 h-4" /> : isCurrent ? <Loader2 className="w-4 h-4 animate-spin" /> : isFailed ? <AlertCircle className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-bold text-ink truncate leading-tight">{step.label}</div>
+                                <div className="text-[10px] text-muted">{index + 1}/{steps.length}</div>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                  isDone ? "bg-pass/15 text-pass" : isCurrent ? "bg-info/15 text-info" : isFailed ? "bg-fail/15 text-fail" : "bg-cream text-muted"
+                                }`}>
+                                  {isPending ? "待执行" : isCurrent ? "执行中" : isDone ? "已完成" : "失败"}
+                                </span>
+                                {resultCount > 0 && (
+                                  <span className="text-[10px] text-amber font-bold flex items-center gap-0.5 bg-amber-light px-1.5 py-0.5 rounded">
+                                    <FileText className="w-2.5 h-2.5" />{resultCount}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {/* 进度条 */}
+                            {(isCurrent || isDone) && (
+                              <div className="h-1.5 bg-cream rounded-full overflow-hidden mb-2 shadow-inner">
+                                <div className={`h-full transition-all duration-300 rounded-full ${isDone ? "bg-pass" : "bg-info"}`} style={{ width: `${step.progress}%` }} />
+                              </div>
+                            )}
+                            {/* 描述 */}
+                            <div className="flex items-center text-[11px] gap-1">
+                              <span className="text-muted truncate flex-1">{step.description}</span>
+                            </div>
+                            {/* 技能标签 */}
+                            {skills.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {skills.slice(0, 2).map((s, i) => (
+                                  <span key={i} className="text-[9px] px-1 py-0.5 rounded bg-amber-light text-amber border border-border truncate max-w-full font-medium" title={s.description}>{s.name}</span>
+                                ))}
+                                {skills.length > 2 && <span className="text-[9px] text-muted font-medium">+{skills.length - 2}</span>}
+                              </div>
+                            )}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+            {/* 底部产出统计条（单行紧凑） */}
+            {(completedCount > 0 || steps.length > 0) && (
+              <div className="bg-white rounded-2xl border border-border shadow-card p-2.5 flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  {/* 左：状态 + 导航 */}
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-sm ${completedCount === steps.length ? "bg-pass text-white" : "bg-amber text-white"}`}>
+                      {completedCount === steps.length ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-bold text-ink">{completedCount === steps.length ? "🎉 执行完成" : "🚀 执行中..."}</h4>
+                      <p className="text-[9px] text-muted">{completedCount === steps.length ? "全部步骤完成" : `已完成 ${completedCount}/${steps.length}`}</p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <button
+                        onClick={() => { if (expandedStep) { const i = steps.findIndex(s => s.key === expandedStep); if (i > 0) setExpandedStep(steps[i - 1].key) } }}
+                        disabled={!expandedStep || steps.findIndex(s => s.key === expandedStep) <= 0}
+                        className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border text-[9px] text-ink-light hover:bg-cream hover:border-amber transition-all disabled:opacity-50"
+                      >
+                        <ChevronDown className="w-2 h-2 rotate-90" />上
+                      </button>
+                      <button
+                        onClick={() => { if (expandedStep) { const i = steps.findIndex(s => s.key === expandedStep); if (i < steps.length - 1) setExpandedStep(steps[i + 1].key) } else { const f = steps.find(s => s.status === "completed"); if (f) setExpandedStep(f.key) } }}
+                        disabled={steps.length === 0}
+                        className="flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border text-[9px] text-ink-light hover:bg-cream hover:border-amber transition-all disabled:opacity-50"
+                      >
+                        下<ChevronDown className="w-2 h-2 -rotate-90" />
+                      </button>
+                      <span className="text-[9px] text-muted hidden sm:inline">
+                        {expandedStep ? steps.find(s => s.key === expandedStep)?.label : ""}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 中：各步骤产出 */}
+                  <div className="flex items-center gap-1.5">
+                    {[
+                      { label: "需求", count: currentRecord?.results?.requirements?.length || 0, color: "text-amber" },
+                      { label: "方案", count: currentRecord?.results?.plans?.length || 0, color: "text-info" },
+                      { label: "测试点", count: currentRecord?.results?.points?.length || 0, color: "text-info" },
+                      { label: "用例", count: currentRecord?.results?.cases?.length || 0, color: "text-ink" },
+                      { label: "评审", text: currentRecord?.results?.reviews?.status === "passed" ? "通过" : currentRecord?.results?.reviews ? "完成" : "待评", color: "text-pass" },
+                    ].map((item, i) => (
+                      <div key={i} className="text-center px-1.5 py-0.5 rounded bg-cream border border-border">
+                        <p className="text-[8px] text-muted">{item.label}</p>
+                        <p className={`text-[11px] font-bold ${item.color}`}>{("count" in item ? item.count : item.text)}</p>
                       </div>
+                    ))}
+                  </div>
+
+                  {/* 右：耗时 + 操作 */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-cream rounded-lg border border-border">
+                      <Clock className="w-2.5 h-2.5 text-amber" />
+                      <span className="text-[10px] font-bold text-ink">
+                        {currentRecord?.startedAt ? Math.round((new Date(currentRecord.completedAt || new Date()).getTime() - new Date(currentRecord.startedAt).getTime()) / 1000) : 0}s
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-cream rounded-lg border border-border">
+                      <FileText className="w-2.5 h-2.5 text-pass" />
+                      <span className="text-[10px] font-bold text-ink">
+                        {(currentRecord?.results?.requirements?.length || 0) + (currentRecord?.results?.plans?.length || 0) + (currentRecord?.results?.points?.length || 0) + (currentRecord?.results?.cases?.length || 0)}条
+                      </span>
+                    </div>
+                    <button onClick={() => setDrawerOpen(!drawerOpen)} className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded border transition-all text-[9px] ${drawerOpen ? "border-amber bg-amber text-white" : "border-border text-ink-light hover:bg-cream"}`}>
+                      <Code className="w-2 h-2" />{drawerOpen ? "收起日志" : "日志"}
+                    </button>
+                    {completedCount === steps.length && (
+                      <button onClick={() => switchTab("records")} className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber text-white text-[9px] font-medium hover:shadow-md transition-all">
+                        <Eye className="w-2 h-2" />记录
+                      </button>
                     )}
                   </div>
-
-                  {/* 连接线 */}
-                  {index < steps.length - 1 && (
-                    <div className="flex items-center h-16 px-1 -mt-4">
-                      <div className={`w-10 h-1 flex-shrink-0 rounded-full transition-all shadow-sm ${
-                        steps[index + 1].status === "completed" || isDone 
-                          ? "bg-gradient-to-r from-emerald-400 to-emerald-500" 
-                          : isCurrent 
-                            ? "bg-gradient-to-r from-blue-400 to-blue-500 animate-pulse" 
-                            : "bg-gradient-to-r from-gray-300 to-gray-400"
-                      }`} />
-                      <ArrowRight className={`w-4 h-4 flex-shrink-0 ml-0.5 ${
-                        steps[index + 1].status === "completed" || isDone 
-                          ? "text-emerald-500" 
-                          : isCurrent 
-                            ? "text-blue-500" 
-                            : "text-gray-400"
-                      }`} />
-                    </div>
-                  )}
                 </div>
-              )
-            })}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* 完成总结和底部操作区 */}
-        {(completedCount > 0 || steps.length > 0) && (
-          <div className="border-t border-border p-4 bg-gradient-to-r from-amber-50/50 to-emerald-50/30">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md ${
-                  completedCount === steps.length 
-                    ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white"
-                    : "bg-gradient-to-br from-amber-500 to-amber-600 text-white"
-                }`}>
-                  {completedCount === steps.length ? (
-                    <CheckCircle className="w-5 h-5" />
-                  ) : (
-                    <Clock className="w-5 h-5" />
-                  )}
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-ink">
-                    {completedCount === steps.length ? "🎉 流水线执行完成" : "🚀 执行中..."}
-                  </h4>
-                  <p className="text-xs text-muted">
-                    {completedCount === steps.length 
-                      ? "所有步骤均已成功完成，结果已同步到对应菜单"
-                      : `已完成 ${completedCount}/${steps.length} 个步骤`
-                    }
-                  </p>
-                </div>
-              </div>
-              
-              {/* 总耗时和总产出 */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl shadow-sm border border-border">
-                  <Clock className="w-4 h-4 text-amber-500" />
-                  <div>
-                    <p className="text-[10px] text-muted">总耗时</p>
-                    <p className="text-sm font-bold text-ink">
-                      {currentRecord?.startedAt 
-                        ? Math.round((Date.now() - new Date(currentRecord.startedAt).getTime()) / 1000)
-                        : 0}s
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl shadow-sm border border-border">
-                  <FileText className="w-4 h-4 text-emerald-500" />
-                  <div>
-                    <p className="text-[10px] text-muted">总产出</p>
-                    <p className="text-sm font-bold text-ink">
-                      {(currentRecord?.results?.requirements?.length || 0) +
-                       (currentRecord?.results?.plans?.length || 0) +
-                       (currentRecord?.results?.points?.length || 0) +
-                       (currentRecord?.results?.cases?.length || 0)} 条
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 各步骤产出统计 */}
-            <div className="grid grid-cols-5 gap-3 mb-4">
-              <div className="text-center p-3 rounded-xl bg-white shadow-sm border border-border">
-                <p className="text-xs text-muted mb-1">需求分析</p>
-                <p className="text-lg font-bold text-amber-600">{currentRecord?.results?.requirements?.length || 0}</p>
-                <p className="text-[10px] text-muted">条</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-white shadow-sm border border-border">
-                <p className="text-xs text-muted mb-1">测试方案</p>
-                <p className="text-lg font-bold text-blue-600">{currentRecord?.results?.plans?.length || 0}</p>
-                <p className="text-[10px] text-muted">条</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-white shadow-sm border border-border">
-                <p className="text-xs text-muted mb-1">测试点</p>
-                <p className="text-lg font-bold text-purple-600">{currentRecord?.results?.points?.length || 0}</p>
-                <p className="text-[10px] text-muted">条</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-white shadow-sm border border-border">
-                <p className="text-xs text-muted mb-1">测试用例</p>
-                <p className="text-lg font-bold text-indigo-600">{currentRecord?.results?.cases?.length || 0}</p>
-                <p className="text-[10px] text-muted">条</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-white shadow-sm border border-border">
-                <p className="text-xs text-muted mb-1">用例评审</p>
-                <p className="text-lg font-bold text-emerald-600">
-                  {currentRecord?.results?.reviews?.status === "passed" ? "通过" : 
-                   currentRecord?.results?.reviews ? "完成" : "待评审"}
-                </p>
-              </div>
-            </div>
-
-            {/* 底部操作栏：导航和日志控制台 */}
-            <div className="flex items-center justify-between pt-3 border-t border-border bg-white/50 rounded-xl px-3 py-2">
-              <div className="flex items-center gap-2">
-                {/* 上一步 */}
-                <button
-                  onClick={() => {
-                    if (expandedStep) {
-                      const currentIndex = steps.findIndex(s => s.key === expandedStep)
-                      if (currentIndex > 0) {
-                        setExpandedStep(steps[currentIndex - 1].key)
-                      }
-                    }
-                  }}
-                  disabled={!expandedStep || steps.findIndex(s => s.key === expandedStep) <= 0}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs text-ink-light hover:bg-cream hover:border-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronDown className="w-3 h-3 rotate-90" />
-                  上一步
-                </button>
-                
-                {/* 下一步 */}
-                <button
-                  onClick={() => {
-                    if (expandedStep) {
-                      const currentIndex = steps.findIndex(s => s.key === expandedStep)
-                      if (currentIndex < steps.length - 1) {
-                        setExpandedStep(steps[currentIndex + 1].key)
-                      }
-                    } else {
-                      const firstCompleted = steps.find(s => s.status === "completed")
-                      if (firstCompleted) {
-                        setExpandedStep(firstCompleted.key)
-                      }
-                    }
-                  }}
-                  disabled={steps.length === 0}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs text-ink-light hover:bg-cream hover:border-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  下一步
-                  <ChevronDown className="w-3 h-3 -rotate-90" />
-                </button>
-
-                <span className="text-xs text-muted ml-2">
-                  当前步骤: {expandedStep ? steps.find(s => s.key === expandedStep)?.label : "未选择"}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* 日志控制台 */}
-                <button
-                  onClick={() => {
-                    const logContainer = document.querySelector('.pipeline-log-container')
-                    if (logContainer) {
-                      logContainer.scrollIntoView({ behavior: 'smooth' })
-                    }
-                  }}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-xs text-ink-light hover:bg-cream hover:border-info-400 transition-all"
-                >
-                  <Code className="w-3 h-3" />
-                  日志控制台
-                </button>
-
-                {/* 查看生成记录 */}
-                {completedCount === steps.length && (
-                  <button
-                    onClick={() => switchTab("records")}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-medium hover:shadow-md transition-all"
-                  >
-                    <Eye className="w-3 h-3" />
-                    查看生成记录
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <div ref={logsEndRef} />
+
+      {/* ===== 覆盖式日志抽屉 ===== */}
+      {drawerOpen && (
+        <>
+          {/* 半透明背景遮罩 */}
+          <div
+            className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300"
+            onClick={() => setDrawerOpen(false)}
+          />
+          {/* 抽屉面板 — 宽度 600px 以容纳完整 Markdown 内容 */}
+          <div className="fixed top-0 right-0 z-50 h-full w-[600px] bg-white shadow-2xl border-l border-border transform transition-transform duration-300 ease-in-out flex flex-col">
+            {/* 抽屉头部 */}
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Code className="w-4 h-4 text-amber" />
+                <h3 className="text-sm font-semibold text-ink">AI 输出内容</h3>
+                {isRunning && (
+                  <span className="flex items-center gap-1 text-[10px] text-info bg-info/10 px-1.5 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />
+                    SSE 实时
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setDrawerOpen(false)}
+                className="w-7 h-7 rounded-lg hover:bg-cream flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4 text-muted" />
+              </button>
+            </div>
+
+            {/* 抽屉内容：每个步骤一个手风琴 */}
+            <div ref={drawerScrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+              {steps.map((step) => {
+                const Icon = ICON_MAP[step.icon] || FileText
+                const isDrawerExpanded = drawerExpandedSteps.has(step.key)
+                const isCurrent = step.status === "running"
+                const isDone = step.status === "completed"
+                const isFailed = step.status === "failed"
+
+                const toggleDrawerStep = () => {
+                  const wasExpanded = drawerExpandedSteps.has(step.key)
+                  setDrawerExpandedSteps(prev => {
+                    const next = new Set(prev)
+                    if (next.has(step.key)) next.delete(step.key)
+                    else next.add(step.key)
+                    return next
+                  })
+                  if (!wasExpanded) scrollToAccordion(step.key)
+                }
+
+                // 优先从 step.result.content（store 持久化）获取，其次从 stageContentRef（实时 SSE）获取
+                const accumulatedContent = step.result?.content || stageContentRef.current.get(step.key) || ""
+                // 状态日志：只显示启动/完成/错误事件，不包含 AI 输出内容
+                const statusLogs = step.logs.filter((l: PipelineLog) =>
+                  l.content.startsWith("🚀") ||
+                  l.content.startsWith("✅") ||
+                  l.content.startsWith("❌") ||
+                  l.content.startsWith("[") ||
+                  l.type === "error" ||
+                  l.type === "success"
+                )
+
+                return (
+                  <div
+                    key={step.key}
+                    ref={(el) => { if (el) drawerAccordionRefs.current.set(step.key, el) }}
+                    className="border border-border rounded-xl overflow-hidden"
+                  >
+                    {/* 手风琴标题栏 */}
+                    <button
+                      onClick={toggleDrawerStep}
+                      className={`w-full flex items-center gap-2.5 px-4 py-3 transition-all ${
+                        isDrawerExpanded ? "bg-cream/80" : "bg-white hover:bg-cream/50"
+                      }`}
+                    >
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        isDone ? "bg-pass text-white" : isCurrent ? "bg-info text-white" : isFailed ? "bg-fail text-white" : "bg-cream-dark text-muted-light"
+                      }`}>
+                        {isDone ? <CheckCircle className="w-4 h-4" /> : isCurrent ? <Loader2 className="w-4 h-4 animate-spin" /> : isFailed ? <AlertCircle className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                      </div>
+                      <span className="text-sm font-semibold text-ink flex-1 text-left">{step.label}</span>
+                      <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${
+                        isDone ? "bg-pass/10 text-pass" : isCurrent ? "bg-info/10 text-info" : isFailed ? "bg-fail/10 text-fail" : "bg-cream text-muted"
+                      }`}>
+                        {isDone ? "完成" : isCurrent ? "运行中" : isFailed ? "失败" : "待执行"}
+                      </span>
+                      {accumulatedContent && (
+                        <span className="text-[10px] text-muted font-mono">{Math.round(accumulatedContent.length / 1000)}k</span>
+                      )}
+                      <div className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition-transform ${isDrawerExpanded ? "rotate-180" : ""}`}>
+                        <ChevronDown className="w-3.5 h-3.5 text-muted" />
+                      </div>
+                    </button>
+
+                    {/* 手风琴内容区 */}
+                    {isDrawerExpanded && (
+                      <div className="border-t border-border bg-paper/50">
+                        {!accumulatedContent && statusLogs.length === 0 ? (
+                          <div className="px-4 py-8 text-center">
+                            <p className="text-xs text-muted">等待执行...</p>
+                          </div>
+                        ) : (
+                          <div className="max-h-[600px] overflow-y-auto">
+                            {/* ① AI 内容输出区 — Markdown 完整渲染 */}
+                            {accumulatedContent && (
+                              <div className="p-4">
+                                <MarkdownPreview content={accumulatedContent} />
+                              </div>
+                            )}
+                            {/* ② 状态时间线 — 紧凑事件流 */}
+                            {statusLogs.length > 0 && (
+                              <div className="px-4 py-2 border-t border-border/50 space-y-0.5">
+                                {statusLogs.map((log: PipelineLog, idx: number) => {
+                                  const isErr = log.type === "error"
+                                  const isSucc = log.type === "success"
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`flex items-start gap-1.5 text-[10px] leading-relaxed ${
+                                        isErr ? "text-fail" : isSucc ? "text-pass" : "text-muted"
+                                      }`}
+                                    >
+                                      <span className="flex-shrink-0 opacity-50 font-mono w-[52px]">{log.timestamp}</span>
+                                      <span className="flex-shrink-0">{isErr ? "✗" : isSucc ? "✓" : "·"}</span>
+                                      <span className="flex-1 break-words">{log.content}</span>
+                                      {isCurrent && idx === statusLogs.length - 1 && (
+                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-info animate-pulse flex-shrink-0 mt-0.5" />
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 项目/版本选择弹窗（含文件选择） */}
       {showProjectVersionDialog && (
@@ -1531,7 +1530,7 @@ export default function PipelinePage() {
               <button
                 onClick={confirmProjectVersion}
                 disabled={!pendingProjectId}
-                className="h-9 px-4 rounded-lg bg-gradient-to-r from-amber to-orange-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                className="h-8 px-4 rounded-lg bg-amber text-white text-sm font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50"
               >
                 确认并上传
               </button>
@@ -1539,214 +1538,79 @@ export default function PipelinePage() {
           </div>
         </div>
       )}
-      </div>
       {/* 关闭 AI全流程主体隐藏层 */}
 
-      {/* 生成记录 Tab */}
-      {activeTab === "records" && <PipelineRecordsPage />}
-      {/* 步骤提示词 Tab */}
-      {activeTab === "config" && <StepPromptConfigPage />}
-    </div>
-  )
-}
-
-function StepLogs({ step }: { step: any }) {
-  const logsRef = useRef<HTMLDivElement>(null)
-  const [viewMode, setViewMode] = useState<"source" | "rendered">(step.status === "completed" ? "rendered" : "source")
-  
-  useEffect(() => {
-    if (step.status === "completed" && viewMode === "source") {
-      setViewMode("rendered")
-    }
-  }, [step.status])
-
-  useEffect(() => {
-    if (logsRef.current) {
-      logsRef.current.scrollTop = logsRef.current.scrollHeight
-    }
-  }, [step.logs, viewMode])
-
-  const combinedMarkdown = useMemo(() => {
-    return step.logs
-      .filter((log: PipelineLog) => log.type !== "error")
-      .map((log: PipelineLog) => log.content)
-      .join("\n\n")
-  }, [step.logs])
-
-  const isRunning = step.status === "running"
-  const isCompleted = step.status === "completed"
-  const lastLogIndex = step.logs.length - 1
-
-  // 计算产出数量和补充数量
-  const resultStats = useMemo(() => {
-    if (!step.result) return { generated: 0, supplemented: 0 }
-    
-    // 测试点、用例生成等步骤的数量统计
-    if (Array.isArray(step.result)) {
-      // 从日志中解析补充数量信息
-      const supplementMatch = step.logs
-        .filter((log: PipelineLog) => log.type !== "error")
-        .map((log: PipelineLog) => log.content)
-        .join("\n")
-        .match(/补充[了]?\s*(\d+)\s*条/g)
-      
-      const supplemented = supplementMatch 
-        ? supplementMatch.reduce((sum: number, m: string) => {
-            const num = parseInt(m.match(/\d+/)?.[0] || "0")
-            return sum + num
-          }, 0)
-        : 0
-      
-      return { 
-        generated: step.result.length, 
-        supplemented 
-      }
-    }
-    
-    // 用例评审的数量统计
-    if (typeof step.result === "object" && step.result !== null) {
-      const totalItems = (step.result as any).total || (step.result as any).total_cases || 0
-      const passCount = (step.result as any).passed || 0
-      const supplementMatch = step.logs
-        .filter((log: PipelineLog) => log.type !== "error")
-        .map((log: PipelineLog) => log.content)
-        .join("\n")
-        .match(/补充[了]?\s*(\d+)\s*条/g)
-      
-      const supplemented = supplementMatch 
-        ? supplementMatch.reduce((sum: number, m: string) => {
-            const num = parseInt(m.match(/\d+/)?.[0] || "0")
-            return sum + num
-          }, 0)
-        : 0
-      
-      return { 
-        generated: totalItems, 
-        supplemented 
-      }
-    }
-    
-    return { generated: 0, supplemented: 0 }
-  }, [step.result, step.logs])
-
-  // 判断当前步骤是否需要显示数量统计
-  const showStats = step.key === "point" || step.key === "case" || step.key === "review"
-
-  return (
-    <div className="bg-cream/50 rounded-xl border-2 border-border overflow-hidden w-full flex flex-col shadow-inner" style={{ height: '420px' }}>
-      <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-border flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-3.5 h-3.5 text-amber" />
-          <span className="text-xs font-medium text-ink">
-            {isRunning ? "实时流式输出中..." : "AI处理结果"}
-          </span>
-          {isRunning && (
-            <span className="flex items-center gap-1 text-[10px] text-info">
-              <span className="w-1.5 h-1.5 rounded-full bg-info animate-pulse" />
-              SSE
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {/* 数量统计 - 针对特定步骤显示 */}
-          {showStats && isCompleted && (
-            <div className="flex items-center gap-2">
-              {resultStats.generated > 0 && (
-                <div className="flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
-                  <FileText className="w-3 h-3" />
-                  <span>生成 {resultStats.generated} 条</span>
+      {/* 步骤完成结果弹窗 */}
+      {showResultPopup && resultPopupStep && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  resultPopupType === "review" ? "bg-pass/10" : "bg-amber/10"
+                }`}>
+                  {resultPopupType === "review" ? (
+                    <CheckCircle className="w-5 h-5 text-pass" />
+                  ) : (
+                    <Sparkles className="w-5 h-5 text-amber" />
+                  )}
                 </div>
-              )}
-              {resultStats.supplemented > 0 && (
-                <div className="flex items-center gap-1 text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
-                  <Plus className="w-3 h-3" />
-                  <span>补充 {resultStats.supplemented} 条</span>
+                <div>
+                  <h3 className="text-base font-semibold text-ink">
+                    {resultPopupType === "review" ? "用例评审结果" : `${STAGE_LABEL_MAP[FRONTEND_TO_BACKEND[resultPopupStep] || ""]?.label || resultPopupStep} 完成`}
+                  </h3>
+                  <p className="text-xs text-muted">
+                    {resultPopupType === "review" 
+                      ? "AI 已完成用例质量评审" 
+                      : `耗时 ${resultPopupContent?.duration || 0}s`
+                    }
+                  </p>
                 </div>
-              )}
-            </div>
-          )}
-          {/* 通用产出数量 */}
-          {!showStats && resultStats.generated > 0 && (
-            <div className="flex items-center gap-1 text-[10px] bg-amber/10 text-amber px-2 py-0.5 rounded-full">
-              <FileText className="w-3 h-3" />
-              <span>产出 {resultStats.generated} 条</span>
-            </div>
-          )}
-          {isCompleted && step.logs.length > 0 && (
-            <div className="flex items-center gap-1 bg-cream rounded-lg p-0.5">
+              </div>
               <button
-                onClick={() => setViewMode("source")}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-all ${
-                  viewMode === "source" 
-                    ? "bg-white shadow-sm text-ink" 
-                    : "text-muted hover:text-ink"
-                }`}
+                onClick={closeResultPopup}
+                className="w-8 h-8 rounded-lg hover:bg-cream flex items-center justify-center transition-colors"
               >
-                <Code className="w-3 h-3" />
-                源码
-              </button>
-              <button
-                onClick={() => setViewMode("rendered")}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-all ${
-                  viewMode === "rendered" 
-                    ? "bg-white shadow-sm text-ink" 
-                    : "text-muted hover:text-ink"
-                }`}
-              >
-                <Eye className="w-3 h-3" />
-                渲染
+                <X className="w-5 h-5 text-muted" />
               </button>
             </div>
-          )}
-          <span className="text-[10px] text-muted">{step.logs.length} 条</span>
-        </div>
-      </div>
-
-      {/* 固定高度的内容区 - 打字机穿透显示 */}
-      {viewMode === "source" ? (
-        <div 
-          ref={logsRef}
-          className="flex-1 px-4 py-3 overflow-y-auto font-mono text-[11px] leading-relaxed scrollbar-thin"
-          style={{ minHeight: '0', maxHeight: '100%' }}
-        >
-          {step.logs.length === 0 ? (
-            <p className="text-muted text-center py-8">等待执行...</p>
-          ) : (
-            <div className="space-y-1.5">
-              {step.logs.map((log: PipelineLog, idx: number) => (
-                <div 
-                  key={idx}
-                  className={`flex gap-2 border-l-2 pl-2 py-0.5 ${
-                    log.type === "error" ? "border-fail text-fail" :
-                    log.type === "success" ? "border-pass text-pass" :
-                    log.type === "warning" ? "border-amber text-amber" :
-                    log.type === "info" ? "border-info text-ink-light" :
-                    "border-border text-ink-light"
-                  }`}
+            <div className="flex-1 overflow-y-auto p-6">
+              {resultPopupContent?.content ? (
+                <MarkdownPreview content={resultPopupContent.content} />
+              ) : (
+                <p className="text-sm text-muted text-center py-8">
+                  {resultPopupType === "review" ? "暂无评审内容" : "暂无输出内容"}
+                </p>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted">
+                <CheckCircle className="w-3.5 h-3.5 text-pass" />
+                <span>结果已自动同步到对应模块</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={closeResultPopup}
+                  className="h-9 px-4 rounded-lg bg-amber text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
                 >
-                  <span className="text-muted flex-shrink-0 text-[10px] opacity-60">[{log.timestamp}]</span>
-                  <div className="whitespace-pre-wrap flex-1 break-words">
-                    {log.content}
-                    {isRunning && idx === lastLogIndex && log.content.length > 0 && (
-                      <span className="inline-block w-[2px] h-[12px] bg-info animate-pulse ml-0.5 align-middle" />
-                    )}
-                  </div>
-                </div>
-              ))}
+                  知道了
+                </button>
+              </div>
             </div>
-          )}
+          </div>
         </div>
-      ) : (
-        <div 
-          ref={logsRef}
-          className="flex-1 px-4 py-3 overflow-y-auto scrollbar-thin"
-          style={{ minHeight: '0', maxHeight: '100%' }}
-        >
-          {step.logs.length === 0 ? (
-            <p className="text-muted text-center py-8">等待执行...</p>
-          ) : (
-            <MarkdownPreview content={combinedMarkdown} maxHeight={360} />
-          )}
+      )}
+
+      {/* 生成记录 Tab */}
+      {activeTab === "records" && (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
+          <PipelineRecordsPage />
+        </div>
+      )}
+      {/* 步骤提示词 Tab */}
+      {activeTab === "config" && (
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
+          <StepPromptConfigPage />
         </div>
       )}
     </div>

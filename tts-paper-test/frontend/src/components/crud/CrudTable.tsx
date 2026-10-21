@@ -272,7 +272,7 @@ export default function CrudTable({
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-border shadow-card overflow-hidden">
+        <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full table-fixed">
               <thead>
@@ -288,14 +288,13 @@ export default function CrudTable({
                   {columns.map((col) => (
                     <th
                       key={col.key}
-                      className={`px-3 py-2.5 text-[11px] font-semibold text-ink-light uppercase tracking-wider ${
+                      className={`px-3 py-2.5 text-xs font-semibold text-ink uppercase tracking-wider ${
                         col.align === "center"
                           ? "text-center"
                           : col.align === "right"
                             ? "text-right"
                             : "text-left"
-                      }`}
-                      style={{ width: col.width }}
+                      } ${col.width || ""}`}
                     >
                       {col.sortable && onSort ? (
                         <button
@@ -309,7 +308,7 @@ export default function CrudTable({
                       )}
                     </th>
                   ))}
-                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-ink-light uppercase tracking-wider w-28">
+                   <th className="px-3 py-2.5 text-right text-xs font-semibold text-ink uppercase tracking-wider w-28">
                     操作
                   </th>
                 </tr>
@@ -340,7 +339,7 @@ export default function CrudTable({
                     {columns.map((col) => (
                       <td
                         key={col.key}
-                        className={`px-3 py-2.5 max-w-0 ${
+                        className={`px-3 py-2.5 max-w-0 ${col.width || ""} ${
                           col.align === "center"
                             ? "text-center"
                             : col.align === "right"
@@ -348,7 +347,7 @@ export default function CrudTable({
                               : "text-left"
                         }`}
                       >
-                        <div className="min-w-0 overflow-hidden text-ellipsis">
+                        <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                           {col.render
                             ? col.render(row[col.key], row)
                             : getDefaultRender(col, row)}

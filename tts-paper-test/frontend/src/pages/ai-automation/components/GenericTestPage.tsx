@@ -119,13 +119,13 @@ function GenericTestPage({
           <div className="flex items-center justify-center h-48"><Loader2 className="w-6 h-6 animate-spin text-amber" /></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="bg-cream/50 border-b border-border">
                   {columns.map((col) => (
-                    <th key={col.key} className="px-4 py-3 text-center text-xs font-bold text-ink" style={{ width: col.width }}>{col.label}</th>
+                    <th key={col.key} className={`px-3 py-2.5 text-center text-xs font-semibold text-ink ${col.width || ""}`}>{col.label}</th>
                   ))}
-                  {actions && actions.length > 0 && <th className="px-4 py-3 text-center text-xs font-bold text-ink w-24">操作</th>}
+                  {actions && actions.length > 0 && <th className="px-3 py-2.5 text-center text-xs font-semibold text-ink w-[100px]">操作</th>}
                 </tr>
               </thead>
               <tbody>
@@ -137,12 +137,12 @@ function GenericTestPage({
                 ) : paged.map((row, idx) => (
                   <tr key={row.id || idx} className={`border-b border-border/50 last:border-b-0 ${idx % 2 === 1 ? "bg-cream/20" : ""} hover:bg-cream/40 transition-colors`}>
                     {columns.map((col) => (
-                      <td key={col.key} className="px-4 py-3 text-center text-xs text-ink">
+                      <td key={col.key} className={`px-3 py-2.5 text-center text-xs text-muted ${col.width || ""}`}>
                         {col.render ? col.render(row[col.key], row) : row[col.key] || "-"}
                       </td>
                     ))}
                     {actions && actions.length > 0 && (
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 py-2.5 text-center w-[100px]">
                         <div className="flex items-center justify-center gap-1">
                           {actions.map((action, ai) => (
                             <button key={ai} onClick={() => action.onClick(row)}

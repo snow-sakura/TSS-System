@@ -4,8 +4,11 @@ import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import CrudDialog from "@/components/crud/CrudDialog"
 import type { CrudField } from "@/components/crud/CrudDialog"
-import { lifecycleApi, projectApi } from "@/lib/api"
+import { useCrudPage } from "@/hooks/useCrudPage"
+import { useProjectOptions } from "@/hooks/useProjectOptions"
+import { lifecycleApi } from "@/lib/api"
 import { useToast } from "@/hooks/useToast"
+import { useConfirmStore } from "@/stores/confirmStore"
 import { Play, Bug, Clock } from "lucide-react"
 import SchedulesPage from "../schedules/SchedulesPage"
 
@@ -45,35 +48,47 @@ export default function ExecutionsPage() {
   const navigate = useNavigate()
   // 页内 Tab：执行记录 / 调度配置
   const [activeTab, setActiveTab] = useState<"executions" | "schedules">("executions")
-  const [data, setData] = useState<Execution[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [versionFilter, setVersionFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
 
-  const [projects, setProjects] = useState<any[]>([])
-  const [versions, setVersions] = useState<any[]>([])
-  const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
+  // 项目/版本选项（复用 Hook）
+  const { projects, versions, getVersionOptionsForProject } = useProjectOptions()
+  const [editingExecution, setEditingExecution] = useState<Execution | null>(null)
   const [testCaseOptions, setTestCaseOptions] = useState<{ label: string; value: string }[]>([])
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view">("create")
-  const [editingExecution, setEditingExecution] = useState<Execution | null>(null)
+
+  const projectOptions = useMemo(
+    () => projects.map((p: any) => ({ label: p.name, value: String(p.id) })),
+    [projects]
+  )
+  const versionOptions = useMemo(() => {
+    if (editingExecution?.project_id) {
+      return getVersionOptionsForProject(editingExecution.project_id)
+    }
+    return versions.map((v: any) => ({ label: v.name, value: String(v.id) }))
+  }, [versions, editingExecution, getVersionOptionsForProject])
+
+  // 额外筛选条件
+  const extraFilters: Record<string, string | undefined> = {}
+  if (statusFilter) extraFilters.status = statusFilter
+  if (projectFilter) extraFilters.project_id = projectFilter
+  if (versionFilter) extraFilters.version_id = versionFilter
+
+  const fetchFn = useCallback(
+    (params: Record<string, any>) => lifecycleApi.listExecutions(params),
+    [],
+  )
+
+  const {
+    data, total, page, setPage, pageSize, setPageSize,
+    loading, searchTerm, setSearchTerm, reload: loadData,
+  } = useCrudPage<Execution>({ fetchFn, extraFilters })
 
   useEffect(() => {
-    projectApi
-      .listProjects()
-      .then((res) => setProjects(res?.data?.items || []))
-      .catch(() => {})
-    projectApi
-      .listVersions()
-      .then((res) => setVersions(res?.data?.items || []))
-      .catch(() => {})
     lifecycleApi
       .listTestCases({ page_size: 500 })
       .then((res) => {
@@ -87,43 +102,6 @@ export default function ExecutionsPage() {
       })
       .catch(() => {})
   }, [])
-
-  useEffect(() => {
-    if (!editingExecution?.project_id) {
-      setVersionOptions(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
-    } else {
-      setVersionOptions(
-        versions
-          .filter((v: any) => v.project_id === editingExecution.project_id)
-          .map((v: any) => ({ label: v.name, value: String(v.id) }))
-      )
-    }
-  }, [versions, editingExecution])
-
-  const projectOptions = useMemo(
-    () => projects.map((p: any) => ({ label: p.name, value: String(p.id) })),
-    [projects]
-  )
-
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (statusFilter) params.status = statusFilter
-      if (projectFilter) params.project_id = projectFilter
-      if (versionFilter) params.version_id = versionFilter
-      const res = await lifecycleApi.listExecutions(params)
-      const list = res?.data?.items || res?.data || (Array.isArray(res) ? res : [])
-      setData(Array.isArray(list) ? list : [])
-      setTotal(res?.data?.total ?? (Array.isArray(list) ? list.length : 0))
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, statusFilter, projectFilter, versionFilter])
 
   const handleStart = useCallback(
     async (id: number) => {
@@ -180,54 +158,54 @@ export default function ExecutionsPage() {
       {
         key: "name",
         title: "执行名称",
-        width: "min-w-[160px]",
-        align: "center",
+        width: "w-[220px]",
+        align: "left",
         render: (_v: string, row: Execution) => row.name || row.title || <span className="text-muted">—</span>,
       },
       {
         key: "project_name",
         title: "项目",
-        width: "min-w-[120px]",
+        width: "w-[100px]",
         align: "center",
         render: (v: string) => v || <span className="text-muted">—</span>,
       },
       {
         key: "version_name",
         title: "版本",
-        width: "min-w-[120px]",
+        width: "w-[110px]",
         align: "center",
         render: (v: string) => v || <span className="text-muted">—</span>,
       },
-      { key: "status", title: "状态", width: "w-28", align: "center" },
+      { key: "status", title: "状态", width: "w-[80px]", align: "center" },
       {
         key: "progress",
         title: "进度",
-        width: "min-w-[180px]",
+        width: "w-[200px]",
         align: "center",
         render: (_v: number, row: Execution) => {
           const pct = Math.round(row.pass_rate ?? row.progress ?? 0)
           return (
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-20 h-1.5 bg-cream rounded-full overflow-hidden">
+            <div className="flex items-center justify-center gap-1.5">
+              <div className="w-16 h-1.5 bg-cream rounded-full overflow-hidden">
                 <div className="h-full gradient-amber" style={{ width: `${pct}%` }} />
               </div>
-              <span className="text-xs text-muted">{pct}%</span>
+              <span className="text-xs text-muted w-8 text-right">{pct}%</span>
               {(row.status === "pending" || row.status === "failed") && (
                 <button
                   onClick={() => handleStart(row.id)}
-                  className="p-1 rounded-lg hover:bg-pass/10 text-pass"
+                  className="p-0.5 rounded hover:bg-pass/10 text-pass"
                   title="执行"
                 >
-                  <Play className="w-4 h-4" />
+                  <Play className="w-3.5 h-3.5" />
                 </button>
               )}
               {row.status === "failed" && (
                 <button
                   onClick={() => handleSubmitDefect(row)}
-                  className="p-1 rounded-lg hover:bg-fail/10 text-fail"
+                  className="p-0.5 rounded hover:bg-fail/10 text-fail"
                   title="提交缺陷"
                 >
-                  <Bug className="w-4 h-4" />
+                  <Bug className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -237,7 +215,7 @@ export default function ExecutionsPage() {
       {
         key: "created_at",
         title: "创建时间",
-        width: "min-w-[160px]",
+        width: "w-[140px]",
         align: "center",
         render: (v: string) => v || <span className="text-muted">—</span>,
       },
@@ -272,10 +250,6 @@ export default function ExecutionsPage() {
     ],
     [projectOptions, versionOptions, testCaseOptions]
   )
-
-  useEffect(() => {
-    loadData()
-  }, [loadData])
 
   const handleSearch = useCallback((value: string) => {
     setSearchTerm(value)
@@ -315,7 +289,14 @@ export default function ExecutionsPage() {
 
   const handleDelete = useCallback(
     async (row: Execution) => {
-      if (!window.confirm(`确定要删除执行「${row.name || row.title}」吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "确认删除",
+        message: "确定要删除该执行记录吗？删除后不可恢复。",
+        itemName: row.name || row.title,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.deleteExecution(row.id)
         toast.success("删除成功")
@@ -329,7 +310,13 @@ export default function ExecutionsPage() {
 
   const handleBatchDelete = useCallback(
     async (ids: (string | number)[]) => {
-      if (!window.confirm(`确定要删除选中的 ${ids.length} 条执行记录吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "批量删除",
+        message: `确定要删除选中的 ${ids.length} 条执行记录吗？删除后不可恢复。`,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.batchDeleteExecutions(ids as number[])
         toast.success("批量删除成功")

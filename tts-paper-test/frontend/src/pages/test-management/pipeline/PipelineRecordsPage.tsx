@@ -1,14 +1,17 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import MarkdownPreview from "@/components/markdown/MarkdownPreview"
 import CrudTable from "@/components/crud/CrudTable"
 import type { CrudColumn, CrudFilter } from "@/components/crud/CrudTable"
 import { lifecycleApi, projectApi } from "@/lib/api"
+import type { Project, Version } from "@/lib/api-types"
 import { formatDateTime } from "@/lib/utils"
 import { useToast } from "@/hooks/useToast"
+import { useCrudPage } from "@/hooks/useCrudPage"
+import { useConfirmStore } from "@/stores/confirmStore"
 import {
   X, Clock, FileText, ClipboardList, Target, FlaskConical,
-  CheckCircle, AlertCircle, ChevronDown, ChevronRight, Loader2
+  CheckCircle, AlertCircle, ChevronDown, ChevronRight, Loader2, RotateCcw
 } from "lucide-react"
 
 interface PipelineRecordItem {
@@ -25,7 +28,7 @@ interface PipelineRecordItem {
   started_at?: string
   completed_at?: string
   created_at?: string
-  stage_results?: any
+  stage_results?: StageResult[]
   requirement_content?: string
   total_duration?: number
 }
@@ -35,7 +38,7 @@ interface StageResult {
   label: string
   status: string
   content?: string
-  result?: any
+  result?: Record<string, unknown>
   duration?: number
   error?: string
 }
@@ -69,48 +72,48 @@ const formatDate = (v?: string) => {
 }
 
 const columns: CrudColumn[] = [
-  { key: "id", title: "记录编号", width: "min-w-[100px]", align: "center" },
+  { key: "id", title: "编号", width: "w-[70px]", align: "center" },
   {
     key: "requirement_name",
     title: "需求名称",
-    width: "min-w-[180px]",
-    align: "center",
-    render: (v: any, row: PipelineRecordItem) =>
+    width: "w-[220px]",
+    align: "left",
+    render: (v: string | null, row: PipelineRecordItem) =>
       v || row.name || <span className="text-muted">—</span>,
   },
   {
     key: "project_name",
     title: "项目",
-    width: "min-w-[120px]",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "version_name",
     title: "版本",
-    width: "min-w-[120px]",
+    width: "w-[110px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
   {
     key: "current_stage",
-    title: "当前阶段",
-    width: "min-w-[120px]",
+    title: "阶段",
+    width: "w-[100px]",
     align: "center",
     render: (v: string) => v || <span className="text-muted">—</span>,
   },
-  { key: "status", title: "状态", width: "w-28", align: "center" },
+  { key: "status", title: "状态", width: "w-[90px]", align: "center" },
   {
     key: "started_at",
     title: "开始时间",
-    width: "min-w-[160px]",
+    width: "w-[140px]",
     align: "center",
     render: (v: string) => formatDate(v),
   },
   {
     key: "completed_at",
     title: "完成时间",
-    width: "min-w-[160px]",
+    width: "w-[140px]",
     align: "center",
     render: (v: string) => formatDate(v),
   },
@@ -129,19 +132,13 @@ export default function PipelineRecordsPage() {
   const toast = useToast()
   const navigate = useNavigate()
 
-  const [data, setData] = useState<PipelineRecordItem[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [projectFilter, setProjectFilter] = useState("")
   const [versionFilter, setVersionFilter] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
 
-  const [projects, setProjects] = useState<any[]>([])
-  const [versions, setVersions] = useState<any[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [versions, setVersions] = useState<Version[]>([])
   const [versionOptions, setVersionOptions] = useState<{ label: string; value: string }[]>([])
 
   // 弹窗相关状态
@@ -163,111 +160,102 @@ export default function PipelineRecordsPage() {
 
   useEffect(() => {
     if (!projectFilter) {
-      setVersionOptions(versions.map((v: any) => ({ label: v.name, value: String(v.id) })))
+      setVersionOptions(versions.map((v) => ({ label: v.name, value: String(v.id) })))
     } else {
       setVersionOptions(
         versions
-          .filter((v: any) => String(v.project_id) === projectFilter)
-          .map((v: any) => ({ label: v.name, value: String(v.id) }))
+          .filter((v) => String(v.project_id) === projectFilter)
+          .map((v) => ({ label: v.name, value: String(v.id) }))
       )
     }
   }, [versions, projectFilter])
 
-  const projectOptions = projects.map((p: any) => ({ label: p.name, value: String(p.id) }))
+  const projectOptions = useMemo(
+    () => projects.map((p) => ({ label: p.name, value: String(p.id) })),
+    [projects]
+  )
 
-  const filters: CrudFilter[] = [
-    { key: "search", label: "搜索需求名称或记录ID...", type: "search" },
-    { key: "status", label: "全部状态", type: "select", options: statusOptions },
-    { key: "project", label: "全部项目", type: "select", options: projectOptions },
-    { key: "version", label: "全部版本", type: "select", options: versionOptions },
-  ]
+  const filters: CrudFilter[] = useMemo(
+    () => [
+      { key: "search", label: "搜索需求名称或记录ID...", type: "search" },
+      { key: "status", label: "全部状态", type: "select", options: statusOptions },
+      { key: "project", label: "全部项目", type: "select", options: projectOptions },
+      { key: "version", label: "全部版本", type: "select", options: versionOptions },
+    ],
+    [projectOptions, versionOptions]
+  )
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (searchTerm) params.search = searchTerm
-      if (statusFilter) params.status = statusFilter
-      if (projectFilter) params.project_id = projectFilter
-      if (versionFilter) params.version_id = versionFilter
-      const res = await lifecycleApi.listPipelineRecords(params)
-      // 兼容两种响应结构：统一包装 { success, data } 与平铺 { items, total }
-      const payload = res?.data ?? res
-      const list = Array.isArray(payload?.items) ? payload.items : (Array.isArray(payload) ? payload : [])
-      const totalCount = typeof payload?.total === 'number' ? payload.total : list.length
-      // 规范化状态值（将 completed 映射为 success）
-      const normalizedList = Array.isArray(list) ? list.map((item: any) => ({
-        ...item,
-        status: normalizeStatus(item.status)
-      })) : []
-      setData(normalizedList)
-      setTotal(totalCount)
-    } catch {
-      setData([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, pageSize, searchTerm, statusFilter, projectFilter, versionFilter])
+  // 额外筛选条件
+  const extraFilters: Record<string, string | undefined> = useMemo(
+    () => ({
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(projectFilter ? { project_id: projectFilter } : {}),
+      ...(versionFilter ? { version_id: versionFilter } : {}),
+    }),
+    [statusFilter, projectFilter, versionFilter]
+  )
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value)
-    setPage(1)
+  // 数据加载：封装 normalizeStatus 逻辑
+  const fetchFn = useCallback(async (params: Record<string, unknown>) => {
+    const res = await lifecycleApi.listPipelineRecords(params)
+    const payload = (res as unknown as { data?: { items?: PipelineRecordItem[]; total?: number } })?.data ?? (res as unknown as { items?: PipelineRecordItem[]; total?: number })
+    const list = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : []
+    const normalized = list.map((item) => ({
+      ...item,
+      status: normalizeStatus(item.status),
+    }))
+    return { data: { items: normalized, total: payload?.total ?? normalized.length } }
   }, [])
 
-  const handleFilterChange = useCallback((key: string, value: string) => {
-    if (key === "status") {
-      setStatusFilter(value)
-      setPage(1)
-    } else if (key === "project") {
-      setProjectFilter(value)
-      setVersionFilter("")
-      setPage(1)
-    } else if (key === "version") {
-      setVersionFilter(value)
-      setPage(1)
-    }
-  }, [])
+  const {
+    data, total, page, setPage, pageSize, setPageSize,
+    loading, searchTerm, setSearchTerm, reload,
+  } = useCrudPage<PipelineRecordItem>({ fetchFn, extraFilters })
 
-  // 点击查看详情 - 根据状态分别处理
+  const handleFilterChange = useCallback(
+    (key: string, value: string) => {
+      if (key === "status") {
+        setStatusFilter(value)
+        setPage(1)
+      } else if (key === "project") {
+        setProjectFilter(value)
+        setVersionFilter("")
+        setPage(1)
+      } else if (key === "version") {
+        setVersionFilter(value)
+        setPage(1)
+      }
+    },
+    [setPage]
+  )
+
+  // 点击查看详情 - 成功/失败都弹窗，失败记录额外显示继续执行按钮
   const handleView = useCallback(async (row: PipelineRecordItem) => {
     const normalizedStatus = normalizeStatus(row.status || "")
-    if (normalizedStatus === "failed") {
-      // 失败状态：跳转到 AI 全流程页面，继续执行
-      navigate(`/test-management/pipeline?recordId=${row.id}&mode=continue`)
-    } else if (normalizedStatus === "success") {
-      // 成功状态：弹窗展示步骤详情
-      setDetailData(row)
-      setDetailModalOpen(true)
-      setDetailLoading(true)
-      setExpandedStages(new Set())
-      try {
-        const res = await lifecycleApi.getPipelineRecord(row.id as number)
-        const recordData = res?.data || res
-        // 规范化返回数据的状态
-        if (recordData) {
-          recordData.status = normalizeStatus(recordData.status)
-        }
-        setDetailData(recordData || row)
-        // 自动展开第一个步骤
-        const stageResults = recordData?.stage_results
-        if (stageResults && Array.isArray(stageResults) && stageResults.length > 0) {
-          setExpandedStages(new Set([stageResults[0]?.stage]))
-        }
-      } catch (e) {
-        console.error("handleView - API error:", e)
-      } finally {
-        setDetailLoading(false)
+    // 所有状态都弹窗展示详情
+    setDetailData(row)
+    setDetailModalOpen(true)
+    setDetailLoading(true)
+    setExpandedStages(new Set())
+    try {
+      const res = await lifecycleApi.getPipelineRecord(row.id as number)
+      const recordData = res?.data || res
+      // 规范化返回数据的状态
+      if (recordData) {
+        recordData.status = normalizeStatus(recordData.status)
       }
-    } else {
-      // 其他状态：跳转到 AI 全流程页面查看
-      navigate(`/test-management/pipeline?recordId=${row.id}`)
+      setDetailData(recordData || row)
+      // 自动展开第一个步骤
+      const stageResults = recordData?.stage_results
+      if (stageResults && Array.isArray(stageResults) && stageResults.length > 0) {
+        setExpandedStages(new Set([stageResults[0]?.stage]))
+      }
+    } catch {
+      // 错误在 finally 中处理
+    } finally {
+      setDetailLoading(false)
     }
-  }, [navigate])
+  }, [])
 
   const handleEdit = useCallback((row: PipelineRecordItem) => {
     navigate(`/test-management/pipeline?recordId=${row.id}`)
@@ -275,32 +263,44 @@ export default function PipelineRecordsPage() {
 
   const handleDelete = useCallback(
     async (row: PipelineRecordItem) => {
-      if (!window.confirm(`确定要删除记录「${row.requirement_name || row.name || row.id}」吗？`))
-        return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "确认删除",
+        message: "确定要删除该记录吗？删除后不可恢复。",
+        itemName: String(row.requirement_name || row.name || row.id),
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.deletePipelineRecord(row.id as number)
         toast.success("删除成功")
-        loadData()
-      } catch (e: any) {
-        toast.error(e?.message || "删除失败")
+        reload()
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : "删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload]
   )
 
   const handleBatchDelete = useCallback(
     async (ids: (string | number)[]) => {
-      if (!window.confirm(`确定要删除选中的 ${ids.length} 条记录吗？`)) return
+      const confirmed = await useConfirmStore.getState().confirm({
+        title: "批量删除",
+        message: `确定要删除选中的 ${ids.length} 条记录吗？删除后不可恢复。`,
+        confirmText: "删除",
+        danger: true,
+      })
+      if (!confirmed) return
       try {
         await lifecycleApi.batchDeletePipelineRecords(ids as number[])
         toast.success("批量删除成功")
         setSelectedIds(new Set())
-        loadData()
-      } catch (e: any) {
-        toast.error(e?.message || "批量删除失败")
+        reload()
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : "批量删除失败")
       }
     },
-    [toast, loadData]
+    [toast, reload]
   )
 
   const handleCreate = useCallback(() => {
@@ -318,7 +318,7 @@ export default function PipelineRecordsPage() {
   }
 
   // 格式化步骤结果为可读文本
-  const formatStageResult = (result: any): string => {
+  const formatStageResult = (result: Record<string, unknown> | unknown): string => {
     if (!result) return ""
     if (typeof result === "string") return result
     if (Array.isArray(result)) {
@@ -331,7 +331,7 @@ export default function PipelineRecordsPage() {
   }
 
   // 获取步骤内容
-  const getStageContent = (stage: any): string => {
+  const getStageContent = (stage: StageResult): string => {
     if (!stage) return ""
     // 优先使用 content 字段
     if (stage.content) return stage.content
@@ -354,7 +354,7 @@ export default function PipelineRecordsPage() {
         loading={loading}
         selectedIds={selectedIds}
         statusConfig={statusConfig}
-        onSearch={handleSearch}
+        onSearch={setSearchTerm}
         onFilterChange={handleFilterChange}
         onPageChange={setPage}
         onPageSizeChange={(size) => { setPageSize(size); setPage(1) }}
@@ -446,7 +446,7 @@ export default function PipelineRecordsPage() {
                     <h4 className="text-sm font-semibold text-ink mb-3">执行步骤详情</h4>
                     <div className="space-y-2">
                       {detailData.stage_results && Array.isArray(detailData.stage_results) ? (
-                        detailData.stage_results.map((stage: any, index: number) => {
+                        detailData.stage_results.map((stage: StageResult, index: number) => {
                           // 兼容后端数据格式：使用 key 字段
                           const stageKey = stage.stage || stage.key
                           // 判断步骤状态：优先使用 status 字段，否则根据内容推断
@@ -509,7 +509,7 @@ export default function PipelineRecordsPage() {
                               {isExpanded && (
                                 <div className="border-t border-border p-4 bg-cream/30">
                                   {stageContent ? (
-                                    <MarkdownPreview content={stageContent} maxHeight={320} />
+                                    <MarkdownPreview content={stageContent} />
                                   ) : stage.result ? (
                                     <div className="bg-white border border-border rounded-lg p-3 text-xs text-ink-light font-mono overflow-x-auto">
                                       {typeof stage.result === "object" ? (
@@ -546,13 +546,41 @@ export default function PipelineRecordsPage() {
             </div>
 
             {/* 弹窗底部 */}
-            <div className="px-6 py-4 border-t border-border flex items-center justify-end">
-              <button
-                onClick={() => setDetailModalOpen(false)}
-                className="h-9 px-4 rounded-lg bg-gradient-to-r from-amber to-orange-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
-              >
-                关闭
-              </button>
+            <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted">
+                {detailData?.status === "failed" && (
+                  <span className="flex items-center gap-1 text-fail">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    执行失败，可从失败处继续
+                  </span>
+                )}
+                {detailData?.status === "success" && (
+                  <span className="flex items-center gap-1 text-pass">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    所有步骤已完成，结果已同步
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {detailData?.status === "failed" && (
+                  <button
+                    onClick={() => {
+                      setDetailModalOpen(false)
+                      navigate(`/test-management/pipeline?recordId=${detailData.id}&mode=continue`)
+                    }}
+                    className="h-9 px-4 rounded-lg bg-info text-white text-sm font-medium shadow-sm hover:shadow-md transition-all flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    从失败处继续执行
+                  </button>
+                )}
+                <button
+                  onClick={() => setDetailModalOpen(false)}
+                  className="h-9 px-4 rounded-lg bg-amber text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
+                >
+                  关闭
+                </button>
+              </div>
             </div>
           </div>
         </div>

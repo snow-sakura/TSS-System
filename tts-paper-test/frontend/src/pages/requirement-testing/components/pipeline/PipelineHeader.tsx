@@ -3,12 +3,14 @@
  *
  * 显示：流水线标题、整体状态、实时统计、开始/停止按钮
  */
-import { memo } from "react"
+import { memo, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Square, Sparkles, CheckCircle, XCircle, Loader2,
-  Clock, AlertTriangle,
+  Clock, AlertTriangle, Zap, Layers,
 } from "lucide-react"
+import { sequenceApi } from "@/lib/api"
+import type { ExecutionMode } from "@/lib/api"
 
 export type PipelineStatus = "idle" | "running" | "completed" | "failed"
 
@@ -51,6 +53,20 @@ function PipelineHeaderInner({
   continueMode,
 }: PipelineHeaderProps) {
   const isRunning = status === "running"
+  const [execMode, setExecMode] = useState<ExecutionMode | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    sequenceApi
+      .getMode()
+      .then((res: any) => {
+        if (mounted) setExecMode(res?.data || null)
+      })
+      .catch(() => {})
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   return (
     <div className="flex-shrink-0 bg-white border-b border-border px-5 py-3">
@@ -70,6 +86,24 @@ function PipelineHeaderInner({
               </h2>
               {/* 状态徽标 */}
               <StatusBadge status={status} />
+              {/* 执行模式徽标（免费=单任务串行 / 付费=并行×N） */}
+              {execMode && (
+                <span
+                  className={`hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                    execMode.tier === "paid"
+                      ? "bg-violet-50 text-violet-700 border-violet-200"
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  }`}
+                  title={`模型: ${execMode.provider_name} / ${execMode.model}`}
+                >
+                  {execMode.tier === "paid" ? (
+                    <Zap className="w-2.5 h-2.5" />
+                  ) : (
+                    <Layers className="w-2.5 h-2.5" />
+                  )}
+                  {execMode.tier === "paid" ? `付费模型 · 并行×${execMode.concurrency}` : "免费模型 · 单任务串行"}
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-muted truncate mt-0.5">
               需求分析 → 规划方案 → 提取测试点 → 用例生成 → 用例评审
