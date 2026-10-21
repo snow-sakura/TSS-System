@@ -444,7 +444,7 @@ export default function ReviewsList() {
                   <p className="text-sm text-muted mb-4">AI将自动评审当前待审的测试用例，检查用例质量</p>
                   <button onClick={startAiReview} className="h-10 px-6 rounded-xl gradient-amber text-white text-sm font-medium shadow-sm hover:shadow-md flex items-center gap-2 mx-auto"><Sparkles className="w-4 h-4" /> 开始AI评审</button>
                 </div>
-              ) : aiReviewing ? (
+              ) : aiReviewing || !aiReviewResult ? (
                 <div className="text-center py-8">
                   <Loader2 className="w-12 h-12 mx-auto mb-3 text-amber animate-spin" />
                   <p className="text-sm font-medium text-ink">AI正在评审中...</p>

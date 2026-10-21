@@ -35,7 +35,10 @@ interface PipelineRecordItem {
 
 interface StageResult {
   stage: string
+  /** 后端新格式用 key 字段标识阶段 */
+  key?: string
   label: string
+  description?: string
   status: string
   content?: string
   result?: Record<string, unknown>
@@ -239,10 +242,10 @@ export default function PipelineRecordsPage() {
     setExpandedStages(new Set())
     try {
       const res = await lifecycleApi.getPipelineRecord(row.id as number)
-      const recordData = res?.data || res
+      const recordData = (res as unknown as { data?: PipelineRecordItem })?.data || (res as unknown as PipelineRecordItem)
       // 规范化返回数据的状态
       if (recordData) {
-        recordData.status = normalizeStatus(recordData.status)
+        recordData.status = normalizeStatus(recordData.status ?? "")
       }
       setDetailData(recordData || row)
       // 自动展开第一个步骤
@@ -448,7 +451,7 @@ export default function PipelineRecordsPage() {
                       {detailData.stage_results && Array.isArray(detailData.stage_results) ? (
                         detailData.stage_results.map((stage: StageResult, index: number) => {
                           // 兼容后端数据格式：使用 key 字段
-                          const stageKey = stage.stage || stage.key
+                          const stageKey = stage.stage || stage.key || `stage_${index}`
                           // 判断步骤状态：优先使用 status 字段，否则根据内容推断
                           const hasContent = !!(stage.content && stage.content.trim()) || !!(stage.result && stage.result !== null)
                           const stageStatus = stage.status === "completed" || stage.status === "failed" 

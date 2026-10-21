@@ -126,7 +126,7 @@ export default function RoleManagementPage() {
       })
 
       if (dialogMode === "create") {
-        await rolesApi.createRole(submitData)
+        await rolesApi.createRole(submitData as unknown as Parameters<typeof rolesApi.createRole>[0])
         toast.success("角色创建成功")
       } else if (dialogMode === "edit" && editingRole) {
         await rolesApi.updateRole(editingRole.id, submitData)

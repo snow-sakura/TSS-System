@@ -688,8 +688,11 @@ export const workflowApi = {
   updateWorkflow: (id: number, data: Partial<Workflow>) => api.put(`/workflows/${id}`, data),
   deleteWorkflow: (id: number) => api.delete(`/workflows/${id}`),
 
-  // 画布全量保存
-  saveCanvas: (workflowId: number, data: { nodes: WorkflowNode[]; edges: WorkflowEdge[] }) =>
+  // 画布全量保存（后端 NodeSchema/EdgeSchema 形状：position_x/y + label/config）
+  saveCanvas: (workflowId: number, data: {
+    nodes: Array<{ type: string; label?: string; description?: string; config?: Record<string, unknown>; position_x?: number; position_y?: number }>
+    edges: Array<{ source_node_id: number; target_node_id: number; label?: string }>
+  }) =>
     api.put(`/workflows/${workflowId}/canvas`, data),
 
   // 节点 CRUD

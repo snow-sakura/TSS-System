@@ -52,6 +52,12 @@ export interface UserProfile {
   display_name?: string
   role?: string
   avatar?: string
+  /** 账号状态（active/inactive），也可作为更新请求字段 */
+  status?: string
+  /** 创建用户时的初始密码（仅请求方向） */
+  password?: string
+  /** 重置密码标志（仅更新请求方向） */
+  reset_password?: boolean
 }
 
 // ============================
@@ -91,14 +97,15 @@ export type PipelineStepKey =
 /** Pipeline 步骤状态 */
 export type PipelineStepStatus = "pending" | "running" | "completed" | "failed"
 
-/** Pipeline 记录状态 */
-export type PipelineRecordStatus = "success" | "failed" | "running" | "partial"
+/** Pipeline 记录状态（兼容历史数据中的 completed） */
+export type PipelineRecordStatus = "success" | "completed" | "failed" | "running" | "partial"
 
 /** 单个步骤的后端返回结果 */
 export interface StageResult {
   stage: PipelineStepKey
   key?: PipelineStepKey
   label?: string
+  description?: string
   status: PipelineStepStatus
   content?: string
   result?: Record<string, unknown>
@@ -191,17 +198,29 @@ export interface TestPoint {
   created_at?: string
 }
 
+/** 用例步骤（后端 steps 为 JSON 数组，也兼容纯文本） */
+export interface TestCaseStep {
+  step: number
+  action: string
+  expected?: string
+}
+
 export interface TestCase {
   id: number
   requirement_id?: number
   name: string
   description?: string
   preconditions?: string
-  steps?: string
+  steps?: string | TestCaseStep[]
   expected_result?: string
   priority?: string
   status?: string
   type?: string
+  /** 测试类型：功能/性能/安全（后端 test_type 列） */
+  test_type?: string
+  tags?: string[]
+  project_id?: number
+  version_id?: number
   created_at?: string
 }
 
@@ -209,9 +228,22 @@ export interface Review {
   id: number
   requirement_id?: number
   test_case_id?: number
+  title?: string
+  content?: string
+  review_type?: string
   status?: string
+  source?: string
   comment?: string
+  /** 评审意见（后端 Review.comments 列） */
+  comments?: string
+  summary?: string
   reviewer?: string
+  reviewer2?: string
+  case_count?: number
+  passed_count?: number
+  rejected_count?: number
+  checklist?: Array<{ id: string; label: string; required?: boolean; passed?: boolean; comment?: string }>
+  completed_at?: string
   created_at?: string
 }
 
@@ -220,6 +252,16 @@ export interface TestExecution {
   requirement_id?: number
   name: string
   status?: string
+  /** 测试类型：功能/性能/安全（后端 test_type 列） */
+  test_type?: string
+  environment?: string
+  total_cases?: number
+  passed?: number
+  failed?: number
+  pass_rate?: number
+  plan_id?: number
+  /** 触发人（后端 triggered_by 列） */
+  triggered_by?: string
   started_at?: string
   completed_at?: string
   result?: string
@@ -229,6 +271,13 @@ export interface Defect {
   id: number
   title: string
   description?: string
+  /** 所属模块（后端 Defect.module 列） */
+  module?: string
+  /** 复现步骤（后端 JSON 列，结构 [{action,expected?}...]） */
+  steps_to_reproduce?: Array<Record<string, unknown>> | string
+  expected_result?: string
+  actual_result?: string
+  environment?: string
   severity?: string
   priority?: string
   status?: string
@@ -276,13 +325,23 @@ export interface PromptConfig {
   status?: string
 }
 
+/** 步骤提示词配置（对齐后端 StepPromptConfigBase） */
 export interface StepPromptConfig {
-  id: number
+  id?: number
   step_key: string
-  name: string
-  template?: string
-  variables?: string[]
-  is_default?: boolean
+  step_name: string
+  step_order?: number
+  icon?: string
+  description?: string
+  system_prompt: string
+  user_prompt_template: string
+  skill_prompt?: string
+  output_template?: string
+  skills?: Array<{ name: string; description?: string; content?: string }>
+  variables?: Array<{ name: string; type?: string; description?: string; required?: boolean }>
+  output_logs_template?: Array<{ content: string; delay_ms?: number }>
+  created_at?: string
+  updated_at?: string
 }
 
 export interface MCPServer {
@@ -299,6 +358,12 @@ export interface Skill {
   name: string
   description?: string
   type?: string
+  /** 技能分类：通用/测试/开发/分析（后端 Skill.category 列） */
+  category?: string
+  /** 版本号（后端 Skill.version 列） */
+  version?: string
+  /** 技能内容（JSON 配置） */
+  content?: Record<string, unknown>
   status?: string
   config?: Record<string, unknown>
 }

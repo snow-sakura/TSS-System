@@ -8,7 +8,7 @@ import {
   FolderKanban, Plus, History, Zap, PanelRightOpen, PanelRightClose
 } from "lucide-react"
 import { usePipelineStore } from "@/stores/pipelineStore"
-import type { UploadedFile, PipelineLog, PipelineRecord } from "@/stores/pipelineStore"
+import type { UploadedFile, PipelineLog, PipelineRecord, PipelineStep } from "@/stores/pipelineStore"
 import { useToast } from "@/hooks/useToast"
 import { useSSEStream } from "@/hooks/useSSEStream"
 import { lifecycleApi, projectApi } from "@/lib/api"
@@ -87,19 +87,19 @@ export default function PipelinePage() {
   const [showResultPopup, setShowResultPopup] = useState(false)
   const resultPopupStepRef = useRef<string | null>(null)
   const [resultPopupStep, setResultPopupStep] = useState<string | null>(null)
-  const resultPopupContentRef = useRef<string | null>(null)
-  const [resultPopupContent, setResultPopupContent] = useState<string | null>(null)
+  const resultPopupContentRef = useRef<{ content: string; duration?: number } | null>(null)
+  const [resultPopupContent, setResultPopupContent] = useState<{ content: string; duration?: number } | null>(null)
   const resultPopupTypeRef = useRef<"result" | "review">("result")
   const [resultPopupType, setResultPopupType] = useState<"result" | "review">("result")
 
-  const openResultPopup = useCallback((step: string, content: string, type: "result" | "review") => {
+  const openResultPopup = useCallback((step: string, content: string, type: "result" | "review", duration?: number) => {
     resultPopupStepRef.current = step
-    resultPopupContentRef.current = content
+    resultPopupContentRef.current = { content, duration }
     resultPopupTypeRef.current = type
     // 需要先关闭再打开（处理同一事件触发两次场景）
     setShowResultPopup(false)
     setResultPopupStep(step)
-    setResultPopupContent(content)
+    setResultPopupContent({ content, duration })
     setResultPopupType(type)
     // 用微任务确保 setState 顺序正确
     queueMicrotask(() => {
@@ -200,7 +200,7 @@ export default function PipelinePage() {
           if (record) {
             // 转换后端数据为前端格式
             // 兼容后端数据格式：使用 key 字段
-            const steps = (record.stage_results || []).map((stage: StageResult) => {
+            const steps: PipelineStep[] = (record.stage_results || []).map((stage: StageResult) => {
               const backendKey = stage.stage || stage.key
               const frontKey = STEP_KEY_MAP[backendKey] || backendKey
               // 从 content 推断状态
@@ -224,7 +224,7 @@ export default function PipelinePage() {
             
             // 填充默认步骤（如果 stage_results 不完整）
             const defaultSteps = ["analyze", "plan", "point", "case", "review"]
-            const completeSteps = defaultSteps.map(key => {
+            const completeSteps: PipelineStep[] = defaultSteps.map(key => {
               const existing = steps.find((s) => s.key === key)
               if (existing) return existing
               const config = getDefaultConfig(key as StepKey)
@@ -657,9 +657,9 @@ export default function PipelinePage() {
             content: content,
           }
           completeStep(frontStepKey, result)
-          // 弹出结果弹窗
+          // 弹出结果弹窗（携带真实耗时，修复弹窗内容/耗时不显示问题）
           const popupType = frontStepKey === "review" ? "review" : "result"
-          const popupContent = content
+          const popupContent = { content, duration: data.duration as number | undefined }
           // 使用 openResultPopup 打开弹窗
           resultPopupStepRef.current = frontStepKey
           resultPopupContentRef.current = popupContent

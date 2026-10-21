@@ -89,8 +89,8 @@ export default function ModulePage() {
     // 排序
     if (sortConfig) {
       raw = [...raw].sort((a, b) => {
-        const aVal = a[sortConfig.key] || ""
-        const bVal = b[sortConfig.key] || ""
+        const aVal = String(a[sortConfig.key] ?? "")
+        const bVal = String(b[sortConfig.key] ?? "")
         // 优先级特殊排序
         if (sortConfig.key === "priority") {
           const priorityOrder: Record<string, number> = { "P0": 0, "紧急": 0, "P1": 1, "高": 1, "P2": 2, "中": 2, "P3": 3, "低": 3 }

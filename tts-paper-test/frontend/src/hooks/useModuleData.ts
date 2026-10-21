@@ -32,6 +32,16 @@ export interface PageMeta {
   pageSize: number
 }
 
+/** 模块数据行：后端动态字段 + 常用字段显式声明（供表格/筛选/导出安全访问） */
+export interface ModuleRow {
+  id: number
+  name?: string
+  status?: string
+  priority?: string
+  deadline?: string
+  [key: string]: unknown
+}
+
 // API 端点映射
 const API_MAP: Record<string, { base: string; nameField?: string }> = {
   "req-list": { base: "/test-lifecycle/requirements", nameField: "title" },
@@ -100,22 +110,22 @@ function toApiFields(menuKey: string, data: Record<string, unknown>): Record<str
 }
 
 // 字段转换：将API字段名转换为通用字段名
-function fromApiFields(menuKey: string, data: Record<string, unknown>): Record<string, unknown> {
+function fromApiFields(menuKey: string, data: Record<string, unknown>): ModuleRow {
   const reverseMap = REVERSE_FIELD_MAP[menuKey] || {}
-  const result: Record<string, unknown> = { ...data }
+  const result: ModuleRow = { ...data, id: Number(data.id) }
   for (const [apiKey, genericKey] of Object.entries(reverseMap)) {
     if (apiKey in data) {
       result[genericKey] = data[apiKey]
     }
   }
   // 确保有 name 字段
-  if (!result.name && data.title) result.name = data.title
-  if (!result.name && data.username) result.name = data.username
+  if (!result.name && data.title) result.name = String(data.title)
+  if (!result.name && data.username) result.name = String(data.username)
   return result
 }
 
 export function useModuleData(initialMenu: string) {
-  const [data, setData] = useState<Record<string, Record<string, unknown>[]>>({})
+  const [data, setData] = useState<Record<string, ModuleRow[]>>({})
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [meta, setMeta] = useState<Record<string, PageMeta>>({})
   // metaRef 保证 fetchData 闭包读取最新分页状态（避免 useCallback 依赖重载）
@@ -145,7 +155,7 @@ export function useModuleData(initialMenu: string) {
         ? (payload as Record<string, unknown>[])
         : Array.isArray(payloadObj.items) ? (payloadObj.items as Record<string, unknown>[]) : []
       const total = typeof payloadObj.total === "number" ? (payloadObj.total as number) : items.length
-      const normalized = items.map((item) => fromApiFields(menuKey, item))
+      const normalized: ModuleRow[] = items.map((item) => fromApiFields(menuKey, item))
       setData((prev) => ({ ...prev, [menuKey]: normalized }))
       applyMeta(menuKey, { total, page, pageSize })
     } catch (e: unknown) {
